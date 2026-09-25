@@ -1,0 +1,257 @@
+/* ============================================================
+   Chocobo Race — "retro menu box" direction from the Featherfall
+   mockup: deep night blue, bordered windows with a hard drop
+   shadow, a pixel face for labels, an accent cursor on the live row.
+
+   Colours are CSS variables so the theme can switch at runtime
+   (data-theme="light" on <html>); @theme inline turns each one into
+   Tailwind utilities (text-accent, border-edge/25, bg-ink…).
+   Components style themselves with those utilities; only the few
+   shared pieces that need pseudo-elements live in @layer components.
+   ============================================================ */
+
+@import "tailwindcss";
+
+@custom-variant light (&:where([data-theme="light"], [data-theme="light"] *));
+
+:root {
+  --night: #070b1c;
+  --ink: #0a0f24;
+  --window-top: rgba(14, 28, 96, 0.94);
+  --window-bottom: rgba(6, 12, 44, 0.94);
+  --bar-top: #132163;
+  --bar-bottom: #070f38;
+  --edge: #dfe4ef;
+  --paper: #fffdf7;
+  --strong: #fffdf7;
+  --text: #dfe4ef;
+  --muted: #b9c2da;
+  --dim: #7d88ab;
+  --accent: #f2c14e;
+  --green: #8fe3b4;
+  --amber: #e8a04a;
+  --ember: #e8734a;
+  --sky: linear-gradient(180deg, #0a1230 0%, #1b2a63 46%, #3d4f96 74%, #8a7fae 100%);
+  --field: linear-gradient(180deg, #1d2c66 0%, #3a4a84 60%, #6b6a52 100%);
+  --window: linear-gradient(180deg, var(--window-top), var(--window-bottom));
+  --raised: linear-gradient(180deg, rgba(24, 44, 130, 0.96), rgba(8, 16, 60, 0.96));
+  --raised-hover: linear-gradient(180deg, rgba(36, 62, 160, 0.96), rgba(12, 22, 74, 0.96));
+  --headline: linear-gradient(180deg, #1b2a63, #0a1230);
+}
+
+[data-theme="light"] {
+  --night: #d7e3f5;
+  --ink: #101a3f;
+  --window-top: #fbfdff;
+  --window-bottom: #e2ecfa;
+  --bar-top: #eef4fd;
+  --bar-bottom: #d8e4f6;
+  --edge: #1b2a63;
+  --paper: #ffffff;
+  --strong: #101a3f;
+  --text: #27365f;
+  --muted: #5b6a93;
+  --dim: #9fadc9;
+  --accent: #2f52c8;
+  --green: #1f7a55;
+  --amber: #a8641a;
+  --ember: #c4442a;
+  --sky: linear-gradient(180deg, #cfe2fb 0%, #a8c4ef 46%, #8ea9e0 74%, #c9d8f2 100%);
+  --field: linear-gradient(180deg, #c2d6f2 0%, #a9c0e6 60%, #c7d2e8 100%);
+  --raised: linear-gradient(180deg, #d3e0fb, #b9cbf3);
+  --raised-hover: linear-gradient(180deg, #c6d6f8, #abbfee);
+  --headline: linear-gradient(180deg, #dfe9fa, #c6d6f1);
+}
+
+@theme inline {
+  --color-night: var(--night);
+  --color-ink: var(--ink);
+  --color-edge: var(--edge);
+  --color-paper: var(--paper);
+  --color-strong: var(--strong);
+  --color-copy: var(--text);
+  --color-muted: var(--muted);
+  --color-dim: var(--dim);
+  --color-accent: var(--accent);
+  --color-green: var(--green);
+  --color-amber: var(--amber);
+  --color-ember: var(--ember);
+
+  /* next/font sets --font-press-start and --font-plex on <html> */
+  --font-display: var(--font-press-start), var(--font-plex), monospace;
+  --font-body: var(--font-plex), ui-monospace, monospace;
+}
+
+@theme {
+  --breakpoint-wide: 900px;
+
+  --text-micro: 9px;
+  --text-micro--line-height: 1.5;
+  --text-tiny: 10px;
+  --text-tiny--line-height: 1.6;
+  --text-label: 11px;
+  --text-label--line-height: 1.6;
+
+  --animate-hop: hop 0.28s ease-in-out infinite alternate;
+  --animate-stumble: stumble 0.5s ease-in-out infinite;
+  --animate-lap: lap 11s linear infinite;
+  --animate-blink: blink 1s steps(1) infinite;
+
+  @keyframes hop {
+    from {
+      transform: translateY(0) rotate(0deg);
+    }
+    to {
+      transform: translateY(-6px) rotate(-6deg);
+    }
+  }
+
+  @keyframes stumble {
+    0%,
+    100% {
+      transform: rotate(10deg);
+    }
+    50% {
+      transform: rotate(-6deg) translateY(2px);
+    }
+  }
+
+  @keyframes lap {
+    0% {
+      left: -60px;
+    }
+    60%,
+    100% {
+      left: calc(100% + 30px);
+    }
+  }
+
+  @keyframes blink {
+    50% {
+      background: transparent;
+      color: var(--strong);
+    }
+  }
+}
+
+/* The window look: a light border with a hard dark outline outside it. */
+@utility frame {
+  border: 3px solid var(--edge);
+  box-shadow: 0 0 0 3px var(--ink);
+}
+
+@utility bg-window {
+  background: var(--window);
+}
+
+@utility bg-bar {
+  background: linear-gradient(180deg, var(--bar-top), var(--bar-bottom));
+}
+
+@utility bg-sky {
+  background: var(--sky);
+}
+
+@utility bg-field {
+  background: var(--field);
+}
+
+@utility bg-raised {
+  background: var(--raised);
+}
+
+@utility bg-headline {
+  background: var(--headline);
+}
+
+@utility bg-finish-line {
+  background: repeating-linear-gradient(180deg, var(--paper) 0 12px, var(--ink) 12px 24px);
+}
+
+/* Pale sprites (the white fox) disappear on light backgrounds without it. */
+@utility outline-ink {
+  filter: drop-shadow(1px 0 0 var(--ink)) drop-shadow(-1px 0 0 var(--ink))
+    drop-shadow(0 1px 0 var(--ink)) drop-shadow(0 -1px 0 var(--ink));
+}
+
+@layer base {
+  html,
+  body {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply min-h-screen bg-night font-body text-copy antialiased;
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display leading-normal font-normal;
+  }
+
+  a {
+    @apply text-accent;
+  }
+
+  input {
+    @apply w-full rounded-none border-2 border-edge/40 bg-ink px-3.5 py-[13px] font-body text-sm/none text-strong;
+    @apply placeholder:text-muted/50;
+    @apply light:border-ink/35 light:bg-paper light:text-ink;
+  }
+
+  input:focus-visible,
+  button:focus-visible,
+  a:focus-visible {
+    @apply border-accent shadow-[0_0_0_2px_color-mix(in_oklab,var(--accent)_35%,transparent)] outline-none;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex cursor-pointer items-center gap-3 border-2 border-edge bg-ink px-[18px] py-3.5;
+    @apply text-left font-display text-xs/normal text-copy uppercase no-underline;
+    @apply light:bg-paper;
+  }
+
+  .btn::before {
+    content: "▶";
+    @apply text-label text-accent opacity-0;
+  }
+
+  .btn:hover:not(:disabled),
+  .btn:focus-visible {
+    @apply border-accent text-strong;
+  }
+
+  .btn:hover:not(:disabled)::before,
+  .btn:focus-visible::before,
+  .btn-primary::before {
+    @apply opacity-100;
+  }
+
+  .btn-primary {
+    @apply border-accent text-strong;
+    background: var(--raised);
+    @apply light:border-ink light:bg-[linear-gradient(180deg,#4368da,#2f52c8)] light:text-white light:before:text-white;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: var(--raised-hover);
+    @apply light:bg-[linear-gradient(180deg,#5477e6,#3a5ed2)] light:text-white;
+  }
+
+  .btn-block {
+    @apply flex w-full;
+  }
+
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-45;
+  }
+
+  .btn-link {
+    @apply cursor-pointer border-0 bg-transparent p-0 font-display text-tiny text-accent uppercase no-underline;
+    @apply hover:text-strong;
+  }
+}
