@@ -5,26 +5,28 @@ import Link from "next/link";
 import RoomBar from "@/components/RoomBar";
 import Track from "@/components/Track";
 import TypingBox from "@/components/TypingBox";
-import { FinePrint, Loading, Panel, PanelTitle, Spec, SpecRow, Stat, StatsBar, StatusTag } from "@/components/ui";
+import { Choice, FinePrint, Loading, Panel, PanelTitle, Spec, SpecRow, Stat, StatsBar, StatusTag } from "@/components/ui";
 import { useTypingEngine } from "@/hooks/useTypingEngine";
 import { useSavedProfile } from "@/lib/profile";
 import { useSession } from "@/lib/session";
-import { formatTime } from "@/lib/format";
+import { formatTime, KIND_LABELS, LANGUAGE_LABELS } from "@/lib/format";
+import type { RoomSettings } from "@/lib/types";
 
 export default function PracticePage() {
   const [text, setText] = useState<string | null>(null);
   const [round, setRound] = useState(0);
+  const [settings, setSettings] = useState<RoomSettings>({ language: "en", kind: "sentences" });
 
   const fetchText = useCallback(() => {
     let active = true;
-    fetch("/api/text")
+    fetch(`/api/text?lang=${settings.language}&kind=${settings.kind}`)
       .then((res) => res.json())
       .then((data: { text: string }) => active && setText(data.text))
       .catch(() => active && setText("The chocobo waited for a passage that never arrived."));
     return () => {
       active = false;
     };
-  }, []);
+  }, [settings]);
 
   useEffect(fetchText, [fetchText, round]);
 
@@ -34,6 +36,11 @@ export default function PracticePage() {
     <PracticeRun
       key={round}
       text={text}
+      settings={settings}
+      onSettings={(changes) => {
+        setText(null);
+        setSettings((current) => ({ ...current, ...changes }));
+      }}
       onAnother={() => {
         setText(null);
         setRound((n) => n + 1);
@@ -42,7 +49,14 @@ export default function PracticePage() {
   );
 }
 
-function PracticeRun({ text, onAnother }: { text: string; onAnother: () => void }) {
+interface PracticeRunProps {
+  text: string;
+  settings: RoomSettings;
+  onSettings: (changes: Partial<RoomSettings>) => void;
+  onAnother: () => void;
+}
+
+function PracticeRun({ text, settings, onSettings, onAnother }: PracticeRunProps) {
   const saved = useSavedProfile();
   const { user } = useSession();
   const engine = useTypingEngine(text, { enabled: true });
@@ -100,6 +114,21 @@ function PracticeRun({ text, onAnother }: { text: string; onAnother: () => void 
         ) : (
           <TypingBox text={text} engine={engine} enabled />
         )}
+
+        <Panel className="wide:grid-cols-2 wide:gap-x-6">
+          <Choice
+            label="Text language"
+            value={settings.language}
+            options={LANGUAGE_LABELS}
+            onChange={(language) => onSettings({ language })}
+          />
+          <Choice
+            label="Text type"
+            value={settings.kind}
+            options={KIND_LABELS}
+            onChange={(kind) => onSettings({ kind })}
+          />
+        </Panel>
       </div>
     </main>
   );

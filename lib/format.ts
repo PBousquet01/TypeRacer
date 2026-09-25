@@ -1,3 +1,12 @@
+import type { RoomSettings, TextKind, TextLanguage } from "./types";
+
+export const LANGUAGE_LABELS: Record<TextLanguage, string> = { en: "English", fr: "French" };
+export const KIND_LABELS: Record<TextKind, string> = { sentences: "Sentences", words: "Random words" };
+
+export function textLabel({ language, kind }: RoomSettings): string {
+  return `${LANGUAGE_LABELS[language]} · ${KIND_LABELS[kind].toLowerCase()}`;
+}
+
 export function formatTime(ms: number | null | undefined): string {
   if (ms == null) return "—";
   const total = Math.round(ms / 1000);

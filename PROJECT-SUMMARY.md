@@ -83,12 +83,14 @@ Texts are never in the code (TXT-3). `migrate()` seeds `passages` and `words`
 from `server/seed/` only when a language is empty, so later edits stick.
 Manage the bank with `bun scripts/admin.ts texts | add-text <en|fr> "…" |
 delete-text <id>`. `GET /api/text` takes `?lang=en|fr&kind=sentences|words`.
-Races still always use English passages until host settings exist
-(TXT-1/TXT-7).
+The host picks the text language and type in the lobby's "Race settings"
+(TXT-1/TXT-7). They live in `room.settings`, go to everyone in `roomUpdate`
+(COURSE-11), can only change in the lobby, and feed `pickText` at start.
+Practice has the same two choices.
 
 ## Interfaces
 
-Socket: `joinRoom` `toggleReady` `startRace`(host) `progress` `stats`
+Socket: `joinRoom` `toggleReady` `updateSettings`(host) `startRace`(host) `progress` `stats`
 `playAgain`(host) `leaveRoom` → `roomUpdate` `positions`.
 
 HTTP: `POST /api/auth/{signup,login,logout}` · `GET /api/auth/me` ·

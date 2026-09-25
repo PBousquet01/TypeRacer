@@ -126,3 +126,39 @@ export function Th({ num = false, className, ...props }: ThHTMLAttributes<HTMLTa
 export function Td({ num = false, className, ...props }: TdHTMLAttributes<HTMLTableCellElement> & { num?: boolean }) {
   return <td {...props} className={cn("px-1.5 py-[11px]", num && "text-right", className)} />;
 }
+
+export function Choice<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: T;
+  options: Record<T, string>;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="grid gap-2" role="group" aria-label={label}>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex flex-wrap gap-2">
+        {(Object.keys(options) as T[]).map((key) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={value === key}
+            onClick={() => onChange(key)}
+            className={cn(
+              "flex-1 cursor-pointer border-2 px-3 py-2.5 font-display text-micro uppercase",
+              value === key
+                ? "border-accent bg-accent/10 text-accent light:bg-accent/12"
+                : "border-edge/25 bg-ink/60 text-muted hover:text-strong light:border-ink/20 light:bg-ink/4",
+            )}
+          >
+            {options[key]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

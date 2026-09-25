@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSocket } from "@/lib/socket";
 import { clientId } from "@/lib/profile";
-import type { Position, Profile, PublicRoom } from "@/lib/types";
+import type { Position, Profile, PublicRoom, RoomSettings } from "@/lib/types";
 
 export function useRoom(code: string, profile: Profile | null) {
   const [room, setRoom] = useState<PublicRoom | null>(null);
@@ -69,6 +69,10 @@ export function useRoom(code: string, profile: Profile | null) {
   const sendProgress = useCallback((charIndex: number) => getSocket().emit("progress", charIndex), []);
   const sendStats = useCallback((stats: { accuracy: number }) => getSocket().emit("stats", stats), []);
   const playAgain = useCallback(() => getSocket().emit("playAgain"), []);
+  const updateSettings = useCallback(
+    (settings: Partial<RoomSettings>) => getSocket().emit("updateSettings", settings),
+    [],
+  );
 
   return {
     room,
@@ -82,5 +86,6 @@ export function useRoom(code: string, profile: Profile | null) {
     sendProgress,
     sendStats,
     playAgain,
+    updateSettings,
   };
 }

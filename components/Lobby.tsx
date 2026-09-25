@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Chocobo from "./Chocobo";
-import { FinePrint, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
+import { Choice, FinePrint, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
 import { mountLabel } from "@/lib/chocobos";
 import { cn } from "@/lib/cn";
 import { MAX_RIDERS, MIN_RIDERS } from "@/lib/rules";
-import type { PublicRoom } from "@/lib/types";
+import { KIND_LABELS, LANGUAGE_LABELS, textLabel } from "@/lib/format";
+import type { PublicRoom, RoomSettings } from "@/lib/types";
 
 const RIDER_ROW = "flex items-center gap-3 border-b border-edge/14 py-3 last:border-b-0 light:border-ink/14";
 const CURSOR = "w-4 flex-none font-display text-xs/none text-accent";
@@ -19,9 +20,10 @@ interface LobbyProps {
   isHost: boolean;
   onToggleReady: () => void;
   onStartRace: () => void;
+  onChangeSettings: (settings: Partial<RoomSettings>) => void;
 }
 
-export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace }: LobbyProps) {
+export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, onChangeSettings }: LobbyProps) {
   const [copied, setCopied] = useState(false);
   const me = room.players.find((p) => p.id === myId);
   const host = room.players.find((p) => p.id === room.hostId);
@@ -92,26 +94,44 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace }
 
       <aside className="grid content-start gap-4">
         {isHost ? (
-          <Panel>
-            <PanelTitle>Race control</PanelTitle>
-            <Spec>
-              <SpecRow label="Riders">{riders.length} / {MAX_RIDERS}</SpecRow>
-              <SpecRow label="Ready">{readyCount}</SpecRow>
-              <SpecRow label="Text">One paragraph, picked at random</SpecRow>
-            </Spec>
-            <button className="btn btn-primary btn-block" onClick={onStartRace} disabled={!canStart}>
-              {canStart ? `Start race (${readyCount})` : `Waiting for riders (${readyCount}/${MIN_RIDERS})`}
-            </button>
-            <FinePrint>
-              A race needs at least {MIN_RIDERS} ready riders. Only they take part. You run the race and
-              watch — you don&apos;t type.
-            </FinePrint>
-          </Panel>
+          <>
+            <Panel>
+              <PanelTitle>Race settings</PanelTitle>
+              <Choice
+                label="Text language"
+                value={room.settings.language}
+                options={LANGUAGE_LABELS}
+                onChange={(language) => onChangeSettings({ language })}
+              />
+              <Choice
+                label="Text type"
+                value={room.settings.kind}
+                options={KIND_LABELS}
+                onChange={(kind) => onChangeSettings({ kind })}
+              />
+              <FinePrint>Riders see your choice as soon as you make it.</FinePrint>
+            </Panel>
+            <Panel>
+              <PanelTitle>Race control</PanelTitle>
+              <Spec>
+                <SpecRow label="Riders">{riders.length} / {MAX_RIDERS}</SpecRow>
+                <SpecRow label="Ready">{readyCount}</SpecRow>
+                <SpecRow label="Text">{textLabel(room.settings)}</SpecRow>
+              </Spec>
+              <button className="btn btn-primary btn-block" onClick={onStartRace} disabled={!canStart}>
+                {canStart ? `Start race (${readyCount})` : `Waiting for riders (${readyCount}/${MIN_RIDERS})`}
+              </button>
+              <FinePrint>
+                A race needs at least {MIN_RIDERS} ready riders. Only they take part. You run the race and
+                watch — you don&apos;t type.
+              </FinePrint>
+            </Panel>
+          </>
         ) : (
           <Panel>
             <PanelTitle>Rules</PanelTitle>
             <Spec>
-              <SpecRow label="Text">One paragraph, picked at random</SpecRow>
+              <SpecRow label="Text">{textLabel(room.settings)}</SpecRow>
               <SpecRow label="Backspace">Allowed — and required</SpecRow>
               <SpecRow label="Mistakes">Stall your bird until fixed</SpecRow>
               <SpecRow label="Winner">First to type the last letter</SpecRow>

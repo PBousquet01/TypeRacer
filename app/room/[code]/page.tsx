@@ -31,6 +31,7 @@ export default function RoomPage() {
     sendProgress,
     sendStats,
     playAgain,
+    updateSettings,
   } = useRoom(code, profile);
 
   if (saved === undefined && !chosen) return <Loading>Saddling up…</Loading>;
@@ -80,7 +81,14 @@ export default function RoomPage() {
       )}
 
       {room.status === "lobby" && (
-        <Lobby room={room} myId={myId} isHost={isHost} onToggleReady={toggleReady} onStartRace={startRace} />
+        <Lobby
+          room={room}
+          myId={myId}
+          isHost={isHost}
+          onToggleReady={toggleReady}
+          onStartRace={startRace}
+          onChangeSettings={updateSettings}
+        />
       )}
 
       {(room.status === "countdown" || room.status === "racing") &&

@@ -9,7 +9,7 @@
 //     └────────────── playAgain (host) ◀──── finished ◀────────┘ 30 s after the first
 //                                                                finisher, or 3 min
 import type { Server, Socket } from "socket.io";
-import { pickText } from "./texts";
+import { isKind, isLanguage, pickText } from "./texts";
 import { recordRace } from "./stats";
 import { FINISH_GRACE_MS, MAX_RIDERS, MIN_RIDERS, RECONNECT_MS } from "../lib/rules";
 import type {
@@ -17,6 +17,7 @@ import type {
   PublicPlayer,
   PublicRoom,
   Role,
+  RoomSettings,
   RoomStatus,
   ServerToClientEvents,
   User,
@@ -55,6 +56,7 @@ export interface Room {
   text: string;
   startAt: number;
   finishAt: number | null; // deadline set when the first rider crosses the line
+  settings: RoomSettings; // chosen by the host in the lobby; every rider sees them live
   players: Map<string, Player>; // socket.id -> player (insertion order matters: oldest inherits the host seat)
   hostId: string | null;
   hostClientId: string | null; // survives a reload, so the same person can reclaim the seat
@@ -96,6 +98,7 @@ function createRoom(code: string): Room {
     text: "",
     startAt: 0,
     finishAt: null,
+    settings: { language: "en", kind: "sentences" },
     players: new Map(),
     hostId: null,
     hostClientId: null,
@@ -176,6 +179,7 @@ function publicRoom(room: Room): PublicRoom {
     startsIn: room.status === "countdown" ? Math.max(0, room.startAt - now) : 0,
     elapsedMs: room.status === "racing" ? Math.max(0, now - room.startAt) : 0,
     finishIn: room.status === "racing" && room.finishAt ? Math.max(0, room.finishAt - now) : null,
+    settings: room.settings,
     players: playerList(room),
   };
 }
@@ -458,7 +462,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
 
     let text: string;
     try {
-      text = await pickText();
+      text = await pickText(room!.settings);
     } catch (err) {
       console.error("could not load a race text", err);
       return reply({ error: "Couldn't load a passage. Try again." });
@@ -470,6 +474,20 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     if (late) return reply({ error: late });
     startCountdown(io, room!, riders(room!).filter((p) => p.ready), text);
     reply({ ok: true });
+  });
+
+  // COURSE-11: the host's choices go out to the whole room at once, so riders
+  // see the language and text type change while they wait. Lobby only: a
+  // race already has its text.
+  socket.on("updateSettings", (changes) => {
+    const room = currentRoom(socket);
+    if (!room || !isHost(room, socket) || room.status !== "lobby") return;
+
+    const next = { ...room.settings };
+    if (isLanguage(changes?.language)) next.language = changes.language;
+    if (isKind(changes?.kind)) next.kind = changes.kind;
+    room.settings = next;
+    broadcastRoom(io, room);
   });
 
   socket.on("progress", (charIndex) => {

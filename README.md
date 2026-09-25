@@ -155,6 +155,7 @@ bun scripts/admin.ts delete-text 7
 | --- | --- | --- |
 | `joinRoom` | client → server | `{ code, name, color }` |
 | `toggleReady` | client → server | – (riders only) |
+| `updateSettings` | client → server | `{ language?, kind? }` (host only, lobby only; broadcast to the room) |
 | `startRace` | client → server | – (host only; ready riders take part) |
 | `progress` | client → server | number of correct characters typed |
 | `stats` | client → server | `{ accuracy }`, reported at the finish line |

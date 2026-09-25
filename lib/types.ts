@@ -9,6 +9,12 @@ export type RoomStatus = "lobby" | "countdown" | "racing" | "finished";
 export type TextLanguage = "en" | "fr";
 export type TextKind = "sentences" | "words";
 
+/** What the host chooses in the lobby (TXT-1, TXT-7). */
+export interface RoomSettings {
+  language: TextLanguage;
+  kind: TextKind;
+}
+
 /** A rider as everyone in the room sees them. */
 export interface PublicPlayer {
   id: string;
@@ -37,6 +43,7 @@ export interface PublicRoom {
   startsIn: number;
   elapsedMs: number; // since the gates opened, so a reloaded client can resync its clock
   finishIn: number | null; // set once the first rider finishes: time left for everyone else
+  settings: RoomSettings;
   players: PublicPlayer[];
 }
 
@@ -74,6 +81,7 @@ export interface ClientToServerEvents {
   joinRoom: (payload: JoinPayload, reply?: (res: JoinReply) => void) => void;
   toggleReady: () => void;
   startRace: (payload: null, reply?: (res: ActionReply) => void) => void;
+  updateSettings: (settings: Partial<RoomSettings>) => void;
   progress: (charIndex: number) => void;
   stats: (stats: { accuracy: number }) => void;
   playAgain: () => void;
