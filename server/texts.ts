@@ -1,12 +1,39 @@
-const TEXTS = [
-  "The chocobo stretched its long yellow legs, fluffed its feathers, and waited for the gate to open. Somewhere in the crowd a child shouted its name.",
-  "Racing is easy when the track is flat. The real test comes at the muddy corner, where even the fastest birds slow down and the patient ones pull ahead.",
-  "Every rider knows the secret: a happy chocobo runs faster. A handful of greens before the race is worth more than any expensive saddle.",
-  "The black chocobo had never lost a race, but it had never raced in the rain either. The clouds rolled in just as the countdown began.",
-  "Typing fast is a lot like running fast. Stay relaxed, keep a steady rhythm, and do not panic when you make a mistake. Just fix it and keep going.",
-  "At the finish line the winner let out a proud kweh, and the whole stadium answered back. Nobody remembered who came second, except the bird who did.",
-];
+// Where race texts come from (TXT-3): the passage bank and the word
+// dictionary in PostgreSQL. Nothing to type is written in the code.
+import { sql } from "./db";
+import type { TextKind, TextLanguage } from "../lib/types";
 
-export function pickText(): string {
-  return TEXTS[Math.floor(Math.random() * TEXTS.length)];
+const WORDS_PER_RACE = 30;
+
+export interface TextRequest {
+  language?: TextLanguage;
+  kind?: TextKind;
+}
+
+export function isLanguage(value: unknown): value is TextLanguage {
+  return value === "en" || value === "fr";
+}
+
+export function isKind(value: unknown): value is TextKind {
+  return value === "sentences" || value === "words";
+}
+
+async function randomPassage(language: TextLanguage): Promise<string | null> {
+  const [row]: { body: string }[] = await sql`
+    SELECT body FROM passages WHERE language = ${language} ORDER BY random() LIMIT 1`;
+  return row?.body ?? null;
+}
+
+async function randomWords(language: TextLanguage): Promise<string | null> {
+  const rows: { word: string }[] = await sql`
+    SELECT word FROM words WHERE language = ${language} ORDER BY random() LIMIT ${WORDS_PER_RACE}`;
+  return rows.length ? rows.map((r) => r.word).join(" ") : null;
+}
+
+/** A text to race on. Falls back to random words if the passage bank is empty. */
+export async function pickText({ language = "en", kind = "sentences" }: TextRequest = {}): Promise<string> {
+  const text =
+    (kind === "sentences" ? await randomPassage(language) : null) ?? (await randomWords(language));
+  if (!text) throw new Error(`The text bank has nothing in "${language}". Run the server once to seed it.`);
+  return text;
 }

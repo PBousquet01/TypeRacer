@@ -6,6 +6,9 @@ export type Role = "host" | "rider";
 
 export type RoomStatus = "lobby" | "countdown" | "racing" | "finished";
 
+export type TextLanguage = "en" | "fr";
+export type TextKind = "sentences" | "words";
+
 /** A rider as everyone in the room sees them. */
 export interface PublicPlayer {
   id: string;

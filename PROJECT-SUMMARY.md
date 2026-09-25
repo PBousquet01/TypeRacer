@@ -34,7 +34,7 @@ at boot by `server/db.ts`; there is no migration step.
 | `server.ts` | Boots Next + Socket.IO on one port; attaches the session to each socket |
 | `server/rooms.ts` | **The referee.** Rooms, roles, countdown, positions, finish order, anti-cheat, mount unlock check |
 | `server/api.ts` | JSON API for `/api/*`, answered before Next sees the request |
-| `server/auth.ts` `server/db.ts` `server/stats.ts` `server/texts.ts` | Accounts/sessions, Postgres schema, race recording, passages |
+| `server/auth.ts` `server/db.ts` `server/stats.ts` `server/texts.ts` | Accounts/sessions, Postgres schema, race recording, text bank (`pickText` queries PostgreSQL) |
 | `lib/types.ts` | Shared types: room/player shapes and the typed Socket.IO events, imported by server and client |
 | `hooks/useTypingEngine.ts` | The typing engine: correct/wrong chars, WPM, accuracy, progress reports |
 | `hooks/useRoom.ts` `lib/socket.ts` | Socket events → React state |
@@ -76,7 +76,15 @@ at boot by `server/db.ts`; there is no migration step.
 `users` (username case-insensitive via a `lower(username)` unique index,
 argon2id hash, `is_admin`) · `sessions` (random token, expiry) · `unlocks`
 (account → mount) · `races` (one row per finished race: wpm, accuracy,
-time_ms, place, riders).
+time_ms, place, riders) · `passages` (language `en`/`fr`, body) · `words`
+(dictionary per language, for random-word races).
+
+Texts are never in the code (TXT-3). `migrate()` seeds `passages` and `words`
+from `server/seed/` only when a language is empty, so later edits stick.
+Manage the bank with `bun scripts/admin.ts texts | add-text <en|fr> "…" |
+delete-text <id>`. `GET /api/text` takes `?lang=en|fr&kind=sentences|words`.
+Races still always use English passages until host settings exist
+(TXT-1/TXT-7).
 
 ## Interfaces
 

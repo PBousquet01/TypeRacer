@@ -3,7 +3,7 @@
 // means the database code never goes through the bundler.
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { sql } from "./db";
-import { pickText } from "./texts";
+import { isKind, isLanguage, pickText } from "./texts";
 import {
   createSession,
   createUser,
@@ -142,7 +142,13 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   }
 
   if (path === "/api/text" && method === "GET") {
-    send(res, 200, { text: pickText() });
+    const language = url.searchParams.get("lang");
+    const kind = url.searchParams.get("kind");
+    const text = await pickText({
+      language: isLanguage(language) ? language : undefined,
+      kind: isKind(kind) ? kind : undefined,
+    });
+    send(res, 200, { text });
     return true;
   }
 

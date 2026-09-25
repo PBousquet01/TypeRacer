@@ -184,10 +184,10 @@ function broadcastRoom(io: IO, room: Room) {
   io.to(room.code).emit("roomUpdate", publicRoom(room));
 }
 
-function startCountdown(io: IO, room: Room, starters: Player[]) {
+function startCountdown(io: IO, room: Room, starters: Player[], text: string) {
   room.status = "countdown";
   room.raceId++;
-  room.text = pickText();
+  room.text = text;
   room.startAt = Date.now() + COUNTDOWN_MS;
   room.finishAt = null;
   room.players.forEach(resetPlayer);
@@ -443,17 +443,32 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     broadcastRoom(io, room);
   });
 
-  socket.on("startRace", (_payload, reply = () => {}) => {
+  socket.on("startRace", async (_payload, reply = () => {}) => {
     const room = currentRoom(socket);
-    if (!room || !isHost(room, socket)) return reply({ error: "Only the host can start the race." });
-    if (room.status !== "lobby") return reply({ error: "The race has already started." });
+    const check = () => {
+      if (!room || !isHost(room, socket)) return "Only the host can start the race.";
+      if (room.status !== "lobby") return "The race has already started.";
+      if (riders(room).filter((p) => p.ready).length < MIN_RIDERS) {
+        return `A race needs at least ${MIN_RIDERS} ready riders.`;
+      }
+      return null;
+    };
+    const problem = check();
+    if (problem) return reply({ error: problem });
 
-    const starters = riders(room).filter((p) => p.ready);
-    if (starters.length < MIN_RIDERS) {
-      return reply({ error: `A race needs at least ${MIN_RIDERS} ready riders.` });
+    let text: string;
+    try {
+      text = await pickText();
+    } catch (err) {
+      console.error("could not load a race text", err);
+      return reply({ error: "Couldn't load a passage. Try again." });
     }
 
-    startCountdown(io, room, starters);
+    // The database answered asynchronously: a second click, a rider un-readying
+    // or the host leaving may have happened in the meantime, so check again.
+    const late = check();
+    if (late) return reply({ error: late });
+    startCountdown(io, room!, riders(room!).filter((p) => p.ready), text);
     reply({ ok: true });
   });
 

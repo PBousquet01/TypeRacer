@@ -73,7 +73,7 @@ things or split the function instead.
 | --- | --- |
 | `server.ts` | Starts Next.js + Socket.IO on one port |
 | `server/rooms.ts` | Rooms, ready-up, countdown, race, finish, anti-cheat |
-| `server/texts.ts` | The passages to type |
+| `server/texts.ts` | Picks the text to type from the PostgreSQL bank (passages or random dictionary words) |
 | `hooks/useRoom.ts` | Socket events → React state |
 | `hooks/useTypingEngine.ts` | The typing logic: correct/wrong chars, WPM, accuracy, progress reports |
 | `components/RaceScreen.tsx` | Countdown, track, header stats and prompt during a race |
@@ -138,6 +138,15 @@ terminal:
 bun scripts/admin.ts make-admin <username>
 bun scripts/admin.ts grant <username> fox
 bun scripts/admin.ts list
+```
+
+The texts to type live in the database, seeded from `server/seed/` the first
+time the server starts. To manage them:
+
+```bash
+bun scripts/admin.ts texts            # list passages and counts
+bun scripts/admin.ts add-text fr "Un nouveau passage à taper, assez long pour une course."
+bun scripts/admin.ts delete-text 7
 ```
 
 ### Socket events

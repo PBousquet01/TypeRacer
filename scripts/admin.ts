@@ -7,6 +7,9 @@
 //   bun scripts/admin.ts grant <username> <mount>
 //   bun scripts/admin.ts revoke <username> <mount>
 //   bun scripts/admin.ts stats <username>
+//   bun scripts/admin.ts texts [en|fr]
+//   bun scripts/admin.ts add-text <en|fr> "<passage>"
+//   bun scripts/admin.ts delete-text <id>
 import { randomBytes } from "node:crypto";
 import { sql } from "../server/db";
 import { createUser, findUserByUsername, grantMount, revokeMount, validateCredentials } from "../server/auth";
@@ -107,8 +110,44 @@ switch (command) {
     }
     break;
   }
+  case "texts": {
+    const language = username; // optional filter
+    const rows: { id: number; language: string; body: string }[] = language
+      ? await sql`SELECT id, language, body FROM passages WHERE language = ${language} ORDER BY id`
+      : await sql`SELECT id, language, body FROM passages ORDER BY language, id`;
+    for (const r of rows) console.log(`${String(r.id).padStart(4)}  ${r.language}  ${r.body.slice(0, 90)}${r.body.length > 90 ? "…" : ""}`);
+    const counts: { language: string; passages: number; words: number }[] = await sql`
+      SELECT l.language,
+             (SELECT COUNT(*)::int FROM passages p WHERE p.language = l.language) AS passages,
+             (SELECT COUNT(*)::int FROM words w WHERE w.language = l.language) AS words
+        FROM (VALUES ('en'), ('fr')) AS l(language)`;
+    for (const c of counts) console.log(`${c.language}: ${c.passages} passages, ${c.words} dictionary words`);
+    break;
+  }
+  case "add-text": {
+    const language = username;
+    const body = String(process.argv.slice(4).join(" ")).replace(/\s+/g, " ").trim();
+    if (language !== "en" && language !== "fr") {
+      console.error('The language is "en" or "fr".');
+      process.exit(1);
+    }
+    if (body.length < 40) {
+      console.error("A passage needs at least 40 characters.");
+      process.exit(1);
+    }
+    const [row]: { id: number }[] = await sql`
+      INSERT INTO passages (language, body) VALUES (${language}, ${body}) RETURNING id`;
+    console.log(`Added passage ${row.id} (${language}, ${body.length} characters).`);
+    break;
+  }
+  case "delete-text": {
+    const id = Number(username);
+    const deleted = await sql`DELETE FROM passages WHERE id = ${id} RETURNING id`;
+    console.log(deleted.length ? `Deleted passage ${id}.` : `No passage with id ${username}.`);
+    break;
+  }
   default:
-    console.log(`Usage:\n  bun scripts/admin.ts list\n  bun scripts/admin.ts create <username> [rider name] [password]\n  bun scripts/admin.ts delete <username>\n  bun scripts/admin.ts make-admin <username>\n  bun scripts/admin.ts grant <username> <mount>\n  bun scripts/admin.ts revoke <username> <mount>\n  bun scripts/admin.ts stats <username>`);
+    console.log(`Usage:\n  bun scripts/admin.ts list\n  bun scripts/admin.ts create <username> [rider name] [password]\n  bun scripts/admin.ts delete <username>\n  bun scripts/admin.ts make-admin <username>\n  bun scripts/admin.ts grant <username> <mount>\n  bun scripts/admin.ts revoke <username> <mount>\n  bun scripts/admin.ts stats <username>\n  bun scripts/admin.ts texts [en|fr]\n  bun scripts/admin.ts add-text <en|fr> "<passage>"\n  bun scripts/admin.ts delete-text <id>`);
 }
 
 await sql.end();
