@@ -59,7 +59,7 @@ function PracticeRun({ text, onAnother }: { text: string; onAnother: () => void 
   };
 
   return (
-    <main className="mx-auto grid max-w-[1280px] gap-4 p-[18px]">
+    <main className="mx-auto grid max-w-[1280px] grid-cols-[minmax(0,1fr)] gap-4 p-[18px]">
       <RoomBar phase="Practice · nothing is recorded" />
 
       <div className="grid gap-3.5">

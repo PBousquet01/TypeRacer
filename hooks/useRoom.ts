@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getSocket } from "@/lib/socket";
 import { clientId } from "@/lib/profile";
 import type { Position, Profile, PublicRoom } from "@/lib/types";
@@ -11,6 +11,8 @@ export function useRoom(code: string, profile: Profile | null) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
+  const [finishDeadline, setFinishDeadline] = useState<number | null>(null);
+  const lastStatus = useRef<PublicRoom["status"] | null>(null);
 
   useEffect(() => {
     if (!profile) return;
@@ -25,11 +27,14 @@ export function useRoom(code: string, profile: Profile | null) {
     };
 
     const onRoom = (next: PublicRoom) => {
+      if (lastStatus.current !== null && lastStatus.current !== next.status) setNotice(null);
+      lastStatus.current = next.status;
       setRoom(next);
       setRaceStartedAt((current) => {
-        if (next.status === "racing") return current ?? Date.now();
+        if (next.status === "racing") return current ?? Date.now() - next.elapsedMs;
         return next.status === "finished" ? current : null;
       });
+      setFinishDeadline(next.finishIn === null ? null : Date.now() + next.finishIn);
     };
 
     const onPositions = (list: Position[]) => {
@@ -71,6 +76,7 @@ export function useRoom(code: string, profile: Profile | null) {
     error,
     notice,
     raceStartedAt,
+    finishDeadline,
     toggleReady,
     startRace,
     sendProgress,

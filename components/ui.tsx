@@ -62,7 +62,7 @@ export function Stat({ value, label, accent = false }: { value: ReactNode; label
 
 export function StatsBar({ children }: { children: ReactNode }) {
   return (
-    <div className="frame flex items-center justify-end gap-[30px] bg-bar px-[22px] py-3.5 max-wide:justify-between max-wide:gap-3.5 max-wide:px-3.5 max-wide:py-3">
+    <div className="frame flex flex-wrap items-center justify-end gap-[30px] bg-bar px-[22px] py-3.5 max-wide:justify-between max-wide:gap-3.5 max-wide:px-3.5 max-wide:py-3">
       {children}
     </div>
   );

@@ -40,20 +40,29 @@ function correctPrefixLength(input: string, text: string): number {
  * start are correct, at every completed word and at the end; the server
  * moves the chocobo from that and decides the finish order.
  */
-export function useTypingEngine(
-  text: string,
-  { enabled, onProgress }: { enabled: boolean; onProgress?: (correctChars: number) => void },
-): TypingEngine {
-  const [typing, setTyping] = useState<TypingState>({
-    input: "",
-    startedAt: null,
-    finishedAt: null,
-    keystrokes: 0,
-    mistakes: 0,
+interface EngineOptions {
+  enabled: boolean;
+  onProgress?: (correctChars: number) => void;
+  // Picking a race back up after a reload: the server's count of correct
+  // characters and when the race started. The keystrokes before the reload
+  // are gone, so they're counted as clean; accuracy is self-reported anyway.
+  resume?: { correctChars: number; startedAt: number } | null;
+}
+
+export function useTypingEngine(text: string, { enabled, onProgress, resume }: EngineOptions): TypingEngine {
+  const [typing, setTyping] = useState<TypingState>(() => {
+    const done = resume ? Math.min(resume.correctChars, text.length) : 0;
+    return {
+      input: text.slice(0, done),
+      startedAt: done > 0 ? resume!.startedAt : null,
+      finishedAt: null,
+      keystrokes: done,
+      mistakes: 0,
+    };
   });
   const [now, setNow] = useState(0);
   // The last progress value sent to the server, so we don't send it twice.
-  const reportedRef = useRef(0);
+  const reportedRef = useRef(typing.input.length);
 
   const { input, startedAt, finishedAt, keystrokes, mistakes } = typing;
   const correctChars = correctPrefixLength(input, text);

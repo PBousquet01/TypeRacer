@@ -5,6 +5,7 @@ import Chocobo from "./Chocobo";
 import { FinePrint, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
 import { mountLabel } from "@/lib/chocobos";
 import { cn } from "@/lib/cn";
+import { MAX_RIDERS, MIN_RIDERS } from "@/lib/rules";
 import type { PublicRoom } from "@/lib/types";
 
 const RIDER_ROW = "flex items-center gap-3 border-b border-edge/14 py-3 last:border-b-0 light:border-ink/14";
@@ -26,7 +27,8 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace }
   const host = room.players.find((p) => p.id === room.hostId);
   const riders = room.players.filter((p) => p.role === "rider");
   const readyCount = riders.filter((p) => p.ready).length;
-  const freeStalls = 6 - riders.length;
+  const freeStalls = MAX_RIDERS - riders.length;
+  const canStart = readyCount >= MIN_RIDERS;
 
   function copyLink() {
     navigator.clipboard.writeText(window.location.href).then(() => {
@@ -40,7 +42,7 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace }
       <section className="grid content-start">
         <header className="flex flex-wrap items-baseline justify-between gap-3 pb-3.5">
           <h2 className="text-xs/normal text-accent uppercase">
-            Riders <span className="font-body text-muted">{riders.length} / 6</span>
+            Riders <span className="font-body text-muted">{riders.length} / {MAX_RIDERS}</span>
           </h2>
           <MonoNote>{readyCount} READY</MonoNote>
         </header>
@@ -93,15 +95,16 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace }
           <Panel>
             <PanelTitle>Race control</PanelTitle>
             <Spec>
-              <SpecRow label="Riders">{riders.length} / 6</SpecRow>
+              <SpecRow label="Riders">{riders.length} / {MAX_RIDERS}</SpecRow>
               <SpecRow label="Ready">{readyCount}</SpecRow>
               <SpecRow label="Text">One paragraph, picked at random</SpecRow>
             </Spec>
-            <button className="btn btn-primary btn-block" onClick={onStartRace} disabled={readyCount === 0}>
-              {readyCount === 0 ? "Waiting for riders" : `Start race (${readyCount})`}
+            <button className="btn btn-primary btn-block" onClick={onStartRace} disabled={!canStart}>
+              {canStart ? `Start race (${readyCount})` : `Waiting for riders (${readyCount}/${MIN_RIDERS})`}
             </button>
             <FinePrint>
-              Only riders who are ready take part. You run the race and watch — you don&apos;t type.
+              A race needs at least {MIN_RIDERS} ready riders. Only they take part. You run the race and
+              watch — you don&apos;t type.
             </FinePrint>
           </Panel>
         ) : (
@@ -112,6 +115,7 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace }
               <SpecRow label="Backspace">Allowed — and required</SpecRow>
               <SpecRow label="Mistakes">Stall your bird until fixed</SpecRow>
               <SpecRow label="Winner">First to type the last letter</SpecRow>
+              <SpecRow label="Last call">30 s once someone finishes</SpecRow>
             </Spec>
             <button className="btn btn-primary btn-block" onClick={onToggleReady}>
               {me?.ready ? "Actually, wait" : "I'm ready"}

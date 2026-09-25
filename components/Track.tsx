@@ -6,6 +6,9 @@ import { cn } from "@/lib/cn";
 
 const START = 14;
 const RUN = 86;
+// Past this many riders (a whole class) lanes shrink to thin bars so the
+// track still fits on screen.
+const COMPACT_FROM = 11;
 
 export interface TrackRider {
   id: string;
@@ -16,6 +19,7 @@ export interface TrackRider {
   wpm: number | null;
   place: number | null;
   liveWpm?: number;
+  away?: boolean;
 }
 
 interface TrackProps {
@@ -43,6 +47,8 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
     return () => clearInterval(id);
   }, [racing]);
 
+  const compact = players.length >= COMPACT_FROM;
+
   return (
     <div className="relative overflow-hidden bg-field">
       <div>
@@ -54,8 +60,10 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
             <div
               key={p.id}
               className={cn(
-                "relative flex h-[68px] items-center border-b-2 border-dashed border-edge/20 last:border-b-0 max-wide:h-[58px] light:border-ink/28",
+                "relative flex items-center border-dashed border-edge/20 last:border-b-0 light:border-ink/28",
+                compact ? "h-[30px] border-b" : "h-[68px] border-b-2 max-wide:h-[58px]",
                 isMe && "bg-accent/10 light:bg-accent/12",
+                p.away && "opacity-50",
               )}
             >
               <div
@@ -71,7 +79,7 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
                 className="absolute z-2 flex -translate-x-full items-center gap-2.5 transition-[left] duration-120 ease-linear motion-reduce:transition-none"
                 style={{ left: `${START + progress * RUN}%` }}
               >
-                <div className="grid justify-items-end gap-[5px] text-right">
+                <div className={cn("justify-items-end text-right", compact ? "flex items-center gap-2" : "grid gap-[5px]")}>
                   <span
                     className={cn(
                       "font-display text-tiny/[1.4] whitespace-nowrap uppercase",
@@ -80,8 +88,9 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
                   >
                     {p.name}
                     {isMe && <span className="text-muted max-wide:hidden"> · you</span>}
+                    {p.away && <span className="text-amber"> · reconnecting</span>}
                   </span>
-                  {isStalled ? (
+                  {compact && !isStalled ? null : isStalled ? (
                     <span className="border-2 border-paper bg-ember px-1.5 py-1 font-display text-tiny/[1.4] whitespace-nowrap text-ink">
                       STALLED — FIX THE TYPO
                     </span>
@@ -97,7 +106,7 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
                   color={p.color}
                   running={racing && !p.finished && !isStalled}
                   stumbling={isStalled}
-                  size={isMe ? 46 : 40}
+                  size={compact ? (isMe ? 26 : 22) : isMe ? 46 : 40}
                 />
               </div>
             </div>

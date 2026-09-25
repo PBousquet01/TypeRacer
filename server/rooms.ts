@@ -1,9 +1,17 @@
 // The referee, and the only authority on a race. Clients send nothing but
 // "I typed N correct characters"; positions, finish order, WPM and who may
 // ride what are all decided here. One host (who never types) per room.
+//
+// A race moves through four states, and only ever forwards:
+//
+//   lobby ──startRace (host, ≥2 ready)──▶ countdown ──3 s──▶ racing
+//     ▲                                                        │ everyone finished,
+//     └────────────── playAgain (host) ◀──── finished ◀────────┘ 30 s after the first
+//                                                                finisher, or 3 min
 import type { Server, Socket } from "socket.io";
 import { pickText } from "./texts";
 import { recordRace } from "./stats";
+import { FINISH_GRACE_MS, MAX_RIDERS, MIN_RIDERS, RECONNECT_MS } from "../lib/rules";
 import type {
   ClientToServerEvents,
   PublicPlayer,
@@ -21,21 +29,23 @@ export interface SocketData {
 
 export type IO = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type ClientSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
+type Timer = ReturnType<typeof setTimeout>;
 
 export interface Player {
   name: string;
   color: string;
-  clientId: string | null; // not shown to anyone; used only to recognise a reconnecting host
+  clientId: string | null; // never shown to anyone; recognises the same tab after a reload
   userId: number | null; // set when this rider is signed in; their results get saved
   role: Role;
   ready: boolean;
-  racing: boolean; // taking part in the current race
+  racing: boolean; // taking part in the current race (late arrivals watch until the next one)
   charIndex: number;
   finished: boolean;
   place: number | null;
   wpm: number | null;
   accuracy: number | null;
   timeMs: number | null;
+  away: boolean; // dropped mid-race; the lane is held for RECONNECT_MS
 }
 
 export interface Room {
@@ -44,15 +54,16 @@ export interface Room {
   raceId: number; // goes up by one every race
   text: string;
   startAt: number;
+  finishAt: number | null; // deadline set when the first rider crosses the line
   players: Map<string, Player>; // socket.id -> player (insertion order matters: oldest inherits the host seat)
   hostId: string | null;
   hostClientId: string | null; // survives a reload, so the same person can reclaim the seat
-  hostTimeout: ReturnType<typeof setTimeout> | null;
-  timeouts: ReturnType<typeof setTimeout>[];
+  hostTimeout: Timer | null;
+  awayTimers: Map<string, Timer>; // clientId -> removal timer for a rider who dropped mid-race
+  timeouts: Timer[];
   ticker: ReturnType<typeof setInterval> | null;
 }
 
-const MAX_RIDERS = 6;
 const COUNTDOWN_MS = 3000;
 const TICK_MS = 100; // how often positions are broadcast during a race
 const MAX_RACE_MS = 3 * 60 * 1000; // unfinished riders get a DNF after this
@@ -84,10 +95,12 @@ function createRoom(code: string): Room {
     raceId: 0,
     text: "",
     startAt: 0,
+    finishAt: null,
     players: new Map(),
     hostId: null,
     hostClientId: null,
     hostTimeout: null,
+    awayTimers: new Map(),
     timeouts: [],
     ticker: null,
   };
@@ -114,6 +127,7 @@ function newPlayer(
     wpm: null,
     accuracy: null,
     timeMs: null,
+    away: false,
   };
 }
 
@@ -138,6 +152,7 @@ function clearTimers(room: Room) {
 
 const riders = (room: Room) => [...room.players.values()].filter((p) => p.role === "rider");
 const racers = (room: Room) => [...room.players.values()].filter((p) => p.racing);
+const raceInProgress = (room: Room) => room.status === "countdown" || room.status === "racing";
 
 function playerList(room: Room): PublicPlayer[] {
   return [...room.players.entries()].map(([id, p]) => {
@@ -149,6 +164,7 @@ function playerList(room: Room): PublicPlayer[] {
 
 /** What clients are allowed to see about a room. */
 function publicRoom(room: Room): PublicRoom {
+  const now = Date.now();
   return {
     code: room.code,
     status: room.status,
@@ -156,8 +172,10 @@ function publicRoom(room: Room): PublicRoom {
     hostId: room.hostId,
     hostAway: room.hostId === null && room.players.size > 0,
     text: room.status === "lobby" ? "" : room.text,
-    // Relative time instead of a timestamp, so clients with wrong clocks still sync.
-    startsIn: room.status === "countdown" ? Math.max(0, room.startAt - Date.now()) : 0,
+    // Relative times instead of timestamps, so clients with wrong clocks still sync.
+    startsIn: room.status === "countdown" ? Math.max(0, room.startAt - now) : 0,
+    elapsedMs: room.status === "racing" ? Math.max(0, now - room.startAt) : 0,
+    finishIn: room.status === "racing" && room.finishAt ? Math.max(0, room.finishAt - now) : null,
     players: playerList(room),
   };
 }
@@ -171,6 +189,7 @@ function startCountdown(io: IO, room: Room, starters: Player[]) {
   room.raceId++;
   room.text = pickText();
   room.startAt = Date.now() + COUNTDOWN_MS;
+  room.finishAt = null;
   room.players.forEach(resetPlayer);
   starters.forEach((p) => {
     p.racing = true;
@@ -194,6 +213,7 @@ function startRace(io: IO, room: Room) {
 function endRace(io: IO, room: Room) {
   clearTimers(room);
   room.status = "finished";
+  room.finishAt = null;
   // Save results before telling anyone: by now every finisher has reported
   // their accuracy, so the stored row is complete.
   racers(room).forEach((player) =>
@@ -209,10 +229,24 @@ function endIfEveryoneFinished(io: IO, room: Room) {
   }
 }
 
+// COURSE-15: the winner shouldn't have to wait three minutes for someone who
+// walked away from the keyboard. The first finish starts a short last call.
+function startFinishClock(io: IO, room: Room) {
+  if (room.finishAt) return;
+  room.finishAt = Date.now() + FINISH_GRACE_MS;
+  room.timeouts.push(setTimeout(() => endRace(io, room), FINISH_GRACE_MS));
+}
+
 function backToLobby(io: IO, room: Room) {
   clearTimers(room);
   room.status = "lobby";
   room.text = "";
+  room.finishAt = null;
+  // Anyone still away missed the race and the results; their lane isn't
+  // worth holding into the next one.
+  for (const [id, p] of room.players) {
+    if (p.away) removePlayer(io, room, id, { broadcast: false });
+  }
   room.players.forEach((p) => {
     resetPlayer(p);
     p.ready = false;
@@ -220,18 +254,66 @@ function backToLobby(io: IO, room: Room) {
   broadcastRoom(io, room);
 }
 
-/** Hands the empty host seat to the longest-present player. */
+/** Hands the empty host seat to the longest-present player who is actually here. */
 function promoteHost(io: IO, room: Room) {
   room.hostTimeout = null;
   if (room.hostId !== null || room.players.size === 0) return;
 
-  const [nextId, nextPlayer] = [...room.players.entries()][0];
+  const next = [...room.players.entries()].find(([, p]) => !p.away);
+  if (!next) return;
+  const [nextId, nextPlayer] = next;
   nextPlayer.role = "host";
   nextPlayer.ready = false;
   nextPlayer.racing = false;
   room.hostId = nextId;
   room.hostClientId = nextPlayer.clientId ?? null;
   broadcastRoom(io, room);
+}
+
+/** Takes a player out for good, and closes the room if they were the last one. */
+function removePlayer(io: IO, room: Room, id: string, { broadcast = true } = {}) {
+  const player = room.players.get(id);
+  if (!player) return;
+  room.players.delete(id);
+  if (player.clientId) {
+    clearTimeout(room.awayTimers.get(player.clientId));
+    room.awayTimers.delete(player.clientId);
+  }
+
+  if (room.players.size === 0) {
+    clearTimers(room);
+    if (room.hostTimeout) clearTimeout(room.hostTimeout);
+    room.awayTimers.forEach(clearTimeout);
+    rooms.delete(room.code);
+    return;
+  }
+  if (broadcast) {
+    broadcastRoom(io, room);
+    endIfEveryoneFinished(io, room);
+  }
+}
+
+// COURSE-14: a rider who drops mid-race (reload, Wi-Fi blip) keeps their lane
+// and progress for RECONNECT_MS. The same tab coming back with the same
+// clientId takes it over; otherwise the lane is dropped and they DNF.
+function holdLane(io: IO, room: Room, id: string, player: Player) {
+  player.away = true;
+  const clientId = player.clientId!;
+  room.awayTimers.set(
+    clientId,
+    setTimeout(() => removePlayer(io, room, id), RECONNECT_MS),
+  );
+  broadcastRoom(io, room);
+}
+
+/** Moves a held player onto their new socket, keeping their place in the join order. */
+function reclaimLane(room: Room, oldId: string, newId: string) {
+  const player = room.players.get(oldId)!;
+  clearTimeout(room.awayTimers.get(player.clientId!));
+  room.awayTimers.delete(player.clientId!);
+  player.away = false;
+  room.players = new Map([...room.players].map(([id, p]) => (id === oldId ? [newId, p] : [id, p])));
+  return player;
 }
 
 function currentRoom(socket: ClientSocket): Room | undefined {
@@ -247,16 +329,22 @@ function leaveCurrentRoom(io: IO, socket: ClientSocket) {
   socket.data.roomCode = null;
   if (!room) return;
 
-  const wasHost = room.hostId === socket.id;
-  room.players.delete(socket.id);
+  const player = room.players.get(socket.id);
   socket.leave(room.code);
+  if (!player) return;
 
-  if (room.players.size === 0) {
-    clearTimers(room);
-    if (room.hostTimeout) clearTimeout(room.hostTimeout);
-    rooms.delete(room.code);
+  // A rider in this race (still typing, or finished and looking at the
+  // results) gets their lane held rather than dropped, so a reload doesn't
+  // erase their progress or their place. This also covers React mounting the
+  // room page twice in dev mode, which sends leave-then-join on a reload.
+  if (player.role === "rider" && player.racing && player.clientId && room.status !== "lobby") {
+    holdLane(io, room, socket.id, player);
     return;
   }
+
+  const wasHost = room.hostId === socket.id;
+  removePlayer(io, room, socket.id, { broadcast: false });
+  if (!rooms.has(room.code)) return;
 
   // Hold the seat open first: a refresh shouldn't hand the room to someone
   // else. If nobody returns, the longest-present player inherits it.
@@ -289,8 +377,18 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       room = createRoom(code);
       rooms.set(code, room);
     }
-    if (room.status !== "lobby") {
-      return reply({ error: "A race is already running in this room. Try again when it's over." });
+
+    // The same tab coming back mid-race: hand it its lane and progress back.
+    const held = clientId
+      ? [...room.players.entries()].find(([, p]) => p.away && p.clientId === clientId)
+      : undefined;
+    if (held) {
+      reclaimLane(room, held[0], socket.id);
+      socket.join(code);
+      socket.data.roomCode = code;
+      reply({ ok: true, role: "rider", note: null });
+      broadcastRoom(io, room);
+      return;
     }
 
     // Yours if it's free, or if you're the host returning after a reload
@@ -306,6 +404,10 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     if (finalRole === "rider" && riders(room).length >= MAX_RIDERS) {
       return reply({ error: "This room is full." });
     }
+
+    // COURSE-7: arriving mid-race is allowed. The new rider isn't `racing`,
+    // so they watch this one and ready up for the next.
+    const lateArrival = finalRole === "rider" && raceInProgress(room);
 
     const user = socket.data.user ?? null;
     room.players.set(
@@ -323,7 +425,11 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     reply({
       ok: true,
       role: finalRole,
-      note: takenHost ? "This room already has a host, so you joined as a rider." : null,
+      note: takenHost
+        ? "This room already has a host, so you joined as a rider."
+        : lateArrival
+          ? "A race is already running. You're watching this one and can ride the next."
+          : null,
     });
     broadcastRoom(io, room);
   });
@@ -343,7 +449,9 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     if (room.status !== "lobby") return reply({ error: "The race has already started." });
 
     const starters = riders(room).filter((p) => p.ready);
-    if (starters.length === 0) return reply({ error: "No riders are ready yet." });
+    if (starters.length < MIN_RIDERS) {
+      return reply({ error: `A race needs at least ${MIN_RIDERS} ready riders.` });
+    }
 
     startCountdown(io, room, starters);
     reply({ ok: true });
@@ -367,16 +475,19 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       player.place = racers(room).filter((p) => p.finished).length;
       player.wpm = Math.round(room.text.length / 5 / (elapsedSec / 60));
       player.timeMs = Math.round(elapsedSec * 1000);
+      startFinishClock(io, room);
       broadcastRoom(io, room);
       endIfEveryoneFinished(io, room);
     }
   });
 
-  // Accuracy is counted in the browser, so the rider reports their own.
+  // Accuracy is counted in the browser, so the rider reports their own. Only
+  // the first report counts: a tab reloaded after the finish has forgotten its
+  // mistakes and would otherwise overwrite the real figure with 100%.
   socket.on("stats", (stats) => {
     const room = currentRoom(socket);
     const player = room?.players.get(socket.id);
-    if (!room || !player || !player.racing) return;
+    if (!room || !player || !player.racing || player.accuracy !== null) return;
 
     const value = Number(stats?.accuracy);
     if (!Number.isFinite(value)) return;

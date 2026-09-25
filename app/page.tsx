@@ -19,7 +19,7 @@ function makeRoomCode() {
 }
 
 const FEATURES = [
-  ["Six lanes, one prompt", "Everyone in the room gets the same paragraph. No excuses available."],
+  ["A whole class, one prompt", "Up to forty riders get the same paragraph. No excuses available."],
   ["Accuracy is the brake", "A wrong letter stalls your bird until you backspace over it. She's stubborn."],
   ["A host runs the show", "One person opens the room, starts the race and watches. Everyone else rides."],
 ];
@@ -89,7 +89,7 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
             Your bird runs <span className="text-accent">exactly</span> as fast as you type.
           </h1>
           <p className="max-w-[60ch] font-body text-sm/[1.8] text-copy [text-shadow:2px_2px_0_rgba(10,15,36,0.8)] light:[text-shadow:none]">
-            No stats to grind, no gear to farm. Up to six riders, one paragraph, whoever&apos;s
+            No stats to grind, no gear to farm. Up to forty riders, one paragraph, whoever&apos;s
             fingers hold up. Typos make her stumble, so maybe slow down. Or don&apos;t.
           </p>
           <div className="flex gap-3" aria-hidden="true">

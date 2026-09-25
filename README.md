@@ -3,7 +3,7 @@
 A multiplayer typing race (like Monkeytype) where every rider is a chocobo
 running down a track. Type fast, run fast.
 
-Each room has **one host and up to six riders**. The host opens the room,
+Each room has **one host and up to forty riders** (a race needs at least two). The host opens the room,
 starts the race and watches it from the stands — hosts never type. Riders
 ready up and race. If the host's browser drops (a refresh, a flaky network)
 the seat is held open for 20 seconds so they can reclaim it; only if they

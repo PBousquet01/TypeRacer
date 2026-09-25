@@ -59,6 +59,13 @@ at boot by `server/db.ts`; there is no migration step.
   they never type. Only ready riders join a race (`player.racing` snapshot).
   If the host drops, the seat is held 20s for a reconnect, then the
   longest-present player inherits it.
+- **Race rules live in `lib/rules.ts`** (shared by server and lobby): 2–40
+  riders, a 30s last call once the first rider finishes (then DNFs), and a
+  30s hold on the lane of a rider who drops. The same tab (same `clientId`)
+  reconnecting gets its lane and progress back; the client resumes the
+  typing engine from the server's `charIndex`. Someone who joins mid-race
+  is a rider with `racing: false` and watches until the next race. The state
+  machine is drawn at the top of `server/rooms.ts`.
 - **Practice must stay unrecorded.** `/practice` opens no socket and joins no
   room; it only fetches `GET /api/text`. Results are written solely when a
   race ends, so there is no path from practice to the database.
@@ -128,8 +135,8 @@ light-theme tweaks, `wide:` / `max-wide:` for the 900px breakpoint. Only
    socket every second and page navigation breaks in dev.
 2. **Files in `server/` only load at startup** — after editing them, restart,
    or you'll debug a mount the server doesn't know about.
-3. A host who reloads **mid-race** can't rejoin: joins are refused unless the
-   room is in the lobby. Still unfixed.
+3. Only the **first** `stats` (accuracy) report per race counts. A tab that
+   reloads after finishing has forgotten its mistakes and would re-send 100%.
 4. The rider profile (name/mount/role) lives in `sessionStorage`, so it's
    per-tab; a fresh tab shows the in-room join card instead.
 5. `eslint-disable` lines look like comments but are directives — don't strip
@@ -147,5 +154,5 @@ before showing this to the class: `bun scripts/admin.ts delete <username>`.
 ## Possible next steps
 
 Sprite sheets for a real run cycle · a typo counter on the results screen ·
-password change / reset · letting a host rejoin mid-race · deploying to
+password change / reset · deploying to
 Render (set `DATABASE_URL`, `sslmode=require`).

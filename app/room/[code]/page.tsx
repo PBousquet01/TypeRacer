@@ -25,6 +25,7 @@ export default function RoomPage() {
     error,
     notice,
     raceStartedAt,
+    finishDeadline,
     toggleReady,
     startRace,
     sendProgress,
@@ -63,10 +64,11 @@ export default function RoomPage() {
 
   const phase = room.status === "lobby" ? "Lobby" : room.status === "finished" ? "Results" : "Racing";
   const isHost = room.hostId === myId;
+  const riding = room.players.find((p) => p.id === myId)?.racing ?? false;
   const hostName = room.players.find((p) => p.id === room.hostId)?.name;
 
   return (
-    <main className="mx-auto grid max-w-[1280px] gap-4 p-[18px]">
+    <main className="mx-auto grid max-w-[1280px] grid-cols-[minmax(0,1fr)] gap-4 p-[18px]">
       <RoomBar phase={`${phase} · Room ${room.code} Circuit`}>
         {isHost && <HostTag>HOST</HostTag>}
         <span className="text-green">ROOM {room.code}</span>
@@ -82,16 +84,22 @@ export default function RoomPage() {
       )}
 
       {(room.status === "countdown" || room.status === "racing") &&
-        (isHost ? (
-          <SpectatorScreen room={room} raceStartedAt={raceStartedAt} />
-        ) : (
+        (riding ? (
           <RaceScreen
             key={room.raceId}
             room={room}
             myId={myId}
             raceStartedAt={raceStartedAt}
+            finishDeadline={finishDeadline}
             onProgress={sendProgress}
             onStats={sendStats}
+          />
+        ) : (
+          <SpectatorScreen
+            room={room}
+            raceStartedAt={raceStartedAt}
+            finishDeadline={finishDeadline}
+            isHost={isHost}
           />
         ))}
 

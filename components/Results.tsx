@@ -36,6 +36,7 @@ interface ResultsProps {
 export default function Results({ players, myId, roomCode, isHost, hostName, onPlayAgain }: ResultsProps) {
   const ranked = rank(players.filter((p) => p.racing));
   const me = ranked.find((p) => p.id === myId);
+  const watched = !isHost && !me;
   const podium = [ranked[1], ranked[0], ranked[2]].filter(Boolean);
 
   return (
@@ -124,7 +125,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
         </section>
 
         <aside className="grid content-start gap-4">
-          {!isHost && (
+          {me && (
             <Panel>
               <PanelTitle>Your race</PanelTitle>
               <Spec>
@@ -144,6 +145,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
             </>
           ) : (
             <FinePrint>
+              {watched && "You watched this one. "}
               {hostName ? `${hostName} takes everyone back to the lobby.` : "Waiting for the host."}
             </FinePrint>
           )}

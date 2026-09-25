@@ -20,6 +20,7 @@ export interface PublicPlayer {
   wpm: number | null;
   accuracy: number | null;
   timeMs: number | null;
+  away: boolean; // dropped mid-race; their lane is held until they reconnect
   progress: number; // 0..1
 }
 
@@ -31,6 +32,8 @@ export interface PublicRoom {
   hostAway: boolean;
   text: string;
   startsIn: number;
+  elapsedMs: number; // since the gates opened, so a reloaded client can resync its clock
+  finishIn: number | null; // set once the first rider finishes: time left for everyone else
   players: PublicPlayer[];
 }
 
