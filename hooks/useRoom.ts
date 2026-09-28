@@ -3,13 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getSocket } from "@/lib/socket";
 import { clientId } from "@/lib/profile";
-import type { Position, Profile, PublicRoom, RoomSettings } from "@/lib/types";
+import { useI18n } from "@/lib/i18n";
+import type { ErrorCode, NoticeCode, Position, Profile, PublicRoom, RoomSettings } from "@/lib/types";
 
 export function useRoom(code: string, profile: Profile | null) {
+  const { lang } = useI18n();
+  const langRef = useRef(lang);
+  useEffect(() => {
+    langRef.current = lang;
+  }, [lang]);
   const [room, setRoom] = useState<PublicRoom | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorCode | null>(null);
+  const [notice, setNotice] = useState<NoticeCode | null>(null);
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
   const [finishDeadline, setFinishDeadline] = useState<number | null>(null);
   const lastStatus = useRef<PublicRoom["status"] | null>(null);
@@ -20,9 +26,10 @@ export function useRoom(code: string, profile: Profile | null) {
 
     const join = () => {
       setMyId(socket.id ?? null);
-      socket.emit("joinRoom", { code, clientId: clientId(), ...profile }, (res) => {
-        if ("error" in res) setError(res.error);
-        else if (res.note) setNotice(res.note);
+      socket.emit("joinRoom", { code, clientId: clientId(), lang: langRef.current, ...profile }, (res) => {
+        if ("error" in res) return setError(res.error);
+        setError(null);
+        if (res.note) setNotice(res.note);
       });
     };
 

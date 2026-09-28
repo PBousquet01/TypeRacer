@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { isCustomColor, mountAspect, mountLabel, needsOutline, presetSprite } from "@/lib/chocobos";
+import { isCustomColor, mountAspect, needsOutline, presetSprite } from "@/lib/chocobos";
+import { useT } from "@/lib/i18n";
 import { customSprite } from "@/lib/recolorSprite";
 import { cn } from "@/lib/cn";
 
@@ -13,6 +14,7 @@ interface ChocoboProps {
 }
 
 export default function Chocobo({ color, running = false, stumbling = false, size = 36 }: ChocoboProps) {
+  const t = useT();
   const custom = isCustomColor(color);
   const [mixed, setMixed] = useState<{ color: string; url: string } | null>(null);
 
@@ -43,7 +45,7 @@ export default function Chocobo({ color, running = false, stumbling = false, siz
       {/* eslint-disable-next-line @next/next/no-img-element -- local pixel art, next/image adds nothing */}
       <img
         src={src}
-        alt={mountLabel(color)}
+        alt={t.mount.label(color)}
         width={width}
         height={height}
         className={cn("size-full object-contain [image-rendering:pixelated]", !custom && needsOutline(color) && "outline-ink")}

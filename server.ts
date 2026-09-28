@@ -22,7 +22,7 @@ const httpServer = createServer((req, res) => {
     handleApi(req, res).catch((err) => {
       console.error("api error", err);
       if (!res.headersSent) res.writeHead(500, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Something broke on the server." }));
+      res.end(JSON.stringify({ error: "server-error" }));
     });
     return;
   }

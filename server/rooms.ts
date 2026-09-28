@@ -14,12 +14,14 @@ import { recordRace } from "./stats";
 import { FINISH_GRACE_MS, MAX_RIDERS, MIN_RIDERS, RECONNECT_MS, scoreOf } from "../lib/rules";
 import type {
   ClientToServerEvents,
+  ErrorCode,
   PublicPlayer,
   PublicRoom,
   Role,
   RoomSettings,
   RoomStatus,
   ServerToClientEvents,
+  TextLanguage,
   User,
 } from "../lib/types";
 
@@ -91,7 +93,7 @@ function safeColor(color: unknown, user: User | null): string {
 
 const rooms = new Map<string, Room>();
 
-function createRoom(code: string): Room {
+function createRoom(code: string, language: TextLanguage): Room {
   return {
     code,
     status: "lobby",
@@ -99,7 +101,7 @@ function createRoom(code: string): Room {
     text: "",
     startAt: 0,
     finishAt: null,
-    settings: { language: "en", kind: "sentences" },
+    settings: { language, kind: "sentences" },
     players: new Map(),
     hostId: null,
     hostClientId: null,
@@ -398,7 +400,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const code = String(payload?.code ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
     const name = String(payload?.name ?? "").trim().slice(0, 16) || "Chocobo";
     const wantsHost = role === "host";
-    if (!code) return reply({ error: "That room code isn't valid." });
+    if (!code) return reply({ error: "bad-code" });
 
     leaveCurrentRoom(io, socket);
 
@@ -406,9 +408,9 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     if (!room) {
       // Only a host opens a room; riders need a room that already exists.
       if (!wantsHost) {
-        return reply({ error: "No race with that code. Ask the host for the invite link." });
+        return reply({ error: "no-room" });
       }
-      room = createRoom(code);
+      room = createRoom(code, isLanguage(payload?.lang) ? payload.lang : "en");
       rooms.set(code, room);
     }
 
@@ -432,11 +434,11 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const takenHost = wantsHost && !seatFree;
     const finalRole: Role = wantsHost && seatFree ? "host" : "rider";
     if (finalRole === "host" && !returningHost && room.hostClientId && room.hostTimeout) {
-      return reply({ error: "The host dropped out and may be reconnecting. Try again in a moment." });
+      return reply({ error: "host-reconnecting" });
     }
 
     if (finalRole === "rider" && riders(room).length >= MAX_RIDERS) {
-      return reply({ error: "This room is full." });
+      return reply({ error: "room-full" });
     }
 
     // COURSE-7: arriving mid-race is allowed. The new rider isn't `racing`,
@@ -459,11 +461,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     reply({
       ok: true,
       role: finalRole,
-      note: takenHost
-        ? "This room already has a host, so you joined as a rider."
-        : lateArrival
-          ? "A race is already running. You're watching this one and can ride the next."
-          : null,
+      note: takenHost ? "host-taken" : lateArrival ? "late-arrival" : null,
     });
     broadcastRoom(io, room);
   });
@@ -479,12 +477,10 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
 
   socket.on("startRace", async (_payload, reply = () => {}) => {
     const room = currentRoom(socket);
-    const check = () => {
-      if (!room || !isHost(room, socket)) return "Only the host can start the race.";
-      if (room.status !== "lobby") return "The race has already started.";
-      if (riders(room).filter((p) => p.ready).length < MIN_RIDERS) {
-        return `A race needs at least ${MIN_RIDERS} ready riders.`;
-      }
+    const check = (): ErrorCode | null => {
+      if (!room || !isHost(room, socket)) return "host-only";
+      if (room.status !== "lobby") return "already-started";
+      if (riders(room).filter((p) => p.ready).length < MIN_RIDERS) return "need-riders";
       return null;
     };
     const problem = check();
@@ -495,7 +491,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       text = await pickText(room!.settings);
     } catch (err) {
       console.error("could not load a race text", err);
-      return reply({ error: "Couldn't load a passage. Try again." });
+      return reply({ error: "text-failed" });
     }
 
     // The database answered asynchronously: a second click, a rider un-readying

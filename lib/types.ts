@@ -7,6 +7,33 @@ export type Role = "host" | "rider";
 export type RoomStatus = "lobby" | "countdown" | "racing" | "finished";
 
 export type TextLanguage = "en" | "fr";
+/** Language of the interface (UX-5). Same two as the texts, but a separate choice. */
+export type Lang = "en" | "fr";
+
+// The server sends codes, never sentences; each browser shows them in its
+// own language (lib/i18n).
+export type ErrorCode =
+  | "bad-code"
+  | "no-room"
+  | "host-reconnecting"
+  | "room-full"
+  | "host-only"
+  | "already-started"
+  | "need-riders"
+  | "text-failed"
+  | "bad-request"
+  | "username-format"
+  | "password-short"
+  | "username-taken"
+  | "wrong-credentials"
+  | "sign-in-for-stats"
+  | "admin-only"
+  | "no-account"
+  | "which-mount"
+  | "unknown-endpoint"
+  | "server-error"
+  | "unknown";
+export type NoticeCode = "host-taken" | "late-arrival";
 export type TextKind = "sentences" | "words";
 
 /** What the host chooses in the lobby (TXT-1, TXT-7). */
@@ -71,10 +98,11 @@ export interface User {
 export interface JoinPayload extends Partial<Profile> {
   code: string;
   clientId: string | null;
+  lang?: Lang; // the joiner's interface language; a new room's texts start in it
 }
 
-export type JoinReply = { ok: true; role: Role; note: string | null } | { error: string };
-export type ActionReply = { ok: true } | { error: string };
+export type JoinReply = { ok: true; role: Role; note: NoticeCode | null } | { error: ErrorCode };
+export type ActionReply = { ok: true } | { error: ErrorCode };
 
 // Everything the browser may send. The server still checks every value:
 // these types describe well-behaved clients, not what arrives on the socket.

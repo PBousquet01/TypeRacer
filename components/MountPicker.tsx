@@ -5,6 +5,7 @@ import Chocobo from "./Chocobo";
 import { FieldLabel } from "./ui";
 import { availableMounts, isCustomColor } from "@/lib/chocobos";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
 
 interface MountPickerProps {
   value: string;
@@ -13,11 +14,12 @@ interface MountPickerProps {
 }
 
 export default function MountPicker({ value, onChange, unlocks }: MountPickerProps) {
+  const t = useT();
   const [customColor, setCustomColor] = useState(isCustomColor(value) ? value : "#7a4fd6");
 
   return (
     <fieldset className="m-0 grid gap-2 border-0 p-0">
-      <FieldLabel as="legend">Your chocobo</FieldLabel>
+      <FieldLabel as="legend">{t.mount.yourChocobo}</FieldLabel>
       <div className="grid grid-cols-3 gap-2">
         {availableMounts(unlocks).map((c) => {
           const selected = value === c.id;
@@ -35,7 +37,7 @@ export default function MountPicker({ value, onChange, unlocks }: MountPickerPro
               aria-pressed={selected}
             >
               <Chocobo color={c.id} size={34} />
-              <span>{c.label}</span>
+              <span>{t.mount.name(c.id)}</span>
             </button>
           );
         })}
@@ -51,7 +53,7 @@ export default function MountPicker({ value, onChange, unlocks }: MountPickerPro
       >
         <Chocobo color={customColor} size={30} />
         <span className="grid flex-1 gap-1 font-display text-micro text-muted uppercase">
-          Mix your own
+          {t.mount.mixYourOwn}
           <span className="font-body text-label/none text-accent">{customColor.toUpperCase()}</span>
         </span>
         <input
@@ -63,7 +65,7 @@ export default function MountPicker({ value, onChange, unlocks }: MountPickerPro
             onChange(e.target.value);
           }}
           onClick={() => onChange(customColor)}
-          aria-label="Custom chocobo colour"
+          aria-label={t.mount.customAria}
         />
       </label>
     </fieldset>

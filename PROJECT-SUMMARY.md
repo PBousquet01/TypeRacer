@@ -76,6 +76,27 @@ at boot by `server/db.ts`; there is no migration step.
   race ends, so there is no path from practice to the database.
 - **Results are saved for signed-in finishers only.** Guests race normally.
 
+## Languages (UX-5)
+
+Every word of the interface lives in `lib/i18n/en.ts` and `lib/i18n/fr.ts`.
+`fr` is typed as `Dictionary` (the shape of `en`), so a missing or extra
+French key is a type error. Components call `useT()` and read `t.lobby.start(n)`,
+`t.errors[code]`… Plurals and word order are functions in the dictionary.
+
+- The **server picks the first language** (`lib/i18n/server.ts`): the
+  `chocobo-lang` cookie, else the browser's Accept-Language, else English. The
+  root layout renders in it, so there's no flash of English.
+- The FR/EN button (`LanguageToggle`, next to the theme button everywhere)
+  switches live and writes the cookie.
+- **The server never sends sentences**: errors and notices are codes
+  (`ErrorCode`, `NoticeCode` in `lib/types.ts`), translated in the browser.
+  The admin CLI prints them through `en.errors`.
+- The interface language and the race text language are separate (TXT-7), but
+  a new room's texts start in the host's interface language, and practice
+  starts in the viewer's.
+- Press Start 2P draws accented capitals (É, Ç) as small letters: a limit of
+  the 8×8 font, not a bug.
+
 ## Data model (PostgreSQL)
 
 `users` (username case-insensitive via a `lower(username)` unique index,

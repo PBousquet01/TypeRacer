@@ -106,7 +106,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
 
   if (path === "/api/auth/signup" && method === "POST") {
     const body = await readJson(req);
-    if (!body) return send(res, 400, { error: "Bad request." }), true;
+    if (!body) return send(res, 400, { error: "bad-request" }), true;
 
     const username = String(body.username ?? "").trim();
     const problem = validateCredentials(username, body.password);
@@ -126,10 +126,10 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
 
   if (path === "/api/auth/login" && method === "POST") {
     const body = await readJson(req);
-    if (!body) return send(res, 400, { error: "Bad request." }), true;
+    if (!body) return send(res, 400, { error: "bad-request" }), true;
 
     const user = await verifyLogin(String(body.username ?? "").trim(), body.password);
-    if (!user) return send(res, 401, { error: "Wrong username or password." }), true;
+    if (!user) return send(res, 401, { error: "wrong-credentials" }), true;
 
     const token = await createSession(user.id);
     send(res, 200, { user: publicUser(user) }, { "Set-Cookie": sessionCookie(token) });
@@ -154,7 +154,7 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   }
 
   if (path === "/api/stats/me" && method === "GET") {
-    if (!me) return send(res, 401, { error: "Sign in to see your stats." }), true;
+    if (!me) return send(res, 401, { error: "sign-in-for-stats" }), true;
     send(res, 200, await statsFor(me.id));
     return true;
   }
@@ -174,13 +174,13 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   }
 
   if (path === "/api/admin/mount" && method === "POST") {
-    if (!me?.isAdmin) return send(res, 403, { error: "Admins only." }), true;
+    if (!me?.isAdmin) return send(res, 403, { error: "admin-only" }), true;
 
     const body = await readJson(req);
     const target = await findUserByUsername(String(body?.username ?? "").trim());
     const mount = String(body?.mount ?? "").trim();
-    if (!target) return send(res, 404, { error: "No account with that username." }), true;
-    if (!mount) return send(res, 400, { error: "Which mount?" }), true;
+    if (!target) return send(res, 404, { error: "no-account" }), true;
+    if (!mount) return send(res, 400, { error: "which-mount" }), true;
 
     if (body?.revoke) await revokeMount(target.id, mount);
     else await grantMount(target.id, mount);
@@ -188,6 +188,6 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
     return true;
   }
 
-  send(res, 404, { error: "Unknown endpoint." });
+  send(res, 404, { error: "unknown-endpoint" });
   return true;
 }

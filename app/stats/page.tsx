@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Wordmark from "@/components/Wordmark";
 import ThemeToggle from "@/components/ThemeToggle";
+import LanguageToggle from "@/components/LanguageToggle";
 import { Eyebrow, FinePrint, Panel, PanelTitle, Spec, SpecRow, Table, Td, Th } from "@/components/ui";
 import { useSession } from "@/lib/session";
-import { formatTime, placeLabel } from "@/lib/format";
+import { formatTime } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import type { LeaderboardRow, RecentRace, StatsSummary } from "@/lib/types";
 
@@ -16,6 +18,7 @@ interface MyStats {
 }
 
 export default function StatsPage() {
+  const t = useT();
   const { user, loading } = useSession();
   const [data, setData] = useState<MyStats | null>(null);
   const [board, setBoard] = useState<LeaderboardRow[]>([]);
@@ -42,19 +45,20 @@ export default function StatsPage() {
           <Wordmark size={16} />
         </Link>
         <span className="inline-flex items-center gap-3.5">
+          <LanguageToggle />
           <ThemeToggle />
           <Link href="/" className="btn-link">
-            BACK TO THE STABLES
+            {t.stats.back}
           </Link>
         </span>
       </header>
 
       {!loading && !user && (
         <Panel className="mx-auto w-full max-w-[560px] justify-items-center px-6 py-[22px] text-center">
-          <PanelTitle as="h2">Your stats live in an account</PanelTitle>
-          <FinePrint>Sign in and every race you finish gets saved here.</FinePrint>
+          <PanelTitle as="h2">{t.stats.noAccountTitle}</PanelTitle>
+          <FinePrint>{t.stats.noAccountHint}</FinePrint>
           <Link className="btn btn-primary" href="/account">
-            Sign in
+            {t.nav.signIn}
           </Link>
         </Panel>
       )}
@@ -62,36 +66,36 @@ export default function StatsPage() {
       {user && (
         <>
           <header className="mb-[18px] grid gap-2.5">
-            <Eyebrow>RIDER RECORD</Eyebrow>
+            <Eyebrow>{t.stats.record}</Eyebrow>
             <h2 className="text-xs/normal text-accent uppercase">{user.displayName}</h2>
           </header>
 
           <section className="mb-[18px] grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
-            <Figure value={data?.summary.races ?? 0} label="RACES" />
-            <Figure value={data?.summary.wins ?? 0} label="WINS" />
-            <Figure value={data?.summary.bestScore ?? "—"} label="BEST SCORE" accent />
-            <Figure value={data?.summary.bestWpm ?? "—"} label="BEST WPM" />
-            <Figure value={data?.summary.avgWpm ?? "—"} label="AVERAGE WPM" />
+            <Figure value={data?.summary.races ?? 0} label={t.stats.races} />
+            <Figure value={data?.summary.wins ?? 0} label={t.stats.wins} />
+            <Figure value={data?.summary.bestScore ?? "—"} label={t.stats.bestScore} accent />
+            <Figure value={data?.summary.bestWpm ?? "—"} label={t.stats.bestWpm} />
+            <Figure value={data?.summary.avgWpm ?? "—"} label={t.stats.avgWpm} />
             <Figure
               value={data?.summary.avgAccuracy != null ? `${data.summary.avgAccuracy}%` : "—"}
-              label="AVERAGE ACCURACY"
+              label={t.stats.avgAccuracy}
             />
           </section>
 
           <div className="grid gap-4 wide:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
             <section>
-              <h3 className="text-lg/normal">Recent races</h3>
+              <h3 className="text-lg/normal">{t.stats.recent}</h3>
               {data?.recent?.length ? (
                 <Table>
                   <thead>
                     <tr>
-                      <Th>WHEN</Th>
-                      <Th>ROOM</Th>
-                      <Th num>PLACE</Th>
-                      <Th num>SCORE</Th>
-                      <Th num>WPM</Th>
-                      <Th num>ACC</Th>
-                      <Th num>TIME</Th>
+                      <Th>{t.stats.when}</Th>
+                      <Th>{t.stats.room}</Th>
+                      <Th num>{t.stats.place}</Th>
+                      <Th num>{t.results.score}</Th>
+                      <Th num>{t.results.wpm}</Th>
+                      <Th num>{t.results.acc}</Th>
+                      <Th num>{t.results.time}</Th>
                     </tr>
                   </thead>
                   <tbody className="text-strong">
@@ -100,7 +104,7 @@ export default function StatsPage() {
                         <Td>{r.finishedAt.slice(0, 16)}</Td>
                         <Td>{r.roomCode}</Td>
                         <Td num>
-                          {placeLabel(r.place)}{" "}
+                          {t.common.place(r.place)}{" "}
                           <span className="font-body text-xs/[1.3] text-muted uppercase">/ {r.riders}</span>
                         </Td>
                         <Td num>{r.score ?? "—"}</Td>
@@ -112,30 +116,30 @@ export default function StatsPage() {
                   </tbody>
                 </Table>
               ) : (
-                <FinePrint>No races yet. Go and win one.</FinePrint>
+                <FinePrint>{t.stats.noRaces}</FinePrint>
               )}
             </section>
 
             <aside className="grid content-start gap-4">
               <Panel>
-                <PanelTitle>Best scores on this server</PanelTitle>
+                <PanelTitle>{t.stats.leaderboard}</PanelTitle>
                 {board.length ? (
                   <Spec>
                     {board.map((row) => (
                       <SpecRow key={row.name} label={row.name}>
-                        {row.score} pts
+                        {t.common.pts(row.score)}
                       </SpecRow>
                     ))}
                   </Spec>
                 ) : (
-                  <FinePrint>Nobody has finished a race yet.</FinePrint>
+                  <FinePrint>{t.stats.nobodyYet}</FinePrint>
                 )}
               </Panel>
 
               {user.unlocks.length > 0 && (
                 <Panel>
-                  <PanelTitle>Unlocked mounts</PanelTitle>
-                  <FinePrint>{user.unlocks.join(", ")}</FinePrint>
+                  <PanelTitle>{t.stats.unlocked}</PanelTitle>
+                  <FinePrint>{user.unlocks.map((id) => t.mount.name(id)).join(", ")}</FinePrint>
                 </Panel>
               )}
             </aside>

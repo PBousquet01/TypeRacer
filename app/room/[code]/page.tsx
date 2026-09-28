@@ -12,8 +12,10 @@ import RaceScreen from "@/components/RaceScreen";
 import SpectatorScreen from "@/components/SpectatorScreen";
 import Results from "@/components/Results";
 import { HostTag, Loading, Notice } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 export default function RoomPage() {
+  const t = useT();
   const { code } = useParams<{ code: string }>();
   const saved = useSavedProfile();
   const [chosen, setChosen] = useState<Profile | null>(null);
@@ -33,7 +35,7 @@ export default function RoomPage() {
     updateSettings,
   } = useRoom(code, profile);
 
-  if (saved === undefined && !chosen) return <Loading>Saddling up…</Loading>;
+  if (saved === undefined && !chosen) return <Loading>{t.common.saddlingUp}</Loading>;
 
   if (!profile) {
     return (
@@ -60,23 +62,23 @@ export default function RoomPage() {
     );
   }
 
-  if (!room) return <Loading>Saddling up…</Loading>;
+  if (!room) return <Loading>{t.common.saddlingUp}</Loading>;
 
-  const phase = room.status === "lobby" ? "Lobby" : room.status === "finished" ? "Results" : "Racing";
+  const phase = room.status === "lobby" ? t.room.lobby : room.status === "finished" ? t.room.results : t.room.racing;
   const isHost = room.hostId === myId;
   const riding = room.players.find((p) => p.id === myId)?.racing ?? false;
   const hostName = room.players.find((p) => p.id === room.hostId)?.name;
 
   return (
     <main className="mx-auto grid max-w-[1280px] grid-cols-[minmax(0,1fr)] gap-4 p-[18px]">
-      <RoomBar phase={`${phase} · Room ${room.code} Circuit`}>
-        {isHost && <HostTag>HOST</HostTag>}
-        <span className="text-green">ROOM {room.code}</span>
+      <RoomBar phase={t.room.bar(phase, room.code)}>
+        {isHost && <HostTag>{t.common.host}</HostTag>}
+        <span className="text-green">{t.room.code(room.code)}</span>
       </RoomBar>
 
-      {notice && <Notice>{notice}</Notice>}
+      {notice && <Notice>{t.notices[notice]}</Notice>}
       {room.hostAway && (
-        <Notice>The host dropped out. Holding their seat for a few seconds in case they come back…</Notice>
+        <Notice>{t.room.hostAway}</Notice>
       )}
 
       {room.status === "lobby" && (

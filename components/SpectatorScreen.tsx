@@ -8,6 +8,7 @@ import Countdown from "./Countdown";
 import FinishClock from "./FinishClock";
 import { PROMPT_BOX, PROMPT_HINT, PROMPT_TEXT } from "./TypingBox";
 import { Stat, StatsBar, StatusTag } from "./ui";
+import { useT } from "@/lib/i18n";
 
 interface SpectatorScreenProps {
   room: PublicRoom;
@@ -17,6 +18,7 @@ interface SpectatorScreenProps {
 }
 
 export default function SpectatorScreen({ room, raceStartedAt, finishDeadline, isHost }: SpectatorScreenProps) {
+  const t = useT();
   const racing = room.status === "racing";
   const field = room.players.filter((p) => p.racing);
   const [now, setNow] = useState(() => Date.now());
@@ -33,10 +35,10 @@ export default function SpectatorScreen({ room, raceStartedAt, finishDeadline, i
   return (
     <div className="grid gap-3.5">
       <StatsBar>
-        <StatusTag>{isHost ? "SPECTATING · YOU'RE THE HOST" : "SPECTATING · YOU RIDE NEXT RACE"}</StatusTag>
-        <Stat value={field.length} label="RIDERS" accent />
-        <Stat value={finished} label="FINISHED" />
-        <Stat value={formatTime(elapsed)} label="ELAPSED" />
+        <StatusTag>{isHost ? t.race.spectatingHost : t.race.spectatingNext}</StatusTag>
+        <Stat value={field.length} label={t.race.riders} accent />
+        <Stat value={finished} label={t.race.finishedCount} />
+        <Stat value={formatTime(elapsed)} label={t.race.elapsed} />
         <FinishClock deadline={finishDeadline} />
       </StatsBar>
 
@@ -55,7 +57,7 @@ export default function SpectatorScreen({ room, raceStartedAt, finishDeadline, i
       <div className={PROMPT_BOX}>
         <p className={`${PROMPT_TEXT} text-dim`}>{room.text}</p>
         <p className={PROMPT_HINT}>
-          {isHost ? "This is what your riders are typing." : "This is what the riders are typing."}
+          {isHost ? t.race.yourRidersTyping : t.race.ridersTyping}
         </p>
       </div>
     </div>

@@ -1,6 +1,10 @@
+"use client";
+
 import Chocobo from "./Chocobo";
 import { FinePrint, Panel, PanelTitle, Spec, SpecRow, Table, Td, Th } from "./ui";
-import { formatTime, placeLabel } from "@/lib/format";
+import { formatTime } from "@/lib/format";
+import { useT } from "@/lib/i18n";
+import type { Dictionary } from "@/lib/i18n/en";
 import { cn } from "@/lib/cn";
 import type { PublicPlayer } from "@/lib/types";
 
@@ -10,21 +14,21 @@ function rank(players: PublicPlayer[]) {
   );
 }
 
-function headline(ranked: PublicPlayer[]) {
+function headline(ranked: PublicPlayer[], t: Dictionary) {
   const winner = ranked.find((p) => p.place === 1);
   const runnerUp = ranked.find((p) => p.place === 2);
   const best = ranked.find((p) => p.place);
 
   if (winner && runnerUp?.timeMs && winner.timeMs) {
     if (winner.timeMs > runnerUp.timeMs) {
-      return `${winner.name} took it on accuracy, even though ${runnerUp.name} crossed the line first.`;
+      return t.results.onAccuracy(winner.name, runnerUp.name);
     }
     const margin = Math.max(1, Math.round((runnerUp.timeMs - winner.timeMs) / 1000));
-    return `${winner.name} took it by ${margin} second${margin === 1 ? "" : "s"}.`;
+    return t.results.byMargin(winner.name, margin);
   }
-  if (winner) return `${winner.name} takes the circuit.`;
-  if (best) return `${best.name} came ${placeLabel(best.place).toLowerCase()}; the rest rode off.`;
-  return "Nobody made it to the finish line.";
+  if (winner) return t.results.takes(winner.name);
+  if (best) return t.results.came(best.name, t.common.place(best.place));
+  return t.results.nobody;
 }
 
 interface ResultsProps {
@@ -37,6 +41,7 @@ interface ResultsProps {
 }
 
 export default function Results({ players, myId, roomCode, isHost, hostName, onPlayAgain }: ResultsProps) {
+  const t = useT();
   const ranked = rank(players.filter((p) => p.racing));
   const me = ranked.find((p) => p.id === myId);
   const watched = !isHost && !me;
@@ -46,10 +51,10 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
     <div className="grid gap-4">
       <header className="frame grid justify-items-center gap-3 bg-headline px-[30px] py-7 text-center">
         <h2 className="text-[clamp(13px,2vw,18px)] text-accent uppercase [text-shadow:3px_3px_0_var(--ink)] light:[text-shadow:3px_3px_0_rgba(16,26,63,0.22)]">
-          Race complete
+          {t.results.complete}
         </h2>
-        <p className="max-w-[62ch] font-body text-sm/[1.7] text-copy">{headline(ranked)}</p>
-        <span className="font-display text-label tracking-[0.08em] text-accent">ROOM {roomCode}</span>
+        <p className="max-w-[62ch] font-body text-sm/[1.7] text-copy">{headline(ranked, t)}</p>
+        <span className="font-display text-label tracking-[0.08em] text-accent">{t.results.room(roomCode)}</span>
       </header>
 
       <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(180px,1fr))] items-end gap-4">
@@ -72,19 +77,19 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                 )}
               >
                 <span className={cn("font-display", winner ? "text-[13px] text-accent" : "text-xs text-muted")}>
-                  {placeLabel(p.place)}
+                  {t.common.place(p.place)}
                 </span>
                 <span className="font-body text-[15px]/[1.3] font-medium text-strong">
                   {p.name}
-                  {p.id === myId && <span className="text-accent"> · you</span>}
+                  {p.id === myId && <span className="text-accent"> · {t.common.you}</span>}
                 </span>
                 {p.score != null && (
                   <span className={cn("font-display text-sm/none", winner ? "text-accent" : "text-strong")}>
-                    {p.score} pts
+                    {t.common.pts(p.score)}
                   </span>
                 )}
                 <span className={cn("font-body text-[12.5px]/[1.3]", winner ? "text-accent" : "text-copy")}>
-                  {p.wpm ? `${p.wpm} wpm` : "didn't finish"}
+                  {p.wpm ? t.common.wpm(p.wpm) : t.common.didntFinish}
                   {p.accuracy != null && ` · ${p.accuracy}%`}
                   {p.timeMs != null && ` · ${formatTime(p.timeMs)}`}
                 </span>
@@ -96,17 +101,17 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
 
       <div className="grid gap-4 wide:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
         <section className="frame grid content-start gap-3 bg-window px-5 py-[18px]">
-          <h3 className="text-lg/normal">Full field</h3>
+          <h3 className="text-lg/normal">{t.results.fullField}</h3>
           <Table>
             <thead>
               <tr>
-                <Th className="w-5" aria-label="your row" />
+                <Th className="w-5" aria-label={t.results.yourRow} />
                 <Th>#</Th>
-                <Th>RIDER</Th>
-                <Th num>SCORE</Th>
-                <Th num>WPM</Th>
-                <Th num>ACC</Th>
-                <Th num>TIME</Th>
+                <Th>{t.results.rider}</Th>
+                <Th num>{t.results.score}</Th>
+                <Th num>{t.results.wpm}</Th>
+                <Th num>{t.results.acc}</Th>
+                <Th num>{t.results.time}</Th>
               </tr>
             </thead>
             <tbody>
@@ -121,12 +126,12 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                     <Td className={tone}>{p.place ?? i + 1}</Td>
                     <Td className={cn("font-medium", tone)}>
                       {p.name}
-                      {isMe && " · you"}
+                      {isMe && ` · ${t.common.you}`}
                     </Td>
                     <Td num className={cn("font-medium", tone)}>{p.score ?? "—"}</Td>
                     <Td num className={tone}>{p.wpm ?? "—"}</Td>
                     <Td num className={tone}>{p.accuracy != null ? `${p.accuracy}%` : "—"}</Td>
-                    <Td num className={tone}>{p.place ? formatTime(p.timeMs) : "DNF"}</Td>
+                    <Td num className={tone}>{p.place ? formatTime(p.timeMs) : t.common.place(null)}</Td>
                   </tr>
                 );
               })}
@@ -137,27 +142,27 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
         <aside className="grid content-start gap-4">
           {me && (
             <Panel>
-              <PanelTitle>Your race</PanelTitle>
+              <PanelTitle>{t.results.yourRace}</PanelTitle>
               <Spec>
-                <SpecRow label="Place">{me?.place ? placeLabel(me.place) : "didn't finish"}</SpecRow>
-                <SpecRow label="Score">{me?.score != null ? `${me.score} pts` : "—"}</SpecRow>
-                <SpecRow label="Speed">{me?.wpm ? `${me.wpm} wpm` : "—"}</SpecRow>
-                <SpecRow label="Accuracy">{me?.accuracy != null ? `${me.accuracy}%` : "—"}</SpecRow>
-                <SpecRow label="Time">{me?.place ? formatTime(me.timeMs) : "—"}</SpecRow>
+                <SpecRow label={t.results.placeRow}>{me?.place ? t.common.place(me.place) : t.common.didntFinish}</SpecRow>
+                <SpecRow label={t.results.scoreRow}>{me?.score != null ? t.common.pts(me.score) : "—"}</SpecRow>
+                <SpecRow label={t.results.speedRow}>{me?.wpm ? t.common.wpm(me.wpm) : "—"}</SpecRow>
+                <SpecRow label={t.results.accuracyRow}>{me?.accuracy != null ? `${me.accuracy}%` : "—"}</SpecRow>
+                <SpecRow label={t.results.timeRow}>{me?.place ? formatTime(me.timeMs) : "—"}</SpecRow>
               </Spec>
             </Panel>
           )}
           {isHost ? (
             <>
               <button className="btn btn-primary btn-block" onClick={onPlayAgain}>
-                Back to the lobby
+                {t.results.backToLobby}
               </button>
-              <FinePrint>Riders ready up again, then you start the next race.</FinePrint>
+              <FinePrint>{t.results.hostHint}</FinePrint>
             </>
           ) : (
             <FinePrint>
-              {watched && "You watched this one. "}
-              {hostName ? `${hostName} takes everyone back to the lobby.` : "Waiting for the host."}
+              {watched && t.results.watched}
+              {hostName ? t.results.hostTakesBack(hostName) : t.results.waitingForHost}
             </FinePrint>
           )}
         </aside>

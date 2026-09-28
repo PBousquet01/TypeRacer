@@ -35,7 +35,7 @@ async function post(path: string, body?: Record<string, string>) {
     body: JSON.stringify(body ?? {}),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error ?? "Something went wrong.");
+  if (!res.ok) throw new Error(data.error ?? "unknown"); // an ErrorCode; the page translates it
   return data;
 }
 

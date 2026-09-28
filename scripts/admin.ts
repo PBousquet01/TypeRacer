@@ -15,6 +15,7 @@ import { sql } from "../server/db";
 import { createUser, findUserByUsername, grantMount, revokeMount, validateCredentials } from "../server/auth";
 import { migrate } from "../server/db";
 import type { User } from "../lib/types";
+import { en } from "../lib/i18n/en";
 
 await migrate(); // so the CLI works against a fresh database too
 
@@ -60,12 +61,12 @@ switch (command) {
     const password = process.argv[5] ?? makePassword();
     const problem = validateCredentials(username, password);
     if (problem) {
-      console.error(problem);
+      console.error(en.errors[problem]);
       process.exit(1);
     }
     const created = await createUser({ username, password, displayName });
     if ("error" in created) {
-      console.error(created.error);
+      console.error(en.errors[created.error]);
       process.exit(1);
     }
     const { user } = created;

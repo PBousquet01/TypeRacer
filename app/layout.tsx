@@ -4,14 +4,16 @@ import Script from "next/script";
 import { Press_Start_2P, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "@/lib/session";
+import { LanguageProvider } from "@/lib/i18n";
+import { DICTIONARIES } from "@/lib/i18n/dictionaries";
+import { requestLang } from "@/lib/i18n/server";
 
 const display = Press_Start_2P({ variable: "--font-press-start", subsets: ["latin"], weight: "400" });
 const body = IBM_Plex_Mono({ variable: "--font-plex", subsets: ["latin"], weight: ["400", "500"] });
 
-export const metadata: Metadata = {
-  title: "Chocobo Race",
-  description: "A multiplayer typing race. Your bird runs exactly as fast as you type.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return DICTIONARIES[await requestLang()].meta;
+}
 
 // Runs before the first paint: picks the saved theme, or follows the
 // system setting the first time someone visits.
@@ -19,12 +21,13 @@ const themeScript = `(function(){try{var t=localStorage.getItem("chocobo-theme")
 if(!t)t=window.matchMedia("(prefers-color-scheme: light)").matches?"light":"dark";
 document.documentElement.dataset.theme=t;}catch(e){}})();`;
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const lang = await requestLang();
   return (
     // suppressHydrationWarning: the script below sets data-theme before React
     // hydrates, so this one attribute legitimately differs from the server HTML.
     <html
-      lang="en"
+      lang={lang}
       className={`${display.variable} ${body.variable}`}
       suppressHydrationWarning
     >
@@ -32,7 +35,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <Script id="theme" strategy="beforeInteractive">
           {themeScript}
         </Script>
-        <SessionProvider>{children}</SessionProvider>
+        <LanguageProvider initial={lang}>
+          <SessionProvider>{children}</SessionProvider>
+        </LanguageProvider>
       </body>
     </html>
   );

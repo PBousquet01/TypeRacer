@@ -6,19 +6,19 @@
 // server looks it up in the sessions table.
 import { randomBytes } from "node:crypto";
 import { sql } from "./db";
-import type { User } from "../lib/types";
+import type { ErrorCode, User } from "../lib/types";
 
 export const SESSION_COOKIE = "chocobo_session";
 const SESSION_DAYS = 30;
 const USERNAME_RE = /^[a-z0-9_-]{3,16}$/i;
 const MIN_PASSWORD = 8;
 
-export function validateCredentials(username: string | undefined, password: unknown): string | null {
+export function validateCredentials(username: string | undefined, password: unknown): ErrorCode | null {
   if (!USERNAME_RE.test(username ?? "")) {
-    return "Usernames are 3–16 characters: letters, numbers, - and _ only.";
+    return "username-format";
   }
   if (typeof password !== "string" || password.length < MIN_PASSWORD) {
-    return `Passwords need at least ${MIN_PASSWORD} characters.`;
+    return "password-short";
   }
   return null;
 }
@@ -31,10 +31,10 @@ export async function createUser({
   username: string;
   password: string;
   displayName: string;
-}): Promise<{ user: User } | { error: string }> {
+}): Promise<{ user: User } | { error: ErrorCode }> {
   const [taken] = await sql`
     SELECT id FROM users WHERE lower(username) = lower(${username})`;
-  if (taken) return { error: "That username is taken." };
+  if (taken) return { error: "username-taken" };
 
   const hash = await Bun.password.hash(password); // argon2id by default
   const [row]: { id: number }[] = await sql`

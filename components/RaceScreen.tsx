@@ -9,6 +9,7 @@ import TypingBox from "./TypingBox";
 import Countdown from "./Countdown";
 import FinishClock from "./FinishClock";
 import { Stat, StatsBar } from "./ui";
+import { useT } from "@/lib/i18n";
 
 interface RaceScreenProps {
   room: PublicRoom;
@@ -25,6 +26,7 @@ export default function RaceScreen({
   finishDeadline,
   onProgress,
 }: RaceScreenProps) {
+  const t = useT();
   const racing = room.status === "racing";
   const me = room.players.find((p) => p.id === myId);
   const [resume] = useState(() =>
@@ -44,9 +46,9 @@ export default function RaceScreen({
   return (
     <div className="grid gap-3.5">
       <StatsBar>
-        <Stat value={engine.wpm} label="WPM" accent />
-        <Stat value={`${engine.accuracy}%`} label="ACCURATE" />
-        <Stat value={formatTime(engine.elapsedMs)} label="ELAPSED" />
+        <Stat value={engine.wpm} label={t.race.wpm} accent />
+        <Stat value={`${engine.accuracy}%`} label={t.race.accurate} />
+        <Stat value={formatTime(engine.elapsedMs)} label={t.race.elapsed} />
         <FinishClock deadline={finishDeadline} />
       </StatsBar>
 

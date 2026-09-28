@@ -3,10 +3,9 @@
 import { useState } from "react";
 import Chocobo from "./Chocobo";
 import { Choice, FinePrint, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
-import { mountLabel } from "@/lib/chocobos";
 import { cn } from "@/lib/cn";
 import { MAX_RIDERS, MIN_RIDERS } from "@/lib/rules";
-import { KIND_LABELS, LANGUAGE_LABELS, textLabel } from "@/lib/format";
+import { useT } from "@/lib/i18n";
 import type { PublicRoom, RoomSettings } from "@/lib/types";
 
 const RIDER_ROW = "flex items-center gap-3 border-b border-edge/14 py-3 last:border-b-0 light:border-ink/14";
@@ -24,6 +23,7 @@ interface LobbyProps {
 }
 
 export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, onChangeSettings }: LobbyProps) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
   const me = room.players.find((p) => p.id === myId);
   const host = room.players.find((p) => p.id === room.hostId);
@@ -44,9 +44,9 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
       <section className="grid content-start">
         <header className="flex flex-wrap items-baseline justify-between gap-3 pb-3.5">
           <h2 className="text-xs/normal text-accent uppercase">
-            Riders <span className="font-body text-muted">{riders.length} / {MAX_RIDERS}</span>
+            {t.lobby.riders} <span className="font-body text-muted">{riders.length} / {MAX_RIDERS}</span>
           </h2>
-          <MonoNote>{readyCount} READY</MonoNote>
+          <MonoNote>{t.lobby.readyCount(readyCount)}</MonoNote>
         </header>
 
         <ul className="frame m-0 grid list-none bg-window px-5 py-[18px]">
@@ -63,9 +63,9 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
                 <span className="grid min-w-0 flex-1 gap-[5px]">
                   <span className={cn("font-body text-sm/[1.3] font-medium", isMe ? "text-accent" : "text-strong")}>
                     {p.name}
-                    {isMe && <MonoNote> · you</MonoNote>}
+                    {isMe && <MonoNote> · {t.common.you}</MonoNote>}
                   </span>
-                  <span className={SUB}>{mountLabel(p.color)}</span>
+                  <span className={SUB}>{t.mount.label(p.color)}</span>
                 </span>
                 <span
                   className={cn(
@@ -73,7 +73,7 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
                     p.ready ? "text-green" : "text-amber",
                   )}
                 >
-                  {p.ready ? "READY" : "EATING"}
+                  {p.ready ? t.lobby.ready : t.lobby.eating}
                 </span>
               </li>
             );
@@ -83,9 +83,7 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
               <span className={CURSOR} aria-hidden="true" />
               <span className={cn(MOUNT_BOX, "border-dashed border-edge/50 light:border-ink/35")} />
               <span className={SUB}>
-                {riders.length === 0
-                  ? "— No riders yet · send the invite link —"
-                  : `— ${freeStalls} ${freeStalls === 1 ? "stall" : "stalls"} open · send the invite code —`}
+                {riders.length === 0 ? t.lobby.noRiders : t.lobby.stallsOpen(freeStalls)}
               </span>
             </li>
           )}
@@ -96,61 +94,58 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
         {isHost ? (
           <>
             <Panel>
-              <PanelTitle>Race settings</PanelTitle>
+              <PanelTitle>{t.lobby.settings}</PanelTitle>
               <Choice
-                label="Text language"
+                label={t.text.languageLabel}
                 value={room.settings.language}
-                options={LANGUAGE_LABELS}
+                options={t.text.languages}
                 onChange={(language) => onChangeSettings({ language })}
               />
               <Choice
-                label="Text type"
+                label={t.text.kindLabel}
                 value={room.settings.kind}
-                options={KIND_LABELS}
+                options={t.text.kinds}
                 onChange={(kind) => onChangeSettings({ kind })}
               />
-              <FinePrint>Riders see your choice as soon as you make it.</FinePrint>
+              <FinePrint>{t.lobby.settingsHint}</FinePrint>
             </Panel>
             <Panel>
-              <PanelTitle>Race control</PanelTitle>
+              <PanelTitle>{t.lobby.control}</PanelTitle>
               <Spec>
-                <SpecRow label="Riders">{riders.length} / {MAX_RIDERS}</SpecRow>
-                <SpecRow label="Ready">{readyCount}</SpecRow>
-                <SpecRow label="Text">{textLabel(room.settings)}</SpecRow>
+                <SpecRow label={t.lobby.ridersRow}>{riders.length} / {MAX_RIDERS}</SpecRow>
+                <SpecRow label={t.lobby.readyRow}>{readyCount}</SpecRow>
+                <SpecRow label={t.lobby.textRow}>{t.text.label(room.settings)}</SpecRow>
               </Spec>
               <button className="btn btn-primary btn-block" onClick={onStartRace} disabled={!canStart}>
-                {canStart ? `Start race (${readyCount})` : `Waiting for riders (${readyCount}/${MIN_RIDERS})`}
+                {canStart ? t.lobby.start(readyCount) : t.lobby.waiting(readyCount)}
               </button>
-              <FinePrint>
-                A race needs at least {MIN_RIDERS} ready riders. Only they take part. You run the race and
-                watch — you don&apos;t type.
-              </FinePrint>
+              <FinePrint>{t.lobby.controlHint}</FinePrint>
             </Panel>
           </>
         ) : (
           <Panel>
-            <PanelTitle>Rules</PanelTitle>
+            <PanelTitle>{t.lobby.rules}</PanelTitle>
             <Spec>
-              <SpecRow label="Text">{textLabel(room.settings)}</SpecRow>
-              <SpecRow label="Backspace">Allowed — and required</SpecRow>
-              <SpecRow label="Mistakes">Stall your bird until fixed</SpecRow>
-              <SpecRow label="Winner">Best score: WPM × accuracy</SpecRow>
-              <SpecRow label="Last call">30 s once someone finishes</SpecRow>
+              <SpecRow label={t.lobby.textRow}>{t.text.label(room.settings)}</SpecRow>
+              <SpecRow label={t.lobby.backspace}>{t.lobby.backspaceValue}</SpecRow>
+              <SpecRow label={t.lobby.mistakes}>{t.lobby.mistakesValue}</SpecRow>
+              <SpecRow label={t.lobby.winner}>{t.lobby.winnerValue}</SpecRow>
+              <SpecRow label={t.lobby.lastCall}>{t.lobby.lastCallValue}</SpecRow>
             </Spec>
             <button className="btn btn-primary btn-block" onClick={onToggleReady}>
-              {me?.ready ? "Actually, wait" : "I'm ready"}
+              {me?.ready ? t.lobby.wait : t.lobby.imReady}
             </button>
             <FinePrint>
-              {host ? `${host.name} starts the race when riders are ready.` : "Waiting for a host."}
+              {host ? t.lobby.hostStarts(host.name) : t.lobby.waitingForHost}
             </FinePrint>
           </Panel>
         )}
 
         <Panel>
-          <PanelTitle>{isHost ? "Your room" : "Your mount"}</PanelTitle>
+          <PanelTitle>{isHost ? t.lobby.yourRoom : t.lobby.yourMount}</PanelTitle>
           <div className="grid h-32 place-items-center border-2 border-edge/50 bg-sky light:border-ink/35">
             {isHost ? (
-              <span className="bg-accent px-3.5 py-2.5 font-display text-[13px]/[1.4] text-ink light:text-white">HOST</span>
+              <span className="bg-accent px-3.5 py-2.5 font-display text-[13px]/[1.4] text-ink light:text-white">{t.common.host}</span>
             ) : (
               <Chocobo color={me?.color ?? "yellow"} size={78} />
             )}
@@ -159,11 +154,11 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
             <span className="font-body text-sm/[1.3] font-medium text-strong">
               {me?.name}
               <span className={SUB}>
-                {isHost ? " · running the show" : ` · ${mountLabel(me?.color).toLowerCase()}`}
+                {isHost ? t.lobby.runningShow : ` · ${t.mount.label(me?.color).toLowerCase()}`}
               </span>
             </span>
             <button className="btn-link" onClick={copyLink}>
-              {copied ? "COPIED" : "COPY INVITE"}
+              {copied ? t.lobby.copied : t.lobby.copyInvite}
             </button>
           </div>
         </Panel>
@@ -171,8 +166,8 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
 
       <div className="frame col-span-full overflow-hidden">
         <div className="flex items-center justify-between gap-3 border-b-2 border-edge/25 bg-bar px-[18px] py-3 font-display text-tiny text-accent uppercase">
-          <span>Room {room.code} Circuit</span>
-          <MonoNote>COURSE PREVIEW</MonoNote>
+          <span>{t.lobby.circuit(room.code)}</span>
+          <MonoNote>{t.lobby.preview}</MonoNote>
         </div>
         <div className="relative h-[132px] overflow-hidden bg-field" aria-hidden="true">
           {(riders.length ? riders : [{ id: "empty", color: "yellow" }]).map((p, i) => (

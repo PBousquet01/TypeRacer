@@ -1,9 +1,14 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import Wordmark from "./Wordmark";
 import ThemeToggle from "./ThemeToggle";
+import LanguageToggle from "./LanguageToggle";
 
 export default function RoomBar({ phase, children }: { phase: string; children?: ReactNode }) {
+  const t = useT();
   return (
     <header className="frame flex flex-wrap items-center justify-between gap-x-4 gap-y-3 bg-bar px-5 py-3.5">
       <div className="flex items-center gap-4 font-display text-tiny uppercase">
@@ -12,9 +17,10 @@ export default function RoomBar({ phase, children }: { phase: string; children?:
       </div>
       <div className="flex flex-wrap items-center gap-4 font-display text-tiny uppercase">
         {children}
+        <LanguageToggle />
         <ThemeToggle />
         <Link href="/" className="btn-link">
-          LEAVE
+          {t.common.leave}
         </Link>
       </div>
     </header>

@@ -5,8 +5,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Wordmark from "@/components/Wordmark";
 import ThemeToggle from "@/components/ThemeToggle";
+import LanguageToggle from "@/components/LanguageToggle";
 import { ErrorText, Field, FinePrint, OrRule, PanelTitle } from "@/components/ui";
 import { useSession } from "@/lib/session";
+import { useT } from "@/lib/i18n";
+import type { ErrorCode } from "@/lib/types";
 
 export default function AccountPage() {
   return (
@@ -17,13 +20,14 @@ export default function AccountPage() {
 }
 
 function AccountForm() {
+  const t = useT();
   const router = useRouter();
   const { signIn, signUp } = useSession();
   const [creating, setCreating] = useState(useSearchParams().get("new") === "1");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<ErrorCode | "">("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e: FormEvent) {
@@ -35,7 +39,7 @@ function AccountForm() {
       else await signIn(username.trim(), password);
       router.push("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setError(err instanceof Error && err.message in t.errors ? (err.message as ErrorCode) : "unknown");
       setBusy(false);
     }
   }
@@ -46,17 +50,17 @@ function AccountForm() {
         <Link href="/" className="no-underline">
           <Wordmark size={16} />
         </Link>
-        <ThemeToggle />
+        <span className="inline-flex items-center gap-2.5">
+          <LanguageToggle />
+          <ThemeToggle />
+        </span>
       </header>
 
       <form className="frame grid w-full gap-3.5 bg-window px-6 py-[22px]" onSubmit={submit}>
-        <PanelTitle as="h2">{creating ? "Create an account" : "Sign in"}</PanelTitle>
-        <FinePrint>
-          An account saves your race stats and any mounts unlocked for you. You can always race
-          as a guest instead — you just won&apos;t get a history.
-        </FinePrint>
+        <PanelTitle as="h2">{creating ? t.account.create : t.account.signIn}</PanelTitle>
+        <FinePrint>{t.account.intro}</FinePrint>
 
-        <Field label="Username">
+        <Field label={t.account.username}>
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -67,7 +71,7 @@ function AccountForm() {
         </Field>
 
         {creating && (
-          <Field label="Rider name (shown in races)">
+          <Field label={t.account.riderName}>
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
@@ -77,23 +81,23 @@ function AccountForm() {
           </Field>
         )}
 
-        <Field label="Password">
+        <Field label={t.account.password}>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete={creating ? "new-password" : "current-password"}
-            placeholder={creating ? "at least 8 characters" : ""}
+            placeholder={creating ? t.account.passwordHint : ""}
           />
         </Field>
 
-        {error && <ErrorText>{error}</ErrorText>}
+        {error && <ErrorText>{t.errors[error]}</ErrorText>}
 
         <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
-          {busy ? "One moment…" : creating ? "Create account" : "Sign in"}
+          {busy ? t.account.oneMoment : creating ? t.account.createButton : t.account.signIn}
         </button>
 
-        <OrRule>{creating ? "already have one?" : "new here?"}</OrRule>
+        <OrRule>{creating ? t.account.alreadyHave : t.account.newHere}</OrRule>
 
         <button
           type="button"
@@ -103,10 +107,10 @@ function AccountForm() {
             setError("");
           }}
         >
-          {creating ? "Sign in instead" : "Create an account"}
+          {creating ? t.account.signInInstead : t.account.create}
         </button>
         <FinePrint>
-          <Link href="/">Back to the stables</Link>
+          <Link href="/">{t.common.backToStables}</Link>
         </FinePrint>
       </form>
     </main>

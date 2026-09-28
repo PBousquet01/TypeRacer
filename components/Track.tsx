@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Chocobo from "./Chocobo";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
 
 const START = 14;
 const RUN = 86;
@@ -40,6 +41,7 @@ function liveWpm(progress: number, textLength: number, raceStartedAt: number | n
 }
 
 export default function Track({ players, myId, racing, textLength, raceStartedAt, stalled }: TrackProps) {
+  const t = useT();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -88,18 +90,18 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
                     )}
                   >
                     {p.name}
-                    {isMe && <span className="text-muted max-wide:hidden"> · you</span>}
-                    {p.away && <span className="text-amber"> · reconnecting</span>}
+                    {isMe && <span className="text-muted max-wide:hidden"> · {t.common.you}</span>}
+                    {p.away && <span className="text-amber"> · {t.race.reconnecting}</span>}
                   </span>
                   {compact && !isStalled ? null : isStalled ? (
                     <span className="border-2 border-paper bg-ember px-1.5 py-1 font-display text-tiny/[1.4] whitespace-nowrap text-ink">
-                      STALLED — FIX THE TYPO
+                      {t.race.stalled}
                     </span>
                   ) : (
                     <span className="font-body text-label/none whitespace-nowrap text-copy max-wide:hidden">
                       {p.finished
-                        ? `${p.wpm} WPM · FINISHED${p.score != null ? ` · ${p.score} PTS` : ""}`
-                        : `${p.liveWpm ?? liveWpm(progress, textLength, raceStartedAt, now)} WPM · ${Math.round(progress * 100)}%`}
+                        ? `${p.wpm} ${t.race.wpm} · ${t.race.finished}${p.score != null ? ` · ${t.common.pts(p.score).toUpperCase()}` : ""}`
+                        : `${p.liveWpm ?? liveWpm(progress, textLength, raceStartedAt, now)} ${t.race.wpm} · ${Math.round(progress * 100)}%`}
                     </span>
                   )}
                 </div>

@@ -67,14 +67,3 @@ export function needsOutline(id: string): boolean {
 export function mountAspect(id: string): number {
   return preset(id)?.aspect ?? 1;
 }
-
-export function colorLabel(color: string | undefined): string {
-  if (color && isCustomColor(color)) return `Custom (${color.toUpperCase()})`;
-  return preset(color)?.label ?? "Yellow";
-}
-
-export function mountLabel(color: string | undefined): string {
-  if (isCustomColor(color)) return `${colorLabel(color)} chocobo`;
-  const entry = preset(color) ?? preset(DEFAULT_COLOR)!;
-  return entry.noun ? `${entry.label} ${entry.noun}` : entry.label;
-}

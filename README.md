@@ -13,6 +13,8 @@ Accounts are optional: guests can race as always, and signing in saves your
 results and unlocks any special mounts granted to you.
 
 Built with Next.js (React) in TypeScript, Tailwind CSS, Socket.IO, Bun and PostgreSQL.
+The interface is in French and English (button in the top bar); the texts to
+type are a separate choice the host makes in the lobby.
 
 New to the codebase? `PROJECT-SUMMARY.md` is the short orientation: the
 architecture, the rules the server enforces, and the gotchas — quicker than

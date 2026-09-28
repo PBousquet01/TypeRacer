@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { CharState, TypingEngine } from "@/hooks/useTypingEngine";
 import { cn } from "@/lib/cn";
+import { useT } from "@/lib/i18n";
 
 const CHAR_STYLE: Record<CharState, string> = {
   pending: "text-dim",
@@ -22,6 +23,7 @@ interface TypingBoxProps {
 }
 
 export default function TypingBox({ text, engine, enabled }: TypingBoxProps) {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export default function TypingBox({ text, engine, enabled }: TypingBoxProps) {
         autoCorrect="off"
         autoCapitalize="off"
         spellCheck={false}
-        aria-label="Type the text here"
+        aria-label={t.race.typeHere}
       />
       <p className={PROMPT_TEXT}>
         {Array.from(text).map((ch, i) => (
@@ -58,9 +60,7 @@ export default function TypingBox({ text, engine, enabled }: TypingBoxProps) {
         ))}
       </p>
       <p className={PROMPT_HINT}>
-        {engine.hasMistake
-          ? "Backspace over the mistake. She'll wait. She always waits."
-          : "Every word you finish, your chocobo hops forward."}
+        {engine.hasMistake ? t.race.hintMistake : t.race.hintNormal}
       </p>
     </div>
   );
