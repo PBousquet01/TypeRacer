@@ -36,7 +36,11 @@ export default function TypingBox({ text, engine, enabled }: TypingBoxProps) {
         ref={inputRef}
         className="pointer-events-none absolute size-px border-0 p-0 opacity-0"
         value={engine.input}
-        onChange={(e) => engine.handleChange(e.target.value)}
+        onChange={(e) => {
+          // A refused key changes no state; make sure the hidden box doesn't
+          // keep it either, so it always holds exactly what the engine has.
+          if (!engine.handleChange(e.target.value)) e.target.value = engine.input;
+        }}
         onPaste={(e) => e.preventDefault()}
         disabled={!enabled || engine.isDone}
         autoComplete="off"

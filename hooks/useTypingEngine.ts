@@ -1,17 +1,21 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  accuracyOf,
+  applyInput,
+  correctPrefixLength,
+  EMPTY_STATE,
+  shouldReport,
+  wpmOf,
+  type TypingState,
+} from "@/lib/typing";
 
-// Like Monkeytype: you can't keep typing more than a few characters past a
-// mistake. You have to go back and fix it first.
-const MAX_CHARS_PAST_MISTAKE = 5;
-
-/** How many characters from the start match the text, stopping at the first mistake. */
 export type CharState = "pending" | "correct" | "wrong";
 
 export interface TypingEngine {
   input: string;
-  handleChange: (value: string) => void;
+  handleChange: (value: string) => boolean; // false when the change was refused
   charStates: CharState[];
   correctChars: number;
   hasMistake: boolean;
@@ -21,31 +25,6 @@ export interface TypingEngine {
   isDone: boolean;
 }
 
-interface TypingState {
-  input: string; // everything typed so far
-  startedAt: number | null; // time of the first keystroke (the timer starts there, like Monkeytype)
-  finishedAt: number | null; // time the last character was typed correctly
-  keystrokes: number; // every character typed, right or wrong
-  mistakes: number; // characters typed that didn't match the text
-}
-
-/** Share of keys that were right, fixed mistakes included. */
-function accuracyOf(keystrokes: number, mistakes: number): number {
-  return keystrokes ? Math.round(((keystrokes - mistakes) / keystrokes) * 100) : 100;
-}
-
-function correctPrefixLength(input: string, text: string): number {
-  let i = 0;
-  while (i < input.length && input[i] === text[i]) i++;
-  return i;
-}
-
-/**
- * The typing engine. `onProgress(n)` reports how many characters from the
- * start are correct, at every completed word and at the end; the server
- * moves the chocobo from that and decides the finish order. The final report
- * also carries the accuracy, which the server needs for the score.
- */
 interface EngineOptions {
   enabled: boolean;
   onProgress?: (correctChars: number, accuracy?: number) => void;
@@ -55,16 +34,18 @@ interface EngineOptions {
   resume?: { correctChars: number; startedAt: number } | null;
 }
 
+/**
+ * The typing engine. The rules live in lib/typing.ts; this hook keeps the
+ * state and the clock. `onProgress(n)` reports how many characters from the
+ * start are correct, at every completed word and at the end; the server
+ * moves the chocobo from that and decides the finish order. The final report
+ * also carries the accuracy, which the server needs for the score.
+ */
 export function useTypingEngine(text: string, { enabled, onProgress, resume }: EngineOptions): TypingEngine {
   const [typing, setTyping] = useState<TypingState>(() => {
     const done = resume ? Math.min(resume.correctChars, text.length) : 0;
-    return {
-      input: text.slice(0, done),
-      startedAt: done > 0 ? resume!.startedAt : null,
-      finishedAt: null,
-      keystrokes: done,
-      mistakes: 0,
-    };
+    if (done === 0) return EMPTY_STATE;
+    return { ...EMPTY_STATE, input: text.slice(0, done), startedAt: resume!.startedAt, keystrokes: done };
   });
   const [now, setNow] = useState(0);
   // The last progress value sent to the server, so we don't send it twice.
@@ -80,48 +61,22 @@ export function useTypingEngine(text: string, { enabled, onProgress, resume }: E
     return () => clearInterval(id);
   }, [startedAt, finishedAt]);
 
-  function handleChange(value: string) {
-    if (!enabled || isDone) return;
-
-    // Only typing or deleting at the end counts, so a moved cursor or an
-    // edit in the middle can't desynchronise the engine.
-    const isTyping = value.length > input.length && value.startsWith(input);
-    const isDeleting = value.length < input.length && input.startsWith(value);
-    if (!isTyping && !isDeleting) return;
-
-    if (isTyping) {
-      if (value.length > text.length) return;
-      const hasMistake = correctChars < input.length;
-      if (hasMistake && value.length > correctChars + MAX_CHARS_PAST_MISTAKE) return;
-    }
-
-    // Accuracy counts every key pressed, fixed mistakes included.
-    const added = isTyping ? value.slice(input.length) : "";
-    let newMistakes = 0;
-    for (let i = 0; i < added.length; i++) {
-      if (added[i] !== text[input.length + i]) newMistakes++;
-    }
-
+  function handleChange(value: string): boolean {
+    if (!enabled) return false;
     const time = Date.now();
-    const newCorrect = correctPrefixLength(value, text);
-    const done = newCorrect === text.length;
-    const totalKeys = keystrokes + added.length;
-    const totalMistakes = mistakes + newMistakes;
+    const next = applyInput(typing, value, text, time);
+    if (!next) return false;
 
-    setTyping({
-      input: value,
-      startedAt: startedAt ?? time,
-      finishedAt: done ? time : null,
-      keystrokes: totalKeys,
-      mistakes: totalMistakes,
-    });
+    setTyping(next);
     setNow(time);
 
-    const wordCompleted = text[newCorrect - 1] === " ";
-    if (newCorrect > reportedRef.current && (wordCompleted || done)) {
-      reportedRef.current = newCorrect;
-      onProgress?.(newCorrect, done ? accuracyOf(totalKeys, totalMistakes) : undefined);
+    const nextCorrect = correctPrefixLength(next.input, text);
+    if (shouldReport(text, nextCorrect, reportedRef.current)) {
+      reportedRef.current = nextCorrect;
+      const done = nextCorrect === text.length;
+      onProgress?.(nextCorrect, done ? accuracyOf(next.keystrokes, next.mistakes) : undefined);
     }
+    return true;
   }
 
   const charStates = useMemo(
@@ -133,12 +88,17 @@ export function useTypingEngine(text: string, { enabled, onProgress, resume }: E
     [text, input],
   );
 
-  // A "word" is 5 characters by convention; only correct ones count.
   const elapsedMs = startedAt ? Math.max(0, (finishedAt ?? now) - startedAt) : 0;
-  const wpm = elapsedMs >= 1000 ? Math.round(correctChars / 5 / (elapsedMs / 60000)) : 0;
-  const accuracy = accuracyOf(keystrokes, mistakes);
 
-  const hasMistake = correctChars < input.length;
-
-  return { input, handleChange, charStates, correctChars, hasMistake, elapsedMs, wpm, accuracy, isDone };
+  return {
+    input,
+    handleChange,
+    charStates,
+    correctChars,
+    hasMistake: correctChars < input.length,
+    elapsedMs,
+    wpm: wpmOf(correctChars, elapsedMs),
+    accuracy: accuracyOf(keystrokes, mistakes),
+    isDone,
+  };
 }

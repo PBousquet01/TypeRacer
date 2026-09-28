@@ -35,6 +35,15 @@ On a Mac, PostgreSQL comes from Homebrew:
 brew install postgresql@17 && brew services start postgresql@17
 ```
 
+Run the tests (they need the database too):
+
+```bash
+bun test
+```
+
+GitHub runs the same checks (lint, types, tests, build) on every push; see
+`.github/workflows/ci.yml`.
+
 Open http://localhost:3000. To test multiplayer on your own, open a second
 browser tab and join with the room code (each tab is its own player).
 

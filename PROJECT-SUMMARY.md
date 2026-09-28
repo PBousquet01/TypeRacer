@@ -18,6 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
+bun test            # 48 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -36,6 +37,7 @@ at boot by `server/db.ts`; there is no migration step.
 | `server/api.ts` | JSON API for `/api/*`, answered before Next sees the request |
 | `server/auth.ts` `server/db.ts` `server/stats.ts` `server/texts.ts` | Accounts/sessions, Postgres schema, race recording, text bank (`pickText` queries PostgreSQL) |
 | `lib/types.ts` | Shared types: room/player shapes and the typed Socket.IO events, imported by server and client |
+| `lib/typing.ts` | The typing engine's rules as pure functions (`applyInput`, `shouldReport`, accuracy, WPM); unit-tested |
 | `hooks/useTypingEngine.ts` | The typing engine: correct/wrong chars, WPM, accuracy, progress reports |
 | `hooks/useRoom.ts` `lib/socket.ts` | Socket events → React state |
 | `app/page.tsx` | Title screen: name, mount, host or join, practice |
@@ -75,6 +77,23 @@ at boot by `server/db.ts`; there is no migration step.
   room; it only fetches `GET /api/text`. Results are written solely when a
   race ends, so there is no path from practice to the database.
 - **Results are saved for signed-in finishers only.** Guests race normally.
+
+## Tests and CI (TECH-7)
+
+`bun test` runs everything in `tests/`: the typing rules (`typing.test.ts`),
+score and dictionaries (`rules.test.ts`), the referee with real Socket.IO
+clients against a real server started in the test (`rooms.test.ts`: COURSE-3,
+4, 7, 11, 14, 15, TXT-9, anti-cheat, locked mounts) and the HTTP API
+(`api.test.ts`: accounts, cookies, hashing, text bank, error codes). The
+database tests use `DATABASE_URL`; the API tests make a throwaway account and
+delete it. Races take ~6 s because the anti-cheat forbids finishing faster
+than ~300 WPM, so the suite takes ~15 s.
+
+`.github/workflows/ci.yml` runs lint, typecheck, tests (against a
+`postgres:17` service) and the build on every push to `main` and every PR.
+
+Gotcha: all test files run in one process and share the `sql` connection, so
+never call `sql.end()` in a test.
 
 ## Languages (UX-5)
 
