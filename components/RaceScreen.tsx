@@ -15,8 +15,7 @@ interface RaceScreenProps {
   myId: string | null;
   raceStartedAt: number | null;
   finishDeadline: number | null;
-  onProgress: (charIndex: number) => void;
-  onStats: (stats: { accuracy: number }) => void;
+  onProgress: (charIndex: number, accuracy?: number) => void;
 }
 
 export default function RaceScreen({
@@ -25,7 +24,6 @@ export default function RaceScreen({
   raceStartedAt,
   finishDeadline,
   onProgress,
-  onStats,
 }: RaceScreenProps) {
   const racing = room.status === "racing";
   const me = room.players.find((p) => p.id === myId);
@@ -33,24 +31,15 @@ export default function RaceScreen({
     me && me.charIndex > 0 && raceStartedAt ? { correctChars: me.charIndex, startedAt: raceStartedAt } : null,
   );
   const engine = useTypingEngine(room.text, { enabled: racing && !me?.finished, onProgress, resume });
-  const reportedRef = useRef(false);
   const socketRef = useRef(myId);
-
-  useEffect(() => {
-    if (engine.isDone && !reportedRef.current) {
-      reportedRef.current = true;
-      onStats({ accuracy: engine.accuracy });
-    }
-  }, [engine.isDone, engine.accuracy, onStats]);
 
   // A dropped connection comes back on a new socket id. Anything sent while it
   // was down may have been lost, so tell the server where we are again.
   useEffect(() => {
     if (!myId || socketRef.current === myId) return;
     socketRef.current = myId;
-    if (engine.correctChars > 0) onProgress(engine.correctChars);
-    if (engine.isDone) onStats({ accuracy: engine.accuracy });
-  }, [myId, engine.correctChars, engine.isDone, engine.accuracy, onProgress, onStats]);
+    if (engine.correctChars > 0) onProgress(engine.correctChars, engine.isDone ? engine.accuracy : undefined);
+  }, [myId, engine.correctChars, engine.isDone, engine.accuracy, onProgress]);
 
   return (
     <div className="grid gap-3.5">

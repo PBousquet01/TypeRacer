@@ -11,7 +11,7 @@
 import type { Server, Socket } from "socket.io";
 import { isKind, isLanguage, pickText } from "./texts";
 import { recordRace } from "./stats";
-import { FINISH_GRACE_MS, MAX_RIDERS, MIN_RIDERS, RECONNECT_MS } from "../lib/rules";
+import { FINISH_GRACE_MS, MAX_RIDERS, MIN_RIDERS, RECONNECT_MS, scoreOf } from "../lib/rules";
 import type {
   ClientToServerEvents,
   PublicPlayer,
@@ -46,6 +46,7 @@ export interface Player {
   wpm: number | null;
   accuracy: number | null;
   timeMs: number | null;
+  score: number | null; // wpm × accuracy, set on finishing; decides the final places
   away: boolean; // dropped mid-race; the lane is held for RECONNECT_MS
 }
 
@@ -130,6 +131,7 @@ function newPlayer(
     wpm: null,
     accuracy: null,
     timeMs: null,
+    score: null,
     away: false,
   };
 }
@@ -143,6 +145,7 @@ function resetPlayer(player: Player) {
     wpm: null,
     accuracy: null,
     timeMs: null,
+    score: null,
   });
 }
 
@@ -214,12 +217,28 @@ function startRace(io: IO, room: Room) {
   room.timeouts.push(setTimeout(() => endRace(io, room), MAX_RACE_MS));
 }
 
+// TXT-9: the ranking punishes fast but sloppy typing. Places go by score
+// (wpm × accuracy) among the riders who finished, so crossing the line first
+// isn't enough on its own. Equal scores go to whoever crossed first; a
+// finisher with no accuracy (their report never arrived) ranks after the
+// scored ones. Riders who didn't finish get no place (DNF).
+function rankFinishers(room: Room) {
+  const finishers = racers(room).filter((p) => p.finished);
+  finishers.sort(
+    (a, b) => (b.score ?? -1) - (a.score ?? -1) || (a.timeMs ?? Infinity) - (b.timeMs ?? Infinity),
+  );
+  finishers.forEach((p, i) => {
+    p.place = i + 1;
+  });
+}
+
 function endRace(io: IO, room: Room) {
   clearTimers(room);
   room.status = "finished";
   room.finishAt = null;
-  // Save results before telling anyone: by now every finisher has reported
-  // their accuracy, so the stored row is complete.
+  rankFinishers(room);
+  // Save results before telling anyone: accuracy arrives with each rider's
+  // finishing report, so the stored rows are complete.
   racers(room).forEach((player) =>
     recordRace(room, player).catch((err) => console.error("could not save a race result", err)),
   );
@@ -318,6 +337,17 @@ function reclaimLane(room: Room, oldId: string, newId: string) {
   player.away = false;
   room.players = new Map([...room.players].map(([id, p]) => (id === oldId ? [newId, p] : [id, p])));
   return player;
+}
+
+// Accuracy is counted in the browser, so the rider reports their own (treat
+// it as self-reported). Only the first report counts: a tab reloaded after the
+// finish has forgotten its mistakes and would otherwise send 100%.
+function setAccuracy(player: Player, accuracy: unknown): boolean {
+  const value = Number(accuracy);
+  if (player.accuracy !== null || accuracy == null || !Number.isFinite(value)) return false;
+  player.accuracy = Math.max(0, Math.min(100, Math.round(value)));
+  player.score = player.wpm === null ? null : scoreOf(player.wpm, player.accuracy);
+  return true;
 }
 
 function currentRoom(socket: ClientSocket): Room | undefined {
@@ -490,10 +520,18 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     broadcastRoom(io, room);
   });
 
-  socket.on("progress", (charIndex) => {
+  socket.on("progress", (charIndex, accuracy) => {
     const room = currentRoom(socket);
     const player = room?.players.get(socket.id);
-    if (!room || !player || !player.racing || room.status !== "racing" || player.finished) return;
+    if (!room || !player || !player.racing) return;
+
+    // Already finished: the only thing worth hearing is an accuracy that got
+    // lost on the way (the rider resends it after a reconnect).
+    if (player.finished) {
+      if (setAccuracy(player, accuracy)) broadcastRoom(io, room);
+      return;
+    }
+    if (room.status !== "racing") return;
 
     const n = Math.floor(Number(charIndex));
     if (!Number.isFinite(n) || n <= player.charIndex) return;
@@ -505,27 +543,13 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
 
     if (player.charIndex === room.text.length) {
       player.finished = true;
-      player.place = racers(room).filter((p) => p.finished).length;
       player.wpm = Math.round(room.text.length / 5 / (elapsedSec / 60));
       player.timeMs = Math.round(elapsedSec * 1000);
+      setAccuracy(player, accuracy);
       startFinishClock(io, room);
       broadcastRoom(io, room);
       endIfEveryoneFinished(io, room);
     }
-  });
-
-  // Accuracy is counted in the browser, so the rider reports their own. Only
-  // the first report counts: a tab reloaded after the finish has forgotten its
-  // mistakes and would otherwise overwrite the real figure with 100%.
-  socket.on("stats", (stats) => {
-    const room = currentRoom(socket);
-    const player = room?.players.get(socket.id);
-    if (!room || !player || !player.racing || player.accuracy !== null) return;
-
-    const value = Number(stats?.accuracy);
-    if (!Number.isFinite(value)) return;
-    player.accuracy = Math.max(0, Math.min(100, Math.round(value)));
-    broadcastRoom(io, room);
   });
 
   socket.on("playAgain", () => {

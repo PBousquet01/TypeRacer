@@ -134,7 +134,7 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
               <SpecRow label="Text">{textLabel(room.settings)}</SpecRow>
               <SpecRow label="Backspace">Allowed — and required</SpecRow>
               <SpecRow label="Mistakes">Stall your bird until fixed</SpecRow>
-              <SpecRow label="Winner">First to type the last letter</SpecRow>
+              <SpecRow label="Winner">Best score: WPM × accuracy</SpecRow>
               <SpecRow label="Last call">30 s once someone finishes</SpecRow>
             </Spec>
             <button className="btn btn-primary btn-block" onClick={onToggleReady}>

@@ -29,6 +29,11 @@ interface TypingState {
   mistakes: number; // characters typed that didn't match the text
 }
 
+/** Share of keys that were right, fixed mistakes included. */
+function accuracyOf(keystrokes: number, mistakes: number): number {
+  return keystrokes ? Math.round(((keystrokes - mistakes) / keystrokes) * 100) : 100;
+}
+
 function correctPrefixLength(input: string, text: string): number {
   let i = 0;
   while (i < input.length && input[i] === text[i]) i++;
@@ -38,11 +43,12 @@ function correctPrefixLength(input: string, text: string): number {
 /**
  * The typing engine. `onProgress(n)` reports how many characters from the
  * start are correct, at every completed word and at the end; the server
- * moves the chocobo from that and decides the finish order.
+ * moves the chocobo from that and decides the finish order. The final report
+ * also carries the accuracy, which the server needs for the score.
  */
 interface EngineOptions {
   enabled: boolean;
-  onProgress?: (correctChars: number) => void;
+  onProgress?: (correctChars: number, accuracy?: number) => void;
   // Picking a race back up after a reload: the server's count of correct
   // characters and when the race started. The keystrokes before the reload
   // are gone, so they're counted as clean; accuracy is self-reported anyway.
@@ -99,20 +105,22 @@ export function useTypingEngine(text: string, { enabled, onProgress, resume }: E
     const time = Date.now();
     const newCorrect = correctPrefixLength(value, text);
     const done = newCorrect === text.length;
+    const totalKeys = keystrokes + added.length;
+    const totalMistakes = mistakes + newMistakes;
 
     setTyping({
       input: value,
       startedAt: startedAt ?? time,
       finishedAt: done ? time : null,
-      keystrokes: keystrokes + added.length,
-      mistakes: mistakes + newMistakes,
+      keystrokes: totalKeys,
+      mistakes: totalMistakes,
     });
     setNow(time);
 
     const wordCompleted = text[newCorrect - 1] === " ";
     if (newCorrect > reportedRef.current && (wordCompleted || done)) {
       reportedRef.current = newCorrect;
-      onProgress?.(newCorrect);
+      onProgress?.(newCorrect, done ? accuracyOf(totalKeys, totalMistakes) : undefined);
     }
   }
 
@@ -128,7 +136,7 @@ export function useTypingEngine(text: string, { enabled, onProgress, resume }: E
   // A "word" is 5 characters by convention; only correct ones count.
   const elapsedMs = startedAt ? Math.max(0, (finishedAt ?? now) - startedAt) : 0;
   const wpm = elapsedMs >= 1000 ? Math.round(correctChars / 5 / (elapsedMs / 60000)) : 0;
-  const accuracy = keystrokes ? Math.round(((keystrokes - mistakes) / keystrokes) * 100) : 100;
+  const accuracy = accuracyOf(keystrokes, mistakes);
 
   const hasMistake = correctChars < input.length;
 

@@ -66,8 +66,10 @@ export function useRoom(code: string, profile: Profile | null) {
     () => getSocket().emit("startRace", null, (res) => "error" in res && setError(res.error)),
     [],
   );
-  const sendProgress = useCallback((charIndex: number) => getSocket().emit("progress", charIndex), []);
-  const sendStats = useCallback((stats: { accuracy: number }) => getSocket().emit("stats", stats), []);
+  const sendProgress = useCallback(
+    (charIndex: number, accuracy?: number) => getSocket().emit("progress", charIndex, accuracy),
+    [],
+  );
   const playAgain = useCallback(() => getSocket().emit("playAgain"), []);
   const updateSettings = useCallback(
     (settings: Partial<RoomSettings>) => getSocket().emit("updateSettings", settings),
@@ -84,7 +86,6 @@ export function useRoom(code: string, profile: Profile | null) {
     toggleReady,
     startRace,
     sendProgress,
-    sendStats,
     playAgain,
     updateSettings,
   };

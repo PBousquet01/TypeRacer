@@ -16,6 +16,9 @@ function headline(ranked: PublicPlayer[]) {
   const best = ranked.find((p) => p.place);
 
   if (winner && runnerUp?.timeMs && winner.timeMs) {
+    if (winner.timeMs > runnerUp.timeMs) {
+      return `${winner.name} took it on accuracy, even though ${runnerUp.name} crossed the line first.`;
+    }
     const margin = Math.max(1, Math.round((runnerUp.timeMs - winner.timeMs) / 1000));
     return `${winner.name} took it by ${margin} second${margin === 1 ? "" : "s"}.`;
   }
@@ -75,6 +78,11 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                   {p.name}
                   {p.id === myId && <span className="text-accent"> · you</span>}
                 </span>
+                {p.score != null && (
+                  <span className={cn("font-display text-sm/none", winner ? "text-accent" : "text-strong")}>
+                    {p.score} pts
+                  </span>
+                )}
                 <span className={cn("font-body text-[12.5px]/[1.3]", winner ? "text-accent" : "text-copy")}>
                   {p.wpm ? `${p.wpm} wpm` : "didn't finish"}
                   {p.accuracy != null && ` · ${p.accuracy}%`}
@@ -95,6 +103,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                 <Th className="w-5" aria-label="your row" />
                 <Th>#</Th>
                 <Th>RIDER</Th>
+                <Th num>SCORE</Th>
                 <Th num>WPM</Th>
                 <Th num>ACC</Th>
                 <Th num>TIME</Th>
@@ -114,6 +123,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                       {p.name}
                       {isMe && " · you"}
                     </Td>
+                    <Td num className={cn("font-medium", tone)}>{p.score ?? "—"}</Td>
                     <Td num className={tone}>{p.wpm ?? "—"}</Td>
                     <Td num className={tone}>{p.accuracy != null ? `${p.accuracy}%` : "—"}</Td>
                     <Td num className={tone}>{p.place ? formatTime(p.timeMs) : "DNF"}</Td>
@@ -130,6 +140,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
               <PanelTitle>Your race</PanelTitle>
               <Spec>
                 <SpecRow label="Place">{me?.place ? placeLabel(me.place) : "didn't finish"}</SpecRow>
+                <SpecRow label="Score">{me?.score != null ? `${me.score} pts` : "—"}</SpecRow>
                 <SpecRow label="Speed">{me?.wpm ? `${me.wpm} wpm` : "—"}</SpecRow>
                 <SpecRow label="Accuracy">{me?.accuracy != null ? `${me.accuracy}%` : "—"}</SpecRow>
                 <SpecRow label="Time">{me?.place ? formatTime(me.timeMs) : "—"}</SpecRow>

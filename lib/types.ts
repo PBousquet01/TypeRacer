@@ -29,6 +29,7 @@ export interface PublicPlayer {
   wpm: number | null;
   accuracy: number | null;
   timeMs: number | null;
+  score: number | null; // wpm × accuracy; decides the final places (TXT-9)
   away: boolean; // dropped mid-race; their lane is held until they reconnect
   progress: number; // 0..1
 }
@@ -82,8 +83,9 @@ export interface ClientToServerEvents {
   toggleReady: () => void;
   startRace: (payload: null, reply?: (res: ActionReply) => void) => void;
   updateSettings: (settings: Partial<RoomSettings>) => void;
-  progress: (charIndex: number) => void;
-  stats: (stats: { accuracy: number }) => void;
+  // accuracy rides along with the finishing report, so the server has it
+  // before the race can end
+  progress: (charIndex: number, accuracy?: number) => void;
   playAgain: () => void;
   leaveRoom: () => void;
 }
@@ -95,6 +97,7 @@ export interface ServerToClientEvents {
 
 export interface StatsSummary {
   races: number;
+  bestScore: number | null;
   bestWpm: number | null;
   avgWpm: number | null;
   avgAccuracy: number | null;
@@ -107,12 +110,14 @@ export interface RecentRace {
   accuracy: number | null;
   timeMs: number | null;
   place: number | null;
+  score: number | null;
   riders: number;
   finishedAt: string;
 }
 
 export interface LeaderboardRow {
   name: string;
+  score: number;
   wpm: number;
   races: number;
   wins: number;

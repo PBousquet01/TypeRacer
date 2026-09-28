@@ -18,6 +18,7 @@ export interface TrackRider {
   finished: boolean;
   wpm: number | null;
   place: number | null;
+  score?: number | null;
   liveWpm?: number;
   away?: boolean;
 }
@@ -97,7 +98,7 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
                   ) : (
                     <span className="font-body text-label/none whitespace-nowrap text-copy max-wide:hidden">
                       {p.finished
-                        ? `${p.wpm} WPM · FINISHED ${p.place ? `#${p.place}` : ""}`
+                        ? `${p.wpm} WPM · FINISHED${p.score != null ? ` · ${p.score} PTS` : ""}`
                         : `${p.liveWpm ?? liveWpm(progress, textLength, raceStartedAt, now)} WPM · ${Math.round(progress * 100)}%`}
                     </span>
                   )}

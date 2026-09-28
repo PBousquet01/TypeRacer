@@ -75,13 +75,14 @@ async function statsFor(userId: number): Promise<{ summary: StatsSummary; recent
   const [summary]: StatsSummary[] = await sql`
     SELECT COUNT(*)::int                       AS races,
            MAX(wpm)::int                       AS "bestWpm",
+           MAX(score)::int                     AS "bestScore",
            ROUND(AVG(wpm))::int                AS "avgWpm",
            ROUND(AVG(accuracy))::int           AS "avgAccuracy",
            COUNT(*) FILTER (WHERE place = 1)::int AS wins
       FROM races WHERE user_id = ${userId}`;
 
   const recent: RecentRace[] = await sql`
-    SELECT room_code AS "roomCode", wpm, accuracy, time_ms AS "timeMs",
+    SELECT room_code AS "roomCode", wpm, accuracy, score, time_ms AS "timeMs",
            place, riders, to_char(finished_at, 'YYYY-MM-DD HH24:MI') AS "finishedAt"
       FROM races WHERE user_id = ${userId}
       ORDER BY finished_at DESC, id DESC LIMIT 10`;
@@ -160,12 +161,14 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
 
   if (path === "/api/stats/leaderboard" && method === "GET") {
     const rows: LeaderboardRow[] = await sql`
-      SELECT users.display_name AS name, MAX(races.wpm)::int AS wpm,
+      SELECT users.display_name AS name, MAX(races.score)::int AS score,
+             MAX(races.wpm)::int AS wpm,
              COUNT(races.id)::int AS races,
              COUNT(*) FILTER (WHERE races.place = 1)::int AS wins
         FROM races JOIN users ON users.id = races.user_id
+       WHERE races.score IS NOT NULL
        GROUP BY users.id, users.display_name
-       ORDER BY wpm DESC LIMIT 10`;
+       ORDER BY score DESC LIMIT 10`;
     send(res, 200, { leaderboard: rows });
     return true;
   }

@@ -10,6 +10,7 @@ import { useTypingEngine } from "@/hooks/useTypingEngine";
 import { useSavedProfile } from "@/lib/profile";
 import { useSession } from "@/lib/session";
 import { formatTime, KIND_LABELS, LANGUAGE_LABELS } from "@/lib/format";
+import { scoreOf } from "@/lib/rules";
 import type { RoomSettings } from "@/lib/types";
 
 export default function PracticePage() {
@@ -99,6 +100,7 @@ function PracticeRun({ text, settings, onSettings, onAnother }: PracticeRunProps
           <Panel>
             <PanelTitle>Run finished</PanelTitle>
             <Spec>
+              <SpecRow label="Score">{scoreOf(engine.wpm, engine.accuracy)} pts</SpecRow>
               <SpecRow label="Speed">{engine.wpm} wpm</SpecRow>
               <SpecRow label="Accuracy">{engine.accuracy}%</SpecRow>
               <SpecRow label="Time">{formatTime(engine.elapsedMs)}</SpecRow>

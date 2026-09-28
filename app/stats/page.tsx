@@ -69,7 +69,8 @@ export default function StatsPage() {
           <section className="mb-[18px] grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">
             <Figure value={data?.summary.races ?? 0} label="RACES" />
             <Figure value={data?.summary.wins ?? 0} label="WINS" />
-            <Figure value={data?.summary.bestWpm ?? "—"} label="BEST WPM" accent />
+            <Figure value={data?.summary.bestScore ?? "—"} label="BEST SCORE" accent />
+            <Figure value={data?.summary.bestWpm ?? "—"} label="BEST WPM" />
             <Figure value={data?.summary.avgWpm ?? "—"} label="AVERAGE WPM" />
             <Figure
               value={data?.summary.avgAccuracy != null ? `${data.summary.avgAccuracy}%` : "—"}
@@ -87,6 +88,7 @@ export default function StatsPage() {
                       <Th>WHEN</Th>
                       <Th>ROOM</Th>
                       <Th num>PLACE</Th>
+                      <Th num>SCORE</Th>
                       <Th num>WPM</Th>
                       <Th num>ACC</Th>
                       <Th num>TIME</Th>
@@ -101,6 +103,7 @@ export default function StatsPage() {
                           {placeLabel(r.place)}{" "}
                           <span className="font-body text-xs/[1.3] text-muted uppercase">/ {r.riders}</span>
                         </Td>
+                        <Td num>{r.score ?? "—"}</Td>
                         <Td num>{r.wpm}</Td>
                         <Td num>{r.accuracy != null ? `${r.accuracy}%` : "—"}</Td>
                         <Td num>{formatTime(r.timeMs)}</Td>
@@ -115,12 +118,12 @@ export default function StatsPage() {
 
             <aside className="grid content-start gap-4">
               <Panel>
-                <PanelTitle>Fastest on this server</PanelTitle>
+                <PanelTitle>Best scores on this server</PanelTitle>
                 {board.length ? (
                   <Spec>
                     {board.map((row) => (
                       <SpecRow key={row.name} label={row.name}>
-                        {row.wpm} wpm
+                        {row.score} pts
                       </SpecRow>
                     ))}
                   </Spec>

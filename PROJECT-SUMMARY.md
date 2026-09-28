@@ -53,6 +53,11 @@ at boot by `server/db.ts`; there is no migration step.
   `server/rooms.ts`. Progress faster than ~300 WPM is ignored.
 - **Restricted mounts are enforced server-side** in `safeColor()`. Hiding them
   in the picker is cosmetic; the colour is just a string a client sends.
+- **Ranking is by score (TXT-9)**: score = WPM × accuracy (`scoreOf` in
+  `lib/rules.ts`). Places are handed out when the race ends
+  (`rankFinishers` in `server/rooms.ts`), best score first, ties to whoever
+  crossed first; DNFs get no place. The first bird across the line can lose.
+  No minimum-accuracy threshold yet (H-11 says 80%; undecided).
 - **Accuracy is reported by the browser** (only it counts keystrokes) — treat
   it as self-reported.
 - **One host per room.** The host opens the room, presses start and spectates;
@@ -90,7 +95,7 @@ Practice has the same two choices.
 
 ## Interfaces
 
-Socket: `joinRoom` `toggleReady` `updateSettings`(host) `startRace`(host) `progress` `stats`
+Socket: `joinRoom` `toggleReady` `updateSettings`(host) `startRace`(host) `progress`
 `playAgain`(host) `leaveRoom` → `roomUpdate` `positions`.
 
 HTTP: `POST /api/auth/{signup,login,logout}` · `GET /api/auth/me` ·
@@ -151,7 +156,10 @@ light-theme tweaks, `wide:` / `max-wide:` for the 900px breakpoint. Only
    socket every second and page navigation breaks in dev.
 2. **Files in `server/` only load at startup** — after editing them, restart,
    or you'll debug a mount the server doesn't know about.
-3. Only the **first** `stats` (accuracy) report per race counts. A tab that
+3. Accuracy travels **with the finishing `progress`** (`progress(n, accuracy)`),
+   because the last finisher ends the race on the spot: a separate message
+   arrived too late, and older races in the DB have no accuracy because of
+   it. Only the first accuracy per race counts. A tab that
    reloads after finishing has forgotten its mistakes and would re-send 100%.
 4. The rider profile (name/mount/role) lives in `sessionStorage`, so it's
    per-tab; a fresh tab shows the in-room join card instead.

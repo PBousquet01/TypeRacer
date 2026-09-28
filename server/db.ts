@@ -53,6 +53,10 @@ const STATEMENTS: string[] = [
      finished_at TIMESTAMPTZ NOT NULL DEFAULT now()
    )`,
   `CREATE INDEX IF NOT EXISTS races_by_user ON races (user_id, finished_at DESC)`,
+  // TXT-9: wpm × accuracy. Races saved before the column existed get theirs
+  // worked out once, from the numbers they already have.
+  `ALTER TABLE races ADD COLUMN IF NOT EXISTS score INTEGER`,
+  `UPDATE races SET score = ROUND(wpm * accuracy / 100.0) WHERE score IS NULL AND accuracy IS NOT NULL`,
 
   // TXT-3: the passages to type live here, not in the code. The bank starts
   // from server/seed/ and grows with `bun scripts/admin.ts add-text`.

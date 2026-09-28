@@ -157,8 +157,7 @@ bun scripts/admin.ts delete-text 7
 | `toggleReady` | client → server | – (riders only) |
 | `updateSettings` | client → server | `{ language?, kind? }` (host only, lobby only; broadcast to the room) |
 | `startRace` | client → server | – (host only; ready riders take part) |
-| `progress` | client → server | number of correct characters typed |
-| `stats` | client → server | `{ accuracy }`, reported at the finish line |
+| `progress` | client → server | number of correct characters typed, plus the accuracy on the finishing report |
 | `playAgain` | client → server | – (host only: back to the lobby) |
 | `leaveRoom` | client → server | – |
 | `roomUpdate` | server → room | full room: status, text, players |
