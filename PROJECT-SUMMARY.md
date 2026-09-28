@@ -78,6 +78,14 @@ at boot by `server/db.ts`; there is no migration step.
   race ends, so there is no path from practice to the database.
 - **Results are saved for signed-in finishers only.** Guests race normally.
 
+## Class docs (TECH-5, TECH-8)
+
+`docs/` holds the French documentation for the teacher: `architecture.md`
+(incl. the TECH-3 "why no ORM" justification), `machine-a-etats.md` (Mermaid
+state diagram, transitions, timers) and `matrice-des-exigences.md` (every
+requirement: status, code, test). **Keep the matrix current**: when a change
+moves a requirement, update its row and the summary counts in the same commit.
+
 ## Tests and CI (TECH-7)
 
 `bun test` runs everything in `tests/`: the typing rules (`typing.test.ts`),
