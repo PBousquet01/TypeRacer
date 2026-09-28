@@ -113,6 +113,12 @@ server**, then `bun scripts/admin.ts grant <user> <mount>`.
 
 ## Look
 
+**Logo** (UX-2): drawn by the project author; the untouched original is
+`design/logo-original.png`. `public/logo.png` is the same drawing cut out on
+a transparent background (soft halo kept) and is used by `Wordmark` (every
+header) and the home hero. `app/icon.png` / `app/apple-icon.png` are the
+browser-tab and home-screen icons (Next picks them up by file name).
+
 Retro menu-box theme from a Claude Design mockup: bordered windows over a
 night-blue field, Press Start 2P for labels, IBM Plex Mono for reading, an
 accent cursor `▶` on the live row. Light theme is the same layout in pale

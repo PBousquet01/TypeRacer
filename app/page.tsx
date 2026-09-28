@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Chocobo from "@/components/Chocobo";
@@ -72,9 +73,9 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
 
   return (
     <main className="mx-auto max-w-[1280px]">
-      <header className="frame mx-[18px] mt-[18px] flex items-center justify-between gap-4 bg-bar px-5 py-3.5">
+      <header className="frame mx-[18px] mt-[18px] flex flex-wrap items-center justify-between gap-x-4 gap-y-3 bg-bar px-5 py-3.5">
         <Wordmark />
-        <nav className="flex items-center gap-[18px] font-display text-tiny text-muted uppercase">
+        <nav className="flex flex-wrap items-center gap-x-[18px] gap-y-2 font-display text-tiny text-muted uppercase">
           <a href="#how-it-works" className="text-muted no-underline hover:text-accent">
             How it works
           </a>
@@ -84,6 +85,7 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
 
       <section className="frame relative m-[18px] flex flex-col items-center gap-6 overflow-hidden bg-sky px-6 pt-[54px] pb-11 max-wide:px-[18px] max-wide:pt-9 max-wide:pb-[30px]">
         <div className="flex flex-col items-center gap-5 text-center">
+          <Image src="/logo.png" alt="Chocobo Race logo" width={140} height={140} priority />
           <Eyebrow>TYPE FAST · RIDE FASTER</Eyebrow>
           <h1 className="text-[clamp(1.4rem,3.6vw,2.6rem)]/[1.35] text-strong [text-shadow:5px_5px_0_var(--ink)] light:[text-shadow:3px_3px_0_rgba(16,26,63,0.22)]">
             Your bird runs <span className="text-accent">exactly</span> as fast as you type.
