@@ -25,7 +25,9 @@ bun scripts/admin.ts list
 ```
 
 PostgreSQL runs via Homebrew (`brew services start postgresql@17`), database
-`chocobo_race`, connection string in `.env` (git-ignored). Tables are created
+`chocobo_race`, connection string in `.env` (git-ignored). **On this Mac it
+listens on port 5433**, not 5432: the hacksorel-2 project's Docker stack
+publishes its own Postgres on 5432. Use `psql -p 5433 -d chocobo_race`. Tables are created
 at boot by `server/db.ts`; there is no migration step.
 
 ## Layout
