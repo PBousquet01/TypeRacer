@@ -9,6 +9,7 @@ import LanguageToggle from "@/components/LanguageToggle";
 import { ErrorText, Field, FinePrint, OrRule, PanelTitle } from "@/components/ui";
 import { useSession } from "@/lib/session";
 import { useT } from "@/lib/i18n";
+import { RIDER_NAME_MAX } from "@/lib/names";
 import type { ErrorCode } from "@/lib/types";
 
 export default function AccountPage() {
@@ -75,7 +76,7 @@ function AccountForm() {
             <input
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              maxLength={16}
+              maxLength={RIDER_NAME_MAX}
               placeholder="Cloud"
             />
           </Field>

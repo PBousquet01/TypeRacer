@@ -1,4 +1,5 @@
 import { CHOCOBO_COLORS, isCustomColor } from "../chocobos";
+import { RIDER_NAME_MAX, RIDER_NAME_MIN } from "../names";
 import { MIN_RIDERS } from "../rules";
 import type { ErrorCode, NoticeCode, RoomSettings, TextKind, TextLanguage } from "../types";
 import type { Dictionary } from "./en";
@@ -44,6 +45,7 @@ const errors: Record<ErrorCode, string> = {
   "text-failed": "Impossible de charger un texte. Réessaie.",
   "bad-request": "Requête invalide.",
   "username-format": "Le nom d'utilisateur fait de 3 à 16 caractères : lettres, chiffres, - et _ seulement.",
+  "name-format": `Le nom de cavalier fait de ${RIDER_NAME_MIN} à ${RIDER_NAME_MAX} caractères : lettres, chiffres, espaces, - et _ seulement.`,
   "password-short": "Le mot de passe doit avoir au moins 8 caractères.",
   "username-taken": "Ce nom d'utilisateur est déjà pris.",
   "wrong-credentials": "Nom d'utilisateur ou mot de passe incorrect.",

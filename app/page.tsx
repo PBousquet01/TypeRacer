@@ -13,6 +13,7 @@ import { CHOCOBO_COLORS } from "@/lib/chocobos";
 import { useSession } from "@/lib/session";
 import { saveProfile, useSavedProfile } from "@/lib/profile";
 import { useT } from "@/lib/i18n";
+import { RIDER_NAME_MAX, cleanRiderName } from "@/lib/names";
 import type { Role } from "@/lib/types";
 
 function makeRoomCode() {
@@ -60,10 +61,11 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
   const [error, setError] = useState("");
 
   function goToRoom(code: string, role: Role) {
-    const trimmed = name.trim();
-    if (!trimmed) return setError(t.home.pickName);
+    if (!name.trim()) return setError(t.home.pickName);
+    const riderName = cleanRiderName(name);
+    if (!riderName) return setError(t.errors["name-format"]);
     if (!code) return setError(t.home.enterCode);
-    saveProfile({ name: trimmed, color, role });
+    saveProfile({ name: riderName, color, role });
     router.push(`/room/${code}`);
   }
 
@@ -102,7 +104,7 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
           <PanelTitle as="h2">{t.home.saddleUp}</PanelTitle>
 
           <Field label={t.home.riderName}>
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={16} placeholder="Cloud" />
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={RIDER_NAME_MAX} placeholder="Cloud" />
           </Field>
 
           <MountPicker value={color} onChange={setColor} unlocks={unlocks} />

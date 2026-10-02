@@ -123,9 +123,11 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
     const created = await createUser({
       username,
       password: body.password as string, // validateCredentials checked it's a string
-      displayName: String(body.displayName ?? username).trim(),
+      displayName: typeof body.displayName === "string" ? body.displayName : "",
     });
-    if ("error" in created) return send(res, 409, { error: created.error }), true;
+    if ("error" in created) {
+      return send(res, created.error === "username-taken" ? 409 : 400, { error: created.error }), true;
+    }
 
     const token = await createSession(created.user.id);
     send(res, 201, { user: publicUser(created.user) }, { "Set-Cookie": sessionCookie(token) });

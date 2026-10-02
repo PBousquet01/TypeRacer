@@ -6,11 +6,11 @@
 // server looks it up in the sessions table.
 import { randomBytes } from "node:crypto";
 import { sql } from "./db";
+import { USERNAME_RE, cleanRiderName } from "../lib/names";
 import type { ErrorCode, User } from "../lib/types";
 
 export const SESSION_COOKIE = "chocobo_session";
 const SESSION_DAYS = 30;
-const USERNAME_RE = /^[a-z0-9_-]{3,16}$/i;
 const MIN_PASSWORD = 8;
 
 export function validateCredentials(username: string | undefined, password: unknown): ErrorCode | null {
@@ -32,6 +32,9 @@ export async function createUser({
   password: string;
   displayName: string;
 }): Promise<{ user: User } | { error: ErrorCode }> {
+  const riderName = cleanRiderName(displayName || username);
+  if (!riderName) return { error: "name-format" };
+
   const [taken] = await sql`
     SELECT id FROM users WHERE lower(username) = lower(${username})`;
   if (taken) return { error: "username-taken" };
@@ -39,7 +42,7 @@ export async function createUser({
   const hash = await Bun.password.hash(password); // argon2id by default
   const [row]: { id: number }[] = await sql`
     INSERT INTO users (username, display_name, password_hash)
-    VALUES (${username}, ${(displayName || username).slice(0, 16)}, ${hash})
+    VALUES (${username}, ${riderName}, ${hash})
     RETURNING id`;
 
   return { user: (await findUserById(row.id))! };

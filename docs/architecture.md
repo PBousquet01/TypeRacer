@@ -197,7 +197,7 @@ est un réglage séparé (TXT-7).
 
 ## Tests et intégration continue (TECH-7)
 
-`bun test` lance 48 tests : règles du moteur de frappe, score et
+`bun test` lance 54 tests : règles du moteur de frappe, score et
 dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types, les tests
 (avec une vraie base PostgreSQL) et le build à chaque envoi.

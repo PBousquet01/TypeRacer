@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { scoreOf } from "../lib/rules";
+import { USERNAME_RE, cleanRiderName } from "../lib/names";
 import { en } from "../lib/i18n/en";
 import { fr } from "../lib/i18n/fr";
 
@@ -9,6 +10,32 @@ describe("scoreOf (TXT-9)", () => {
   });
   test("a careful typist can beat a faster, sloppy one", () => {
     expect(scoreOf(83, 99)).toBeGreaterThan(scoreOf(108, 70));
+  });
+});
+
+describe("names", () => {
+  test("rider names keep letters of any language, digits, spaces, - and _", () => {
+    expect(cleanRiderName("Éloïse")).toBe("Éloïse");
+    expect(cleanRiderName("  Cloud   Strife_7 ")).toBe("Cloud Strife_7");
+    expect(cleanRiderName("e\u0301mile")).toBe("émile");
+  });
+  test("rider names are 2 to 16 characters", () => {
+    expect(cleanRiderName("a")).toBeNull();
+    expect(cleanRiderName("   ")).toBeNull();
+    expect(cleanRiderName("a".repeat(16))).toBe("a".repeat(16));
+    expect(cleanRiderName("a".repeat(17))).toBeNull();
+  });
+  test("rider names refuse special characters", () => {
+    for (const bad of ["<b>bob</b>", "bob!", "b@b", "🐤🐤🐤", "bo\nb", "b\u200bob", "z\u0301\u0301\u0301a", 42, null]) {
+      expect(cleanRiderName(bad)).toBeNull();
+    }
+  });
+  test("usernames are 3 to 16 plain letters, digits, - and _", () => {
+    expect(USERNAME_RE.test("phil_01")).toBe(true);
+    expect(USERNAME_RE.test("ab")).toBe(false);
+    expect(USERNAME_RE.test("a".repeat(17))).toBe(false);
+    expect(USERNAME_RE.test("élo")).toBe(false);
+    expect(USERNAME_RE.test("bob smith")).toBe(false);
   });
 });
 

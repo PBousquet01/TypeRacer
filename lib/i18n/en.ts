@@ -1,4 +1,5 @@
 import { CHOCOBO_COLORS, isCustomColor } from "../chocobos";
+import { RIDER_NAME_MAX, RIDER_NAME_MIN } from "../names";
 import { MIN_RIDERS } from "../rules";
 import type { ErrorCode, NoticeCode, RoomSettings, TextKind, TextLanguage } from "../types";
 
@@ -26,6 +27,7 @@ const errors: Record<ErrorCode, string> = {
   "text-failed": "Couldn't load a passage. Try again.",
   "bad-request": "Bad request.",
   "username-format": "Usernames are 3–16 characters: letters, numbers, - and _ only.",
+  "name-format": `Rider names are ${RIDER_NAME_MIN}–${RIDER_NAME_MAX} characters: letters, numbers, spaces, - and _ only.`,
   "password-short": "Passwords need at least 8 characters.",
   "username-taken": "That username is taken.",
   "wrong-credentials": "Wrong username or password.",

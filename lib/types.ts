@@ -23,6 +23,7 @@ export type ErrorCode =
   | "text-failed"
   | "bad-request"
   | "username-format"
+  | "name-format"
   | "password-short"
   | "username-taken"
   | "wrong-credentials"

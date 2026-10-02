@@ -83,6 +83,17 @@ describe("lobby rules", () => {
     expect(await a.join()).toEqual({ error: "no-room" });
   });
 
+  test("a rider name that breaks the rules is refused", async () => {
+    const code = freshCode();
+    const host = await open(code, "Host", "host");
+    await host.join();
+    for (const name of ["", "x", "<img src=x>", "a".repeat(17)]) {
+      const rider = await open(code, name, "rider");
+      expect(await rider.join()).toEqual({ error: "name-format" });
+    }
+    expect(host.room?.players.length).toBe(1);
+  });
+
   test("a guest can't ride a locked mount", async () => {
     const code = freshCode();
     const host = await open(code, "Host", "host");

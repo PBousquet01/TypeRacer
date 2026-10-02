@@ -5,6 +5,7 @@ import MountPicker from "./MountPicker";
 import { ErrorText, Field, FinePrint, Panel, PanelTitle } from "./ui";
 import { useSession } from "@/lib/session";
 import { useT } from "@/lib/i18n";
+import { RIDER_NAME_MAX, cleanRiderName } from "@/lib/names";
 import type { ErrorCode, Profile } from "@/lib/types";
 
 interface JoinCardProps {
@@ -21,10 +22,11 @@ export default function JoinCard({ code, error, onSubmit }: JoinCardProps) {
   const [problem, setProblem] = useState("");
 
   function submit(role: Profile["role"]) {
-    const trimmed = name.trim();
-    if (!trimmed) return setProblem(t.home.pickName);
+    if (!name.trim()) return setProblem(t.home.pickName);
+    const riderName = cleanRiderName(name);
+    if (!riderName) return setProblem(t.errors["name-format"]);
     setProblem("");
-    onSubmit({ name: trimmed, color, role });
+    onSubmit({ name: riderName, color, role });
   }
 
   return (
@@ -33,7 +35,7 @@ export default function JoinCard({ code, error, onSubmit }: JoinCardProps) {
         <PanelTitle as="h2">{t.join.title(code)}</PanelTitle>
 
         <Field label={t.home.riderName}>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={16} placeholder="Cloud" />
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={RIDER_NAME_MAX} placeholder="Cloud" />
         </Field>
 
         <MountPicker value={color} onChange={setColor} unlocks={user?.unlocks ?? []} />

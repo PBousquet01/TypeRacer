@@ -12,6 +12,7 @@ import type { Server, Socket } from "socket.io";
 import { isKind, isLanguage, pickText } from "./texts";
 import { recordRace } from "./stats";
 import { FINISH_GRACE_MS, MAX_RIDERS, MIN_RIDERS, RECONNECT_MS, scoreOf } from "../lib/rules";
+import { cleanRiderName } from "../lib/names";
 import type {
   ClientToServerEvents,
   ErrorCode,
@@ -398,9 +399,10 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
   socket.on("joinRoom", (payload, reply = () => {}) => {
     const { color, role, clientId } = payload ?? {};
     const code = String(payload?.code ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
-    const name = String(payload?.name ?? "").trim().slice(0, 16) || "Chocobo";
+    const name = cleanRiderName(payload?.name);
     const wantsHost = role === "host";
     if (!code) return reply({ error: "bad-code" });
+    if (!name) return reply({ error: "name-format" });
 
     leaveCurrentRoom(io, socket);
 

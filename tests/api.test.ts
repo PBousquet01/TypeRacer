@@ -39,6 +39,14 @@ describe("accounts", () => {
     expect(await short.json()).toEqual({ error: "password-short" });
   });
 
+  test("a rider name with special characters or too long is refused", async () => {
+    for (const displayName of ["<script>", "a".repeat(17)]) {
+      const res = await post("/api/auth/signup", { username, password, displayName });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "name-format" });
+    }
+  });
+
   test("signing up signs you in with an HttpOnly cookie", async () => {
     const res = await post("/api/auth/signup", { username, password, displayName: "Tester" });
     expect(res.status).toBe(201);

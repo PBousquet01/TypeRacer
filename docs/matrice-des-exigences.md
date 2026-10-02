@@ -136,7 +136,7 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | TECH-4 | Temps réel (WebSocket ou équivalent) | Essentiel | ✅ | Socket.IO, `server/rooms.ts` | Tous les tests de `rooms.test.ts` | |
 | TECH-5 | Machine à états documentée | Essentiel | ✅ | `server/rooms.ts` | [machine-a-etats.md](machine-a-etats.md) | |
 | TECH-6 | Hébergement HTTPS; choix justifié | Essentiel | ✅ | `render.yaml`, `GET /api/health` | En ligne : <https://chocobo-race.onrender.com> (HTTPS valide, HTTP redirigé, course complète jouée par WebSocket le 2 octobre 2026) | Render + Neon, gratuits. Justification dans [deploiement.md](deploiement.md). |
-| TECH-7 | Tests automatisés et intégration continue | Essentiel | ✅ | `tests/`, `.github/workflows/ci.yml` | 48 tests; CI verte sur GitHub | |
+| TECH-7 | Tests automatisés et intégration continue | Essentiel | ✅ | `tests/`, `.github/workflows/ci.yml` | 54 tests; CI verte sur GitHub | |
 | TECH-8 | Documentation technique et matrice tenue à jour | Essentiel | ✅ | `docs/` | Ce document | |
 | TECH-9 | Checkpoint #1 : en ligne en HTTPS, auth de base, début du design | Essentiel | ✅ | <https://chocobo-race.onrender.com> | Voir TECH-6 | Site en ligne en HTTPS, comptes par nom d'utilisateur et mot de passe, design en place. |
 
