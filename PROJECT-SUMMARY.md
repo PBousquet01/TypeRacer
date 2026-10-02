@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 65 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 68 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -70,8 +70,13 @@ at boot by `server/db.ts`; there is no migration step.
   No minimum-accuracy threshold yet (H-11 says 80%; undecided).
 - **Accuracy is counted by the server** from the keys it was sent, at the
   finish. The figure shown during the race is the browser's own estimate.
-- **One host per room.** The host opens the room, presses start and spectates;
-  they never type. Only ready riders join a race (`player.racing` snapshot).
+- **One host per room.** The host opens the room and presses start, then
+  watches or, with `settings.hostRides` (COURSE-5), rides too and counts
+  towards the minimum. `starters()` in `server/rooms.ts` decides who lines
+  up: ready riders not `watching`, plus the riding host (`player.racing`
+  snapshot). The host can set `watching` on a rider in the lobby
+  (`setWatching`, COURSE-6); it survives across races. A riding host who
+  drops keeps both the lane and the seat (held like any rider's lane).
   If the host drops, the seat is held 20s for a reconnect, then the
   longest-present player inherits it.
 - **Race rules live in `lib/rules.ts`** (shared by server and lobby): 2–40
@@ -174,7 +179,7 @@ Practice has the same two choices.
 
 ## Interfaces
 
-Socket: `joinRoom` `toggleReady` `updateSettings`(host) `startRace`(host) `typed`
+Socket: `joinRoom` `toggleReady` `updateSettings`(host) `setWatching`(host) `startRace`(host) `typed`
 `playAgain`(host) `leaveRoom` → `roomUpdate` `positions`.
 
 HTTP: `POST /api/auth/{signup,login,logout}` · `GET /api/auth/me` (+ configured providers) ·

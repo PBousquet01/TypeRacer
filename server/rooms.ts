@@ -44,6 +44,7 @@ export interface Player {
   userId: number | null; // set when this rider is signed in; their results get saved
   role: Role;
   ready: boolean;
+  watching: boolean; // COURSE-6: the host put this rider in the stands; stays there across races
   racing: boolean; // taking part in the current race (late arrivals watch until the next one)
   typing: TypingState; // the server's own copy of the typing engine for this rider; never sent to anyone
   charIndex: number; // how many characters from the start are right, according to `typing`
@@ -106,7 +107,7 @@ function createRoom(code: string, language: TextLanguage): Room {
     text: "",
     startAt: 0,
     finishAt: null,
-    settings: { language, kind: "sentences" },
+    settings: { language, kind: "sentences", hostRides: false },
     players: new Map(),
     hostId: null,
     hostClientId: null,
@@ -131,6 +132,7 @@ function newPlayer(
     userId,
     role,
     ready: false,
+    watching: false,
     racing: false,
     typing: EMPTY_STATE,
     charIndex: 0,
@@ -166,6 +168,13 @@ function clearTimers(room: Room) {
 }
 
 const riders = (room: Room) => [...room.players.values()].filter((p) => p.role === "rider");
+// Who lines up when the host presses Start: the ready riders, plus the host
+// when they chose to ride (COURSE-5). A host who watches doesn't count
+// towards the minimum (H-12).
+const starters = (room: Room) =>
+  [...room.players.values()].filter((p) =>
+    p.role === "host" ? room.settings.hostRides && !p.away : p.ready && !p.watching,
+  );
 const racers = (room: Room) => [...room.players.values()].filter((p) => p.racing);
 const raceInProgress = (room: Room) => room.status === "countdown" || room.status === "racing";
 
@@ -291,7 +300,13 @@ function promoteHost(io: IO, room: Room) {
   const next = [...room.players.entries()].find(([, p]) => !p.away);
   if (!next) return;
   const [nextId, nextPlayer] = next;
+  // The old host may still be in the room, away mid-race with their lane
+  // held: they come back as a rider, since the seat is taken.
+  room.players.forEach((p) => {
+    if (p.role === "host") p.role = "rider";
+  });
   nextPlayer.role = "host";
+  nextPlayer.watching = false;
   nextPlayer.ready = false;
   nextPlayer.racing = false;
   room.hostId = nextId;
@@ -362,16 +377,25 @@ function leaveCurrentRoom(io: IO, socket: ClientSocket) {
   socket.leave(room.code);
   if (!player) return;
 
-  // A rider in this race (still typing, or finished and looking at the
-  // results) gets their lane held rather than dropped, so a reload doesn't
-  // erase their progress or their place. This also covers React mounting the
-  // room page twice in dev mode, which sends leave-then-join on a reload.
-  if (player.role === "rider" && player.racing && player.clientId && room.status !== "lobby") {
+  const wasHost = room.hostId === socket.id;
+
+  // Anyone in this race (still typing, or finished and looking at the
+  // results), the riding host included, gets their lane held rather than
+  // dropped, so a reload doesn't erase their progress or their place. This
+  // also covers React mounting the room page twice in dev mode, which sends
+  // leave-then-join on a reload.
+  if (player.racing && player.clientId && room.status !== "lobby") {
     holdLane(io, room, socket.id, player);
+    // A riding host also frees the seat, held the same way as below.
+    if (wasHost) {
+      room.hostId = null;
+      if (room.hostTimeout) clearTimeout(room.hostTimeout);
+      room.hostTimeout = setTimeout(() => promoteHost(io, room), HOST_RECLAIM_MS);
+      broadcastRoom(io, room);
+    }
     return;
   }
 
-  const wasHost = room.hostId === socket.id;
   removePlayer(io, room, socket.id, { broadcast: false });
   if (!rooms.has(room.code)) return;
 
@@ -413,10 +437,17 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       ? [...room.players.entries()].find(([, p]) => p.away && p.clientId === clientId)
       : undefined;
     if (held) {
-      reclaimLane(room, held[0], socket.id);
+      const player = reclaimLane(room, held[0], socket.id);
+      // A riding host who reloaded gets the seat back too, unless it has
+      // been handed on in the meantime (then promoteHost made them a rider).
+      if (player.role === "host") {
+        room.hostId = socket.id;
+        if (room.hostTimeout) clearTimeout(room.hostTimeout);
+        room.hostTimeout = null;
+      }
       socket.join(code);
       socket.data.roomCode = code;
-      reply({ ok: true, role: "rider", note: null });
+      reply({ ok: true, role: player.role, note: null });
       broadcastRoom(io, room);
       return;
     }
@@ -463,7 +494,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
   socket.on("toggleReady", () => {
     const room = currentRoom(socket);
     const player = room?.players.get(socket.id);
-    if (!room || !player || player.role !== "rider" || room.status !== "lobby") return;
+    if (!room || !player || player.role !== "rider" || player.watching || room.status !== "lobby") return;
 
     player.ready = !player.ready;
     broadcastRoom(io, room);
@@ -474,7 +505,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const check = (): ErrorCode | null => {
       if (!room || !isHost(room, socket)) return "host-only";
       if (room.status !== "lobby") return "already-started";
-      if (riders(room).filter((p) => p.ready).length < MIN_RIDERS) return "need-riders";
+      if (starters(room).length < MIN_RIDERS) return "need-riders";
       return null;
     };
     const problem = check();
@@ -492,7 +523,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     // or the host leaving may have happened in the meantime, so check again.
     const late = check();
     if (late) return reply({ error: late });
-    startCountdown(io, room!, riders(room!).filter((p) => p.ready), text);
+    startCountdown(io, room!, starters(room!), text);
     reply({ ok: true });
   });
 
@@ -506,7 +537,20 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const next = { ...room.settings };
     if (isLanguage(changes?.language)) next.language = changes.language;
     if (isKind(changes?.kind)) next.kind = changes.kind;
+    if (typeof changes?.hostRides === "boolean") next.hostRides = changes.hostRides;
     room.settings = next;
+    broadcastRoom(io, room);
+  });
+
+  // COURSE-6: the host sends a rider to the stands, or lets them back in.
+  // Lobby only, so nobody is pulled out of a race they're typing in.
+  socket.on("setWatching", (playerId, watching) => {
+    const room = currentRoom(socket);
+    if (!room || !isHost(room, socket) || room.status !== "lobby") return;
+    const target = room.players.get(String(playerId));
+    if (!target || target.role !== "rider" || typeof watching !== "boolean") return;
+    target.watching = watching;
+    target.ready = false;
     broadcastRoom(io, room);
   });
 

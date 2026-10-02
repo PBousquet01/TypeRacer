@@ -6,8 +6,9 @@ A multiplayer typing race (like Monkeytype) where every rider is a chocobo
 running down a track. Type fast, run fast.
 
 Each room has **one host and up to forty riders** (a race needs at least two). The host opens the room,
-starts the race and watches it from the stands — hosts never type. Riders
-ready up and race. If the host's browser drops (a refresh, a flaky network)
+starts the race, and either watches from the stands or rides along (COURSE-5).
+Riders ready up and race; the host can send a rider to the stands, and let
+them back, between races (COURSE-6). If the host's browser drops (a refresh, a flaky network)
 the seat is held open for 20 seconds so they can reclaim it; only if they
 don't come back does the longest-present player inherit it.
 
@@ -175,7 +176,8 @@ bun scripts/admin.ts delete-text 7
 | --- | --- | --- |
 | `joinRoom` | client → server | `{ code, name, color }` |
 | `toggleReady` | client → server | – (riders only) |
-| `updateSettings` | client → server | `{ language?, kind? }` (host only, lobby only; broadcast to the room) |
+| `updateSettings` | client → server | `{ language?, kind?, hostRides? }` (host only, lobby only; broadcast to the room) |
+| `setWatching` | client → server | `(playerId, watching)`: send a rider to the stands or back (host only, lobby only) |
 | `startRace` | client → server | – (host only; ready riders take part) |
 | `typed` | client → server | the keys pressed since the last report (`\b` for a backspace) and how many characters were right before them; the server judges them |
 | `playAgain` | client → server | – (host only: back to the lobby) |

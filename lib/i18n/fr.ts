@@ -1,7 +1,7 @@
 import { CHOCOBO_COLORS, isCustomColor } from "../chocobos";
 import { RIDER_NAME_MAX, RIDER_NAME_MIN } from "../names";
 import { MIN_RIDERS } from "../rules";
-import type { ErrorCode, NoticeCode, RoomSettings, TextKind, TextLanguage } from "../types";
+import type { ErrorCode, NoticeCode, TextSettings, TextKind, TextLanguage } from "../types";
 import type { Dictionary } from "./en";
 
 const LANGUAGES: Record<TextLanguage, string> = { en: "Anglais", fr: "Français" };
@@ -111,7 +111,7 @@ export const fr: Dictionary = {
     saddleUp: "En selle",
     riderName: "Nom de cavalier",
     hostRace: "Organiser une course",
-    hostHint: "Tu ouvres le salon, tu lances la course et tu regardes des estrades — l'hôte ne tape pas.",
+    hostHint: "Tu ouvres le salon, tu lances la course, puis tu regardes des estrades ou tu cours aussi.",
     orJoin: "ou rejoins comme cavalier",
     roomCode: "CODE DU SALON",
     roomCodeLabel: "Code du salon",
@@ -143,7 +143,7 @@ export const fr: Dictionary = {
     title: (code) => `Rejoindre le salon ${code}`,
     asRider: "Rejoindre comme cavalier",
     hostInstead: "Être l'hôte de ce salon",
-    hint: "Les cavaliers courent. L'hôte lance la course et regarde — l'hôte ne tape pas.",
+    hint: "Les cavaliers courent. L'hôte lance la course, puis regarde ou court aussi.",
   },
   room: {
     lobby: "Salon",
@@ -158,7 +158,7 @@ export const fr: Dictionary = {
     kindLabel: "Type de texte",
     languages: LANGUAGES,
     kinds: KINDS,
-    label: ({ language, kind }: RoomSettings) => `${LANGUAGES[language]} · ${KINDS[kind].toLowerCase()}`,
+    label: ({ language, kind }: TextSettings) => `${LANGUAGES[language]} · ${KINDS[kind].toLowerCase()}`,
   },
   lobby: {
     riders: "Cavaliers",
@@ -175,7 +175,15 @@ export const fr: Dictionary = {
     textRow: "Texte",
     start: (n) => `Lancer la course (${n})`,
     waiting: (n) => `En attente de cavaliers (${n}/${MIN_RIDERS})`,
-    controlHint: `Une course demande au moins ${MIN_RIDERS} cavaliers prêts. Seuls eux y participent. Tu mènes la course et tu regardes — tu ne tapes pas.`,
+    controlHint: (rides) =>
+      `Une course demande au moins ${MIN_RIDERS} cavaliers prêts${rides ? ", toi compris" : ""}. Seuls eux y participent. ` +
+      (rides ? "Tu cours aussi : ta zone de frappe s'ouvre au départ." : "Tu mènes la course et tu regardes — tu ne tapes pas."),
+    hostLabel: "Toi, l'hôte",
+    hostOptions: { watch: "Regarder", ride: "Courir aussi" },
+    watching: "AUX ESTRADES",
+    toStands: "Aux estrades",
+    letRide: "Laisser courir",
+    youWatch: "L'hôte t'a mis aux estrades. Tu regardes les courses jusqu'à ce que l'hôte te laisse courir.",
     rules: "Règles",
     backspace: "Retour arrière",
     backspaceValue: "Permis — et obligatoire",

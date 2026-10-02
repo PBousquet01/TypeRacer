@@ -15,11 +15,11 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 
 | Priorité | ✅ | 🟡 | ❌ | ⏳ | Total |
 | --- | --- | --- | --- | --- | --- |
-| Essentiel | 27 | 10 | 3 | 0 | 40 |
+| Essentiel | 29 | 10 | 1 | 0 | 40 |
 | Souhaitable | 4 | 6 | 13 | 0 | 23 |
 | Moins prioritaire | 0 | 0 | 5 | 0 | 5 |
 | Non classée (AUTH-5) | 1 | 0 | 0 | 0 | 1 |
-| **Total** | **32** | **16** | **21** | **0** | **69** |
+| **Total** | **34** | **16** | **19** | **0** | **69** |
 
 ## Authentification et comptes (AUTH)
 
@@ -41,13 +41,13 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | COURSE-2 | Rejoindre avec un code (ou un lien) | Essentiel | ✅ | `joinRoom`, `components/JoinCard.tsx`, bouton « Copier l'invitation » | « riders need a room that exists » | Le lien privé à usage unique relève de VIS-3. |
 | COURSE-3 | Au moins 2 joueurs pour démarrer | Essentiel | ✅ | `lib/rules.ts` (`MIN_RIDERS`), `server/rooms.ts` | « COURSE-3: a race needs two ready riders » | Vérifié côté serveur et bouton désactivé dans le salon. |
 | COURSE-4 | Au moins 35 personnes par salon | Essentiel | ✅ | `lib/rules.ts` (`MAX_RIDERS` = 40) | « COURSE-4: a room takes 40 riders, not one more » | 40 selon H-2. Piste compacte au-delà de 10 cavaliers. |
-| COURSE-5 | L'hôte choisit de jouer ou de regarder | Essentiel | ❌ | — | — | L'hôte regarde toujours. |
-| COURSE-6 | L'hôte peut mettre un participant en spectateur | Essentiel | ❌ | — | — | |
+| COURSE-5 | L'hôte choisit de jouer ou de regarder | Essentiel | ✅ | `settings.hostRides`, `starters()` dans `server/rooms.ts`, réglage « Toi, l'hôte » | « COURSE-5: a host who rides counts towards the minimum and races », « COURSE-14: a riding host who drops keeps their lane and the host seat » | L'hôte qui court compte pour le minimum (H-12) et garde la commande de la course. |
+| COURSE-6 | L'hôte peut mettre un participant en spectateur | Essentiel | ✅ | `setWatching`, boutons « Aux estrades » / « Laisser courir » dans `components/Lobby.tsx` | « COURSE-6: the host sends a rider to the stands, where they can't ready up » | Dans le salon seulement; l'état reste d'une course à l'autre. |
 | COURSE-7 | Un retardataire devient spectateur jusqu'à la course suivante | Essentiel | ✅ | `joinRoom` (`lateArrival`), `components/SpectatorScreen.tsx` | « COURSE-7: someone arriving mid-race watches » | Automatique, sans décision de l'hôte (C-11). |
 | COURSE-8 | L'hôte démarre; compte à rebours avant chaque départ | Essentiel | ✅ | `startRace`, `startCountdown` (3 s) | « only the host can start », « the race starts after a countdown », « a double click on Start starts one race » | |
 | COURSE-9 | Course de 1 à 3 min; l'hôte règle la durée max | Essentiel | 🟡 | `MAX_RACE_MS` (3 min) | — | Durée maximale fixe; pas encore réglable par l'hôte. |
 | COURSE-10 | Le gagnant est le premier à finir le texte | Essentiel | 🟡 | `rankFinishers` | « TXT-9: the careful rider wins on score, even crossing second » | **Écart voulu** : le classement se fait au score (TXT-9). Voir « Écarts ». |
-| COURSE-11 | Les réglages de l'hôte s'affichent en direct chez tous | Essentiel | ✅ | `updateSettings`, `components/Lobby.tsx` | « COURSE-11: the host's settings reach riders; riders can't change them », « invalid settings are ignored » | Pour les réglages existants : langue et type de texte. |
+| COURSE-11 | Les réglages de l'hôte s'affichent en direct chez tous | Essentiel | ✅ | `updateSettings`, `components/Lobby.tsx` | « COURSE-11: the host's settings reach riders; riders can't change them », « invalid settings are ignored » | Langue, type de texte et « l'hôte court ». |
 | COURSE-12 | Revanche avec les mêmes joueurs, ou fermer le salon | Essentiel | 🟡 | `playAgain`, `backToLobby` | « back to the lobby keeps everyone » | Revanche : oui. Pas de bouton « fermer le salon »; il se ferme quand tout le monde part. |
 | COURSE-13 | Un joueur peut abandonner | Essentiel | 🟡 | Bouton « Quitter », `holdLane` | — | Quitter garde la voie 30 s puis compte comme abandon; pas de bouton « abandonner » distinct (F-10). |
 | COURSE-14 | Un joueur déconnecté revient avec sa progression | Essentiel | ✅ | `holdLane`, `reclaimLane`, reprise dans `components/RaceScreen.tsx` | « COURSE-14: a dropped rider keeps their lane and progress » | Voie gardée 30 s (`RECONNECT_MS`), même onglet. |
@@ -136,7 +136,7 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | TECH-4 | Temps réel (WebSocket ou équivalent) | Essentiel | ✅ | Socket.IO, `server/rooms.ts` | Tous les tests de `rooms.test.ts` | |
 | TECH-5 | Machine à états documentée | Essentiel | ✅ | `server/rooms.ts` | [machine-a-etats.md](machine-a-etats.md) | |
 | TECH-6 | Hébergement HTTPS; choix justifié | Essentiel | ✅ | `render.yaml`, `GET /api/health` | En ligne : <https://chocobo-race.onrender.com> (HTTPS valide, HTTP redirigé, course complète jouée par WebSocket le 2 octobre 2026) | Render + Neon, gratuits. Justification dans [deploiement.md](deploiement.md). |
-| TECH-7 | Tests automatisés et intégration continue | Essentiel | ✅ | `tests/`, `.github/workflows/ci.yml` | 65 tests; CI verte sur GitHub | |
+| TECH-7 | Tests automatisés et intégration continue | Essentiel | ✅ | `tests/`, `.github/workflows/ci.yml` | 68 tests; CI verte sur GitHub | |
 | TECH-8 | Documentation technique et matrice tenue à jour | Essentiel | ✅ | `docs/` | Ce document | |
 | TECH-9 | Checkpoint #1 : en ligne en HTTPS, auth de base, début du design | Essentiel | ✅ | <https://chocobo-race.onrender.com> | Voir TECH-6 | Site en ligne en HTTPS, comptes par nom d'utilisateur et mot de passe, design en place. |
 
@@ -161,7 +161,7 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | H-9 : bots après 10 s en partie rapide | ❌ Pas fait (bots et partie rapide) |
 | H-10 : correction obligatoire par défaut | ✅ Appliquée; l'option contraire reste à faire (TXT-8) |
 | H-11 : score = MPM × précision, seuil 80 % | 🟡 Score oui, seuil à décider |
-| H-12 : les bots comptent pour le minimum, pas l'hôte spectateur | 🟡 L'hôte ne compte pas; pas encore de bots |
+| H-12 : les bots comptent pour le minimum, pas l'hôte spectateur | 🟡 L'hôte compte seulement s'il court; pas encore de bots |
 | H-13 : pas de rôle spécial pour l'enseignant | ✅ Appliquée |
 | H-15 : banque de textes FR/EN + mots au hasard | ✅ Appliquée |
 | H-17 : filtre de mots interdits et expulsion | ❌ Pas fait |

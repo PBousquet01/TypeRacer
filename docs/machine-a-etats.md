@@ -49,6 +49,7 @@ stateDiagram-v2
 | Rejoindre le salon | Oui (cavalier ou hôte) | Oui, comme **spectateur** jusqu'à la prochaine course (COURSE-7) | Oui, comme **spectateur** (COURSE-7) | Oui, voit les résultats |
 | Se déclarer prêt (`toggleReady`) | Oui | Non | Non | Non |
 | Changer les réglages (`updateSettings`, hôte) | Oui, diffusés à tous (COURSE-11) | Non | Non | Non |
+| Envoyer un cavalier aux estrades (`setWatching`, hôte) | Oui (COURSE-6) | Non | Non | Non |
 | Envoyer ses touches (`typed`) | Ignorées | Ignorées | Jugées par le serveur; acceptées si plausibles (anti-triche : max ~300 MPM) | Ignorées |
 | Lancer (`startRace`) / revenir au salon (`playAgain`) | Lancer | — | — | Revenir au salon |
 | Un partant se déconnecte | — | Sa voie est gardée 30 s (COURSE-14) | Sa voie et sa progression sont gardées 30 s (COURSE-14) | Son résultat est gardé jusqu'au retour au salon |
@@ -68,8 +69,9 @@ stateDiagram-v2
 
 L'état du salon ne dit pas tout : chaque joueur a aussi quelques indicateurs.
 
-- **Rôle** : `host` (ne tape jamais) ou `rider`.
-- **`ready`** : cavalier prêt dans le salon. Remis à faux au retour au salon.
+- **Rôle** : `host` ou `rider`. L'hôte court seulement si `settings.hostRides` est vrai (COURSE-5); il compte alors pour le minimum.
+- **`watching`** : cavalier envoyé aux estrades par l'hôte (COURSE-6). Il ne peut pas se déclarer prêt; l'état reste d'une course à l'autre.
+- **`ready`** : cavalier prêt dans le salon (l'hôte qui court est prêt d'office). Remis à faux au retour au salon.
 - **`racing`** : partant de la course en cours. Figé au lancement : quelqu'un qui arrive après regarde.
 - **`finished`**, **`place`**, **`score`** : fixés à l'arrivée; la place n'est donnée qu'à la fin de la course, par score.
 - **`away`** : partant déconnecté dont la voie est gardée. Le même onglet (même `clientId`) qui revient reprend sa voie.

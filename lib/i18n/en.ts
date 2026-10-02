@@ -1,7 +1,7 @@
 import { CHOCOBO_COLORS, isCustomColor } from "../chocobos";
 import { RIDER_NAME_MAX, RIDER_NAME_MIN } from "../names";
 import { MIN_RIDERS } from "../rules";
-import type { ErrorCode, NoticeCode, RoomSettings, TextKind, TextLanguage } from "../types";
+import type { ErrorCode, NoticeCode, TextSettings, TextKind, TextLanguage } from "../types";
 
 const LANGUAGES: Record<TextLanguage, string> = { en: "English", fr: "French" };
 const KINDS: Record<TextKind, string> = { sentences: "Sentences", words: "Random words" };
@@ -94,7 +94,7 @@ export const en = {
     saddleUp: "Saddle up",
     riderName: "Rider name",
     hostRace: "Host a race",
-    hostHint: "You open the room and start the race, then watch from the stands — hosts don't type.",
+    hostHint: "You open the room and start the race, then watch from the stands or ride along.",
     orJoin: "or join as a rider",
     roomCode: "ROOM CODE",
     roomCodeLabel: "Room code",
@@ -126,7 +126,7 @@ export const en = {
     title: (code: string) => `Join room ${code}`,
     asRider: "Join as a rider",
     hostInstead: "Host this room instead",
-    hint: "Riders race. The host starts the race and watches — hosts don't type.",
+    hint: "Riders race. The host starts the race, and watches or rides along.",
   },
   room: {
     lobby: "Lobby",
@@ -141,7 +141,7 @@ export const en = {
     kindLabel: "Text type",
     languages: LANGUAGES,
     kinds: KINDS,
-    label: ({ language, kind }: RoomSettings) => `${LANGUAGES[language]} · ${KINDS[kind].toLowerCase()}`,
+    label: ({ language, kind }: TextSettings) => `${LANGUAGES[language]} · ${KINDS[kind].toLowerCase()}`,
   },
   lobby: {
     riders: "Riders",
@@ -158,7 +158,15 @@ export const en = {
     textRow: "Text",
     start: (n: number) => `Start race (${n})`,
     waiting: (n: number) => `Waiting for riders (${n}/${MIN_RIDERS})`,
-    controlHint: `A race needs at least ${MIN_RIDERS} ready riders. Only they take part. You run the race and watch — you don't type.`,
+    controlHint: (rides: boolean) =>
+      `A race needs at least ${MIN_RIDERS} ready riders${rides ? ", you included" : ""}. Only they take part. ` +
+      (rides ? "You ride too: your typing box opens with the gates." : "You run the race and watch — you don't type."),
+    hostLabel: "You, the host",
+    hostOptions: { watch: "Watch", ride: "Ride too" },
+    watching: "IN THE STANDS",
+    toStands: "To the stands",
+    letRide: "Let ride",
+    youWatch: "The host has put you in the stands. You'll watch the races until they let you ride.",
     rules: "Rules",
     backspace: "Backspace",
     backspaceValue: "Allowed — and required",

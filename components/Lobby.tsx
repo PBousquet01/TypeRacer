@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Chocobo from "./Chocobo";
-import { Choice, FinePrint, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
+import { Choice, FinePrint, HostTag, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
 import { cn } from "@/lib/cn";
 import { MAX_RIDERS, MIN_RIDERS } from "@/lib/rules";
 import { useT } from "@/lib/i18n";
@@ -20,15 +20,26 @@ interface LobbyProps {
   onToggleReady: () => void;
   onStartRace: () => void;
   onChangeSettings: (settings: Partial<RoomSettings>) => void;
+  onSetWatching: (playerId: string, watching: boolean) => void;
 }
 
-export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, onChangeSettings }: LobbyProps) {
+export default function Lobby({
+  room,
+  myId,
+  isHost,
+  onToggleReady,
+  onStartRace,
+  onChangeSettings,
+  onSetWatching,
+}: LobbyProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
   const me = room.players.find((p) => p.id === myId);
   const host = room.players.find((p) => p.id === room.hostId);
+  const hostRides = room.settings.hostRides;
   const riders = room.players.filter((p) => p.role === "rider");
-  const readyCount = riders.filter((p) => p.ready).length;
+  const lineup = room.players.filter((p) => p.role === "rider" || hostRides);
+  const readyCount = lineup.filter((p) => p.role === "host" || (p.ready && !p.watching)).length;
   const freeStalls = MAX_RIDERS - riders.length;
   const canStart = readyCount >= MIN_RIDERS;
 
@@ -44,14 +55,15 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
       <section className="grid content-start">
         <header className="flex flex-wrap items-baseline justify-between gap-3 pb-3.5">
           <h2 className="text-xs/normal text-accent uppercase">
-            {t.lobby.riders} <span className="font-body text-muted">{riders.length} / {MAX_RIDERS}</span>
+            {t.lobby.riders} <span className="font-body text-muted">{lineup.length} / {MAX_RIDERS}</span>
           </h2>
           <MonoNote>{t.lobby.readyCount(readyCount)}</MonoNote>
         </header>
 
         <ul className="frame m-0 grid list-none bg-window px-5 py-[18px]">
-          {riders.map((p) => {
+          {lineup.map((p) => {
             const isMe = p.id === myId;
+            const isHostRow = p.role === "host";
             return (
               <li key={p.id} className={RIDER_ROW}>
                 <span className={CURSOR} aria-hidden="true">
@@ -64,26 +76,34 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
                   <span className={cn("font-body text-sm/[1.3] font-medium", isMe ? "text-accent" : "text-strong")}>
                     {p.name}
                     {isMe && <MonoNote> · {t.common.you}</MonoNote>}
+                    {isHostRow && <> <HostTag>{t.common.host}</HostTag></>}
                   </span>
                   <span className={SUB}>{t.mount.label(p.color)}</span>
                 </span>
-                <span
-                  className={cn(
-                    "font-display text-tiny/[1.4] whitespace-nowrap",
-                    p.ready ? "text-green" : "text-amber",
+                <span className="grid justify-items-end gap-1.5">
+                  <span
+                    className={cn(
+                      "font-display text-tiny/[1.4] whitespace-nowrap",
+                      p.watching ? "text-muted" : p.ready || isHostRow ? "text-green" : "text-amber",
+                    )}
+                  >
+                    {p.watching ? t.lobby.watching : p.ready || isHostRow ? t.lobby.ready : t.lobby.eating}
+                  </span>
+                  {isHost && !isHostRow && (
+                    <button className="btn-link" onClick={() => onSetWatching(p.id, !p.watching)}>
+                      {p.watching ? t.lobby.letRide : t.lobby.toStands}
+                    </button>
                   )}
-                >
-                  {p.ready ? t.lobby.ready : t.lobby.eating}
                 </span>
               </li>
             );
           })}
-          {(riders.length === 0 || freeStalls > 0) && (
+          {(lineup.length === 0 || freeStalls > 0) && (
             <li className={RIDER_ROW}>
               <span className={CURSOR} aria-hidden="true" />
               <span className={cn(MOUNT_BOX, "border-dashed border-edge/50 light:border-ink/35")} />
               <span className={SUB}>
-                {riders.length === 0 ? t.lobby.noRiders : t.lobby.stallsOpen(freeStalls)}
+                {lineup.length === 0 ? t.lobby.noRiders : t.lobby.stallsOpen(freeStalls)}
               </span>
             </li>
           )}
@@ -107,19 +127,25 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
                 options={t.text.kinds}
                 onChange={(kind) => onChangeSettings({ kind })}
               />
+              <Choice
+                label={t.lobby.hostLabel}
+                value={hostRides ? "ride" : "watch"}
+                options={t.lobby.hostOptions}
+                onChange={(choice) => onChangeSettings({ hostRides: choice === "ride" })}
+              />
               <FinePrint>{t.lobby.settingsHint}</FinePrint>
             </Panel>
             <Panel>
               <PanelTitle>{t.lobby.control}</PanelTitle>
               <Spec>
-                <SpecRow label={t.lobby.ridersRow}>{riders.length} / {MAX_RIDERS}</SpecRow>
+                <SpecRow label={t.lobby.ridersRow}>{lineup.length} / {MAX_RIDERS}</SpecRow>
                 <SpecRow label={t.lobby.readyRow}>{readyCount}</SpecRow>
                 <SpecRow label={t.lobby.textRow}>{t.text.label(room.settings)}</SpecRow>
               </Spec>
               <button className="btn btn-primary btn-block" onClick={onStartRace} disabled={!canStart}>
                 {canStart ? t.lobby.start(readyCount) : t.lobby.waiting(readyCount)}
               </button>
-              <FinePrint>{t.lobby.controlHint}</FinePrint>
+              <FinePrint>{t.lobby.controlHint(hostRides)}</FinePrint>
             </Panel>
           </>
         ) : (
@@ -132,9 +158,13 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
               <SpecRow label={t.lobby.winner}>{t.lobby.winnerValue}</SpecRow>
               <SpecRow label={t.lobby.lastCall}>{t.lobby.lastCallValue}</SpecRow>
             </Spec>
-            <button className="btn btn-primary btn-block" onClick={onToggleReady}>
-              {me?.ready ? t.lobby.wait : t.lobby.imReady}
-            </button>
+            {me?.watching ? (
+              <FinePrint>{t.lobby.youWatch}</FinePrint>
+            ) : (
+              <button className="btn btn-primary btn-block" onClick={onToggleReady}>
+                {me?.ready ? t.lobby.wait : t.lobby.imReady}
+              </button>
+            )}
             <FinePrint>
               {host ? t.lobby.hostStarts(host.name) : t.lobby.waitingForHost}
             </FinePrint>
@@ -144,7 +174,7 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
         <Panel>
           <PanelTitle>{isHost ? t.lobby.yourRoom : t.lobby.yourMount}</PanelTitle>
           <div className="grid h-32 place-items-center border-2 border-edge/50 bg-sky light:border-ink/35">
-            {isHost ? (
+            {isHost && !hostRides ? (
               <span className="bg-accent px-3.5 py-2.5 font-display text-[13px]/[1.4] text-ink light:text-white">{t.common.host}</span>
             ) : (
               <Chocobo color={me?.color ?? "yellow"} size={78} />
@@ -170,10 +200,10 @@ export default function Lobby({ room, myId, isHost, onToggleReady, onStartRace, 
           <MonoNote>{t.lobby.preview}</MonoNote>
         </div>
         <div className="relative h-[132px] overflow-hidden bg-field" aria-hidden="true">
-          {(riders.length ? riders : [{ id: "empty", color: "yellow" }]).map((p, i) => (
+          {(lineup.length ? lineup : [{ id: "empty", color: "yellow" }]).map((p, i) => (
             <span
               key={p.id}
-              className={cn("absolute left-0 animate-lap motion-reduce:animate-none", !riders.length && "opacity-55")}
+              className={cn("absolute left-0 animate-lap motion-reduce:animate-none", !lineup.length && "opacity-55")}
               style={{
                 animationDelay: `${i * -1.9}s`,
                 animationDuration: `${10 + (i % 4)}s`,

@@ -43,10 +43,15 @@ export type Provider = "github" | "discord";
 export type NoticeCode = "host-taken" | "late-arrival";
 export type TextKind = "sentences" | "words";
 
-/** What the host chooses in the lobby (TXT-1, TXT-7). */
-export interface RoomSettings {
+/** Which text to type (TXT-1, TXT-7): chosen by the host for a race, or by the player in practice. */
+export interface TextSettings {
   language: TextLanguage;
   kind: TextKind;
+}
+
+/** What the host chooses in the lobby. */
+export interface RoomSettings extends TextSettings {
+  hostRides: boolean; // COURSE-5: the host races too, instead of only watching
 }
 
 /** A rider as everyone in the room sees them. */
@@ -56,6 +61,7 @@ export interface PublicPlayer {
   color: string;
   role: Role;
   ready: boolean;
+  watching: boolean; // COURSE-6: put in the stands by the host; can't ready up until let back in
   racing: boolean;
   charIndex: number;
   finished: boolean;
@@ -119,6 +125,7 @@ export interface ClientToServerEvents {
   toggleReady: () => void;
   startRace: (payload: null, reply?: (res: ActionReply) => void) => void;
   updateSettings: (settings: Partial<RoomSettings>) => void;
+  setWatching: (playerId: string, watching: boolean) => void; // host only, lobby only (COURSE-6)
   // The keys pressed since the last report ("\b" for a backspace), and how
   // many characters were right before them. No verdict: the server judges.
   typed: (base: number, keys: string) => void;

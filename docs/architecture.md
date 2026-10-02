@@ -157,7 +157,8 @@ erDiagram
 | --- | --- | --- |
 | `joinRoom` | navigateur → serveur | code, nom, monture, rôle voulu, `clientId`, langue d'interface. Réponse : rôle obtenu ou code d'erreur |
 | `toggleReady` | navigateur → serveur | — (cavalier, dans le salon) |
-| `updateSettings` | navigateur → serveur | `{ language?, kind? }` (hôte, dans le salon) |
+| `updateSettings` | navigateur → serveur | `{ language?, kind?, hostRides? }` (hôte, dans le salon) |
+| `setWatching` | navigateur → serveur | `(playerId, watching)` : envoie un cavalier aux estrades ou l'en fait revenir (hôte, dans le salon; COURSE-6) |
 | `startRace` | navigateur → serveur | — (hôte). Réponse : `ok` ou code d'erreur |
 | `typed` | navigateur → serveur | les touches tapées depuis le dernier envoi (`\b` pour un retour arrière) et le nombre de caractères corrects avant elles; c'est le serveur qui les juge |
 | `playAgain` | navigateur → serveur | — (hôte, après la course) |
@@ -208,7 +209,7 @@ est un réglage séparé (TXT-7).
 
 ## Tests et intégration continue (TECH-7)
 
-`bun test` lance 65 tests : règles du moteur de frappe, score et
+`bun test` lance 68 tests : règles du moteur de frappe, score et
 dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types, les tests
 (avec une vraie base PostgreSQL) et le build à chaque envoi.
@@ -227,7 +228,6 @@ bun test                       # les tests (utilisent aussi la base)
 
 - Hébergement gratuit : le serveur s'endort après 15 minutes sans visite (voir [deploiement.md](deploiement.md)).
 - Un robot qui envoie les bonnes touches n'est limité que par la vitesse maximale (voir Sécurité).
-- Un hôte ne tape jamais; il ne peut pas choisir de jouer (COURSE-5).
 - L'état des salons est en mémoire : un redémarrage du serveur interrompt les
   courses en cours.
 

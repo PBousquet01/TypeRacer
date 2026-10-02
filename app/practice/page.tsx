@@ -12,13 +12,13 @@ import { useSession } from "@/lib/session";
 import { formatTime } from "@/lib/format";
 import { useI18n, useT } from "@/lib/i18n";
 import { scoreOf } from "@/lib/rules";
-import type { RoomSettings } from "@/lib/types";
+import type { TextSettings } from "@/lib/types";
 
 export default function PracticePage() {
   const { lang, t } = useI18n();
   const [text, setText] = useState<string | null>(null);
   const [round, setRound] = useState(0);
-  const [settings, setSettings] = useState<RoomSettings>({ language: lang, kind: "sentences" });
+  const [settings, setSettings] = useState<TextSettings>({ language: lang, kind: "sentences" });
   const fallbackText = t.practice.fallbackText;
 
   const fetchText = useCallback(() => {
@@ -55,8 +55,8 @@ export default function PracticePage() {
 
 interface PracticeRunProps {
   text: string;
-  settings: RoomSettings;
-  onSettings: (changes: Partial<RoomSettings>) => void;
+  settings: TextSettings;
+  onSettings: (changes: Partial<TextSettings>) => void;
   onAnother: () => void;
 }
 

@@ -33,6 +33,7 @@ export default function RoomPage() {
     sendKeys,
     playAgain,
     updateSettings,
+    setWatching,
   } = useRoom(code, profile);
 
   if (saved === undefined && !chosen) return <Loading>{t.common.saddlingUp}</Loading>;
@@ -89,6 +90,7 @@ export default function RoomPage() {
           onToggleReady={toggleReady}
           onStartRace={startRace}
           onChangeSettings={updateSettings}
+          onSetWatching={setWatching}
         />
       )}
 

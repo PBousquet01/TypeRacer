@@ -74,6 +74,10 @@ export function useRoom(code: string, profile: Profile | null) {
     [],
   );
   const sendKeys = useCallback((base: number, keys: string) => getSocket().emit("typed", base, keys), []);
+  const setWatching = useCallback(
+    (playerId: string, watching: boolean) => getSocket().emit("setWatching", playerId, watching),
+    [],
+  );
   const playAgain = useCallback(() => getSocket().emit("playAgain"), []);
   const updateSettings = useCallback(
     (settings: Partial<RoomSettings>) => getSocket().emit("updateSettings", settings),
@@ -92,5 +96,6 @@ export function useRoom(code: string, profile: Profile | null) {
     sendKeys,
     playAgain,
     updateSettings,
+    setWatching,
   };
 }

@@ -123,8 +123,73 @@ describe("lobby rules", () => {
     const { host } = await readyRoom();
     host.socket.emit("updateSettings", { language: "de" as "en", kind: "code" as "words" });
     await sleep(150);
-    expect(host.room?.settings).toEqual({ language: "en", kind: "sentences" });
+    expect(host.room?.settings).toEqual({ language: "en", kind: "sentences", hostRides: false });
   });
+
+  test("COURSE-5: a host who rides counts towards the minimum and races", async () => {
+    const code = freshCode();
+    const host = await open(code, "Host", "host");
+    await host.join();
+    const a = await open(code, "Alice", "rider");
+    await a.join();
+    a.socket.emit("toggleReady");
+    await host.until((r) => r.players.some((p) => p.ready));
+    expect(await host.startRace()).toEqual({ error: "need-riders" }); // a watching host doesn't count (H-12)
+
+    host.socket.emit("updateSettings", { hostRides: true });
+    await host.until((r) => r.settings.hostRides);
+    expect(await host.startRace()).toEqual({ ok: true });
+    const r = await host.until((x) => x.status === "countdown");
+    expect(r.players.find((p) => p.name === "Host")?.racing).toBe(true);
+  });
+
+  test("COURSE-6: the host sends a rider to the stands, where they can't ready up", async () => {
+    const { host, a } = await readyRoom();
+    const alice = host.room!.players.find((p) => p.name === "Alice")!;
+    const bob = host.room!.players.find((p) => p.name === "Bob")!;
+    a.socket.emit("setWatching", bob.id, true); // only the host can
+    await sleep(150);
+    host.socket.emit("setWatching", alice.id, true);
+    const r = await host.until((x) => x.players.some((p) => p.name === "Alice" && p.watching));
+    expect(r.players.find((p) => p.name === "Alice")?.ready).toBe(false);
+    expect(r.players.find((p) => p.name === "Bob")?.watching).toBe(false);
+
+    a.socket.emit("toggleReady");
+    await sleep(150);
+    expect(host.room?.players.find((p) => p.name === "Alice")?.ready).toBe(false);
+    expect(await host.startRace()).toEqual({ error: "need-riders" });
+
+    host.socket.emit("setWatching", alice.id, false);
+    await host.until((x) => x.players.some((p) => p.name === "Alice" && !p.watching));
+    a.socket.emit("toggleReady");
+    await host.until((x) => x.players.some((p) => p.name === "Alice" && p.ready));
+  });
+
+  test("COURSE-14: a riding host who drops keeps their lane and the host seat", async () => {
+    const code = freshCode();
+    let host = await open(code, "Host", "host");
+    await host.join();
+    host.socket.emit("updateSettings", { hostRides: true });
+    const a = await open(code, "Alice", "rider");
+    await a.join();
+    a.socket.emit("toggleReady");
+    await host.until((r) => r.settings.hostRides && r.players.some((p) => p.ready));
+    await host.startRace();
+    const r = await host.until((x) => x.status === "racing", 5000);
+    await sleep(1000); // 20 characters in under a second would trip the anti-cheat
+    host.socket.emit("typed", 0, r.text.slice(0, 20));
+    await sleep(200);
+    host.close();
+    await a.until((x) => x.hostAway);
+
+    host = await open(code, "Host", "host"); // same tab, same clientId
+    expect(await host.join()).toMatchObject({ ok: true, role: "host" });
+    const back = await a.until((x) => x.hostId !== null);
+    const me = back.players.find((p) => p.name === "Host")!;
+    expect(me.role).toBe("host");
+    expect(me.racing).toBe(true);
+    expect(me.charIndex).toBe(20);
+  }, 10_000);
 });
 
 describe("a full race", () => {
