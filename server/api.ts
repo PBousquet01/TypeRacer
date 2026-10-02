@@ -97,6 +97,14 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   if (!path.startsWith("/api/")) return false;
 
   const method = req.method?.toUpperCase();
+
+  // For the host's health checks. Deliberately doesn't touch the database:
+  // frequent checks would keep a sleeping database awake for nothing.
+  if (path === "/api/health") {
+    send(res, 200, { ok: true });
+    return true;
+  }
+
   const me = await userFromRequest(req);
 
   if (path === "/api/auth/me" && method === "GET") {

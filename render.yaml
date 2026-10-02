@@ -1,0 +1,19 @@
+# Render deployment (TECH-6). One free web service runs the whole app:
+# Next.js pages, the JSON API and the Socket.IO referee, in one Bun process.
+# The database is a free Neon PostgreSQL; its connection string is entered in
+# the Render dashboard (never committed). See docs/deploiement.md.
+services:
+  - type: web
+    name: chocobo-race
+    runtime: node # Render's Node runtime also provides Bun
+    plan: free
+    region: ohio # closest to Québec
+    buildCommand: bun install --frozen-lockfile && bun run build
+    startCommand: bun run start
+    healthCheckPath: /api/health
+    autoDeployTrigger: checksPass # deploy only when the GitHub CI is green
+    envVars:
+      - key: BUN_VERSION
+        value: 1.4.1
+      - key: DATABASE_URL
+        sync: false # paste the Neon connection string in the dashboard

@@ -80,6 +80,15 @@ at boot by `server/db.ts`; there is no migration step.
   race ends, so there is no path from practice to the database.
 - **Results are saved for signed-in finishers only.** Guests race normally.
 
+## Hosting (TECH-6)
+
+Render free web service (one always-on instance, so in-memory rooms work) +
+Neon free Postgres. `render.yaml` is the Blueprint; `DATABASE_URL` is set in
+the Render dashboard, never committed. `GET /api/health` is the health check
+and must not touch the database (it would keep Neon awake). The session
+cookie is `Secure` when `NODE_ENV=production`. Render redeploys on push only
+when CI passes. Guide and justification: `docs/deploiement.md`.
+
 ## Class docs (TECH-5, TECH-8)
 
 `docs/` holds the French documentation for the teacher: `architecture.md`

@@ -214,11 +214,12 @@ bun test                       # les tests (utilisent aussi la base)
 
 ## Limites connues
 
-- Pas encore d'hébergement HTTPS (TECH-6, en attente).
+- Hébergement gratuit : le serveur s'endort après 15 minutes sans visite (voir [deploiement.md](deploiement.md)).
 - La précision est déclarée par le navigateur (voir Sécurité).
 - Un hôte ne tape jamais; il ne peut pas choisir de jouer (COURSE-5).
 - L'état des salons est en mémoire : un redémarrage du serveur interrompt les
   courses en cours.
 
-La [matrice des exigences](matrice-des-exigences.md) donne l'état de chaque
+Le [guide de déploiement](deploiement.md) justifie le choix de l'hébergeur
+(TECH-6). La [matrice des exigences](matrice-des-exigences.md) donne l'état de chaque
 exigence du cahier des charges.

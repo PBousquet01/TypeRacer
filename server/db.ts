@@ -9,7 +9,14 @@ import { SQL } from "bun";
 const url =
   process.env.DATABASE_URL ?? "postgres://localhost:5432/chocobo_race";
 
-export const sql = new SQL(url);
+// Hosted databases (Neon) put themselves to sleep after a few idle minutes
+// and take a moment to wake. So: don't hold idle connections open (they'd be
+// dead after a sleep), and give a waking database time to answer.
+export const sql = new SQL({
+  url,
+  idleTimeout: 30, // seconds
+  connectionTimeout: 30, // seconds
+});
 
 const STATEMENTS: string[] = [
   `CREATE TABLE IF NOT EXISTS users (

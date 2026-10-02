@@ -135,7 +135,7 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | TECH-3 | PostgreSQL; outil d'accès choisi et justifié | Essentiel | ✅ | `server/db.ts` | Tests de `api.test.ts` et `rooms.test.ts` sur une vraie base | Justification dans [architecture.md](architecture.md#pourquoi-bunsql-plutôt-quun-orm-tech-3). |
 | TECH-4 | Temps réel (WebSocket ou équivalent) | Essentiel | ✅ | Socket.IO, `server/rooms.ts` | Tous les tests de `rooms.test.ts` | |
 | TECH-5 | Machine à états documentée | Essentiel | ✅ | `server/rooms.ts` | [machine-a-etats.md](machine-a-etats.md) | |
-| TECH-6 | Hébergement HTTPS; choix justifié | Essentiel | ⏳ | — | — | Plan : le serveur d'un camarade, en attente de l'accord de l'enseignant. Vercel écarté (pas de WebSockets durables). |
+| TECH-6 | Hébergement HTTPS; choix justifié | Essentiel | ⏳ | `render.yaml`, `GET /api/health` | — | Mise en ligne en cours sur Render + Neon. Justification et étapes dans [deploiement.md](deploiement.md). |
 | TECH-7 | Tests automatisés et intégration continue | Essentiel | ✅ | `tests/`, `.github/workflows/ci.yml` | 48 tests; CI verte sur GitHub | |
 | TECH-8 | Documentation technique et matrice tenue à jour | Essentiel | ✅ | `docs/` | Ce document | |
 | TECH-9 | Checkpoint #1 : en ligne en HTTPS, auth de base, début du design | Essentiel | ⏳ | — | — | Auth de base et design faits; dépend de TECH-6. |
@@ -165,4 +165,4 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | H-13 : pas de rôle spécial pour l'enseignant | ✅ Appliquée |
 | H-15 : banque de textes FR/EN + mots au hasard | ✅ Appliquée |
 | H-17 : filtre de mots interdits et expulsion | ❌ Pas fait |
-| H-18 : hébergement Fly.io ou VPS | ⏳ Remplacé par le plan du serveur d'un camarade |
+| H-18 : hébergement Fly.io ou VPS | ⏳ Remplacé par Render + Neon (gratuits), mise en ligne en cours |

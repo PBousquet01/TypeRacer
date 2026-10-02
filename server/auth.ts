@@ -131,5 +131,8 @@ export function sessionCookie(token: string, { clear = false } = {}): string {
     "HttpOnly", // JavaScript can't read it, so an XSS bug can't steal the session
     "SameSite=Lax",
     `Max-Age=${age}`,
+    // Online the site is HTTPS-only, so the cookie never travels in clear.
+    // Not in development: browsers drop Secure cookies on a plain-http LAN address.
+    ...(process.env.NODE_ENV === "production" ? ["Secure"] : []),
   ].join("; ");
 }
