@@ -15,23 +15,23 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 
 | Priorité | ✅ | 🟡 | ❌ | ⏳ | Total |
 | --- | --- | --- | --- | --- | --- |
-| Essentiel | 27 | 8 | 5 | 0 | 40 |
-| Souhaitable | 4 | 5 | 14 | 0 | 23 |
+| Essentiel | 27 | 10 | 3 | 0 | 40 |
+| Souhaitable | 4 | 6 | 13 | 0 | 23 |
 | Moins prioritaire | 0 | 0 | 5 | 0 | 5 |
 | Non classée (AUTH-5) | 1 | 0 | 0 | 0 | 1 |
-| **Total** | **32** | **13** | **24** | **0** | **69** |
+| **Total** | **32** | **16** | **21** | **0** | **69** |
 
 ## Authentification et comptes (AUTH)
 
 | ID | Exigence | Priorité | État | Où | Vérification | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
-| AUTH-1 | Connexion avec GitHub | Essentiel | ❌ | — | — | Demande l'adresse finale du site (TECH-6) pour enregistrer l'application OAuth. |
-| AUTH-2 | Connexion avec Discord | Essentiel | ❌ | — | — | Même dépendance que AUTH-1. |
-| AUTH-3 | Un compte peut lier GitHub et Discord | Souhaitable | ❌ | — | — | Dépend de AUTH-1 et AUTH-2. |
-| AUTH-4 | Nom d'utilisateur + mot de passe, moins mis en avant | Souhaitable | 🟡 | `server/auth.ts`, `app/account/page.tsx` | « signing up signs you in with an HttpOnly cookie », « a wrong password is refused » | Fonctionne, mais c'est encore la seule méthode, donc pas « moins mise en avant ». |
+| AUTH-1 | Connexion avec GitHub | Essentiel | 🟡 | `server/oauth.ts`, `server/api.ts`, `app/account/page.tsx` | « the first sign-in makes an account; the next one finds it again », « a callback whose state doesn't match is refused » | Code et tests faits (GitHub simulé). À activer : clés dans `.env` et sur Render ([deploiement.md](deploiement.md)). |
+| AUTH-2 | Connexion avec Discord | Essentiel | 🟡 | `server/oauth.ts` | « a signed-in rider can link Discord, but not someone else's » | Même état que AUTH-1. |
+| AUTH-3 | Un compte peut lier GitHub et Discord | Souhaitable | 🟡 | Table `identities`, page « Ton compte » | « a signed-in rider can link Discord, but not someone else's » | Fait; actif avec les clés, comme AUTH-1. |
+| AUTH-4 | Nom d'utilisateur + mot de passe, moins mis en avant | Souhaitable | 🟡 | `server/auth.ts`, `app/account/page.tsx` | « signing up signs you in with an HttpOnly cookie », « a wrong password is refused » | Les boutons GitHub et Discord passent avant le formulaire dès que leurs clés sont configurées. |
 | AUTH-5 | Aucune récupération de mot de passe | Non classée | ✅ | — | — | Aucune fonction de récupération n'existe. |
 | AUTH-6 | Jouer en invité avec un pseudo | Essentiel | ✅ | `app/page.tsx`, `lib/profile.ts` | Tous les tests de `rooms.test.ts` jouent en invité | Aucun compte requis pour courir. |
-| AUTH-7 | Page de paramètres (langue, thème, pseudo, comptes liés) | Souhaitable | 🟡 | `components/LanguageToggle.tsx`, `components/ThemeToggle.tsx` | — | Langue et thème réglables dans la barre du haut; pas de page dédiée, pseudo non modifiable, pas de comptes liés. |
+| AUTH-7 | Page de paramètres (langue, thème, pseudo, comptes liés) | Souhaitable | 🟡 | `components/LanguageToggle.tsx`, `components/ThemeToggle.tsx` | — | Langue et thème dans la barre du haut; la page « Ton compte » montre et lie les comptes GitHub/Discord; pseudo non modifiable. |
 
 ## Salons et courses (COURSE)
 
@@ -136,7 +136,7 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | TECH-4 | Temps réel (WebSocket ou équivalent) | Essentiel | ✅ | Socket.IO, `server/rooms.ts` | Tous les tests de `rooms.test.ts` | |
 | TECH-5 | Machine à états documentée | Essentiel | ✅ | `server/rooms.ts` | [machine-a-etats.md](machine-a-etats.md) | |
 | TECH-6 | Hébergement HTTPS; choix justifié | Essentiel | ✅ | `render.yaml`, `GET /api/health` | En ligne : <https://chocobo-race.onrender.com> (HTTPS valide, HTTP redirigé, course complète jouée par WebSocket le 2 octobre 2026) | Render + Neon, gratuits. Justification dans [deploiement.md](deploiement.md). |
-| TECH-7 | Tests automatisés et intégration continue | Essentiel | ✅ | `tests/`, `.github/workflows/ci.yml` | 59 tests; CI verte sur GitHub | |
+| TECH-7 | Tests automatisés et intégration continue | Essentiel | ✅ | `tests/`, `.github/workflows/ci.yml` | 65 tests; CI verte sur GitHub | |
 | TECH-8 | Documentation technique et matrice tenue à jour | Essentiel | ✅ | `docs/` | Ce document | |
 | TECH-9 | Checkpoint #1 : en ligne en HTTPS, auth de base, début du design | Essentiel | ✅ | <https://chocobo-race.onrender.com> | Voir TECH-6 | Site en ligne en HTTPS, comptes par nom d'utilisateur et mot de passe, design en place. |
 

@@ -4,12 +4,16 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { sql } from "./db";
 import { isKind, isLanguage, pickText } from "./texts";
+import { authorizeUrl, configuredProviders, fetchProfile, isProvider, newState, stateCookie, stateMatches } from "./oauth";
 import {
+  createOAuthUser,
   createSession,
   createUser,
   destroySession,
+  findUserByIdentity,
   findUserByUsername,
   grantMount,
+  linkIdentity,
   revokeMount,
   sessionCookie,
   tokenFromCookies,
@@ -17,7 +21,7 @@ import {
   validateCredentials,
   verifyLogin,
 } from "./auth";
-import type { LeaderboardRow, RecentRace, StatsSummary, User } from "../lib/types";
+import type { ErrorCode, LeaderboardRow, RecentRace, StatsSummary, User } from "../lib/types";
 
 const MAX_BODY = 4096;
 
@@ -31,6 +35,11 @@ function send(res: ServerResponse, status: number, body: unknown, headers: Recor
     ...headers,
   });
   res.end(payload);
+}
+
+function redirect(res: ServerResponse, location: string, cookies: string[] = []) {
+  res.writeHead(302, { Location: location, "Cache-Control": "no-store", "Set-Cookie": cookies });
+  res.end();
 }
 
 function readJson(req: IncomingMessage): Promise<Body | null> {
@@ -68,6 +77,7 @@ function publicUser(user: User | null): User | null {
     displayName: user.displayName,
     isAdmin: user.isAdmin,
     unlocks: user.unlocks,
+    linked: user.linked,
   };
 }
 
@@ -108,7 +118,44 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   const me = await userFromRequest(req);
 
   if (path === "/api/auth/me" && method === "GET") {
-    send(res, 200, { user: publicUser(me) });
+    send(res, 200, { user: publicUser(me), providers: configuredProviders() });
+    return true;
+  }
+
+  // AUTH-1, AUTH-2, AUTH-3. The flow itself is explained in server/oauth.ts.
+  const oauth = /^\/api\/auth\/([a-z]+)\/(start|callback)$/.exec(path);
+  if (oauth && isProvider(oauth[1]) && method === "GET") {
+    const provider = oauth[1];
+    const forget = stateCookie(null, "");
+    const fail = (code: ErrorCode) => redirect(res, `/account?error=${code}`, [forget]);
+    if (!configuredProviders().includes(provider)) return fail("oauth-unavailable"), true;
+
+    if (oauth[2] === "start") {
+      const state = newState();
+      redirect(res, authorizeUrl(provider, state), [stateCookie(provider, state)]);
+      return true;
+    }
+
+    if (url.searchParams.get("error")) return fail("oauth-cancelled"), true; // they said no on the provider's page
+    if (!stateMatches(req.headers.cookie, provider, url.searchParams.get("state"))) return fail("oauth-failed"), true;
+    const profile = await fetchProfile(provider, url.searchParams.get("code") ?? "");
+    if (!profile) return fail("oauth-failed"), true;
+
+    const owner = await findUserByIdentity(provider, profile.id);
+    // Already signed in: this attaches the identity to the current account.
+    if (me) {
+      if (owner && owner.id !== me.id) return fail("identity-taken"), true;
+      if (!owner) {
+        if (me.linked.includes(provider)) return fail("already-linked"), true;
+        await linkIdentity(me.id, provider, profile.id);
+      }
+      redirect(res, `/account?linked=${provider}`, [forget]);
+      return true;
+    }
+
+    const user = owner ?? (await createOAuthUser(provider, profile));
+    const token = await createSession(user.id);
+    redirect(res, "/", [forget, sessionCookie(token)]);
     return true;
   }
 

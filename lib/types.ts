@@ -26,6 +26,11 @@ export type ErrorCode =
   | "name-format"
   | "password-short"
   | "username-taken"
+  | "oauth-cancelled"
+  | "oauth-failed"
+  | "oauth-unavailable"
+  | "identity-taken"
+  | "already-linked"
   | "wrong-credentials"
   | "sign-in-for-stats"
   | "admin-only"
@@ -34,6 +39,7 @@ export type ErrorCode =
   | "unknown-endpoint"
   | "server-error"
   | "unknown";
+export type Provider = "github" | "discord";
 export type NoticeCode = "host-taken" | "late-arrival";
 export type TextKind = "sentences" | "words";
 
@@ -94,6 +100,7 @@ export interface User {
   displayName: string;
   isAdmin: boolean;
   unlocks: string[];
+  linked: Provider[]; // GitHub / Discord accounts attached to this one (AUTH-3)
 }
 
 export interface JoinPayload extends Partial<Profile> {

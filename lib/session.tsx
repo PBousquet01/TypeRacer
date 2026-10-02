@@ -1,11 +1,12 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { User } from "./types";
+import type { Provider, User } from "./types";
 
 interface SessionState {
   user: User | null;
   loading: boolean;
+  providers: Provider[]; // the GitHub / Discord sign-ins this server has keys for
 }
 
 interface Session extends SessionState {
@@ -22,6 +23,7 @@ const signedOut = async () => {
 const SessionContext = createContext<Session>({
   user: null,
   loading: true,
+  providers: [],
   refresh: async () => null,
   signIn: signedOut,
   signUp: signedOut,
@@ -40,16 +42,16 @@ async function post(path: string, body?: Record<string, string>) {
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<SessionState>({ user: null, loading: true });
+  const [state, setState] = useState<SessionState>({ user: null, loading: true, providers: [] });
 
   const refresh = useCallback(async () => {
     try {
       const res = await fetch("/api/auth/me");
       const data = await res.json();
-      setState({ user: data.user ?? null, loading: false });
+      setState({ user: data.user ?? null, loading: false, providers: data.providers ?? [] });
       return data.user ?? null;
     } catch {
-      setState({ user: null, loading: false });
+      setState((s) => ({ ...s, user: null, loading: false }));
       return null;
     }
   }, []);
@@ -58,8 +60,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     let active = true;
     fetch("/api/auth/me")
       .then((res) => res.json())
-      .then((data) => active && setState({ user: data.user ?? null, loading: false }))
-      .catch(() => active && setState({ user: null, loading: false }));
+      .then((data) => active && setState({ user: data.user ?? null, loading: false, providers: data.providers ?? [] }))
+      .catch(() => active && setState((s) => ({ ...s, user: null, loading: false })));
     return () => {
       active = false;
     };
@@ -71,17 +73,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       refresh,
       signIn: async (username, password) => {
         const { user } = await post("/api/auth/login", { username, password });
-        setState({ user, loading: false });
+        setState((s) => ({ ...s, user, loading: false }));
         return user;
       },
       signUp: async (username, password, displayName) => {
         const { user } = await post("/api/auth/signup", { username, password, displayName });
-        setState({ user, loading: false });
+        setState((s) => ({ ...s, user, loading: false }));
         return user;
       },
       signOut: async () => {
         await post("/api/auth/logout");
-        setState({ user: null, loading: false });
+        setState((s) => ({ ...s, user: null, loading: false }));
       },
     }),
     [state, refresh],

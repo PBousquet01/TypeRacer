@@ -17,3 +17,13 @@ services:
         value: 1.4.1
       - key: DATABASE_URL
         sync: false # paste the Neon connection string in the dashboard
+      # Sign in with GitHub / Discord (AUTH-1, AUTH-2): keys from each
+      # provider's developer settings, entered in the dashboard.
+      - key: GITHUB_CLIENT_ID
+        sync: false
+      - key: GITHUB_CLIENT_SECRET
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
+        sync: false

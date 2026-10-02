@@ -46,7 +46,7 @@ une connexion WebSocket ouverte pendant toute la course, et l'arbitre
   build) passent (`autoDeployTrigger: checksPass`).
 
 **Aucun secret n'est dans le dépôt.** L'adresse de la base (`DATABASE_URL`)
-est saisie dans le tableau de bord de Render.
+et les clés GitHub et Discord sont saisies dans le tableau de bord de Render.
 
 ## Mise en ligne, étape par étape
 
@@ -87,6 +87,31 @@ Depuis son ordinateur, avec la chaîne de connexion de Neon :
 ```bash
 DATABASE_URL="<chaîne Neon>" bun scripts/admin.ts make-admin <nom d'utilisateur>
 ```
+
+### 5. Connexion GitHub et Discord (AUTH-1, AUTH-2)
+
+Chaque fournisseur donne un identifiant (`CLIENT_ID`) et un secret
+(`CLIENT_SECRET`). Un fournisseur sans clés n'est simplement pas proposé.
+
+**GitHub** : *Settings → Developer settings → OAuth Apps → New OAuth App*.
+
+- Homepage URL : `https://chocobo-race.onrender.com`
+- Callback URLs : `https://chocobo-race.onrender.com/api/auth/github/callback`
+  et, pour le développement, `http://localhost:3000/api/auth/github/callback`
+  (sinon, une deuxième application pour le développement).
+- Copier le *Client ID*, puis générer un *Client secret*.
+
+**Discord** : <https://discord.com/developers/applications> → *New
+Application* → *OAuth2*.
+
+- Redirects : `https://chocobo-race.onrender.com/api/auth/discord/callback`
+  et `http://localhost:3000/api/auth/discord/callback`.
+- Copier le *Client ID* et le *Client Secret*.
+
+Les quatre valeurs (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`,
+`DISCORD_CLIENT_ID`, `DISCORD_CLIENT_SECRET`) vont dans le `.env` local et
+dans *Environment* sur Render. L'adresse de retour est construite à partir de
+`RENDER_EXTERNAL_URL`, que Render fournit tout seul.
 
 ## Mettre à jour le site
 

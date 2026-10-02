@@ -142,7 +142,7 @@ parameter, so user input can never be read as SQL.
 
 API (served by `server/api.ts`, before Next.js sees the request):
 `POST /api/auth/signup`, `POST /api/auth/login`, `POST /api/auth/logout`,
-`GET /api/auth/me`, `GET /api/stats/me`, `GET /api/stats/leaderboard`,
+`GET /api/auth/me`, `GET /api/auth/{github,discord}/{start,callback}` (OAuth sign-in, or linking when signed in), `GET /api/stats/me`, `GET /api/stats/leaderboard`,
 `POST /api/admin/mount`.
 
 The project started on SQLite; `scripts/migrate-sqlite-to-postgres.ts` copies

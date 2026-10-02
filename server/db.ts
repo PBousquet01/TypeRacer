@@ -31,6 +31,18 @@ const STATEMENTS: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower
      ON users (lower(username))`,
 
+  // AUTH-1/2/3: GitHub and Discord accounts attached to a user, at most one
+  // of each. Someone who only ever signs in that way has no password.
+  `ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`,
+  `CREATE TABLE IF NOT EXISTS identities (
+     provider    TEXT NOT NULL CHECK (provider IN ('github', 'discord')),
+     provider_id TEXT NOT NULL,
+     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+     PRIMARY KEY (provider, provider_id),
+     UNIQUE (user_id, provider)
+   )`,
+
   `CREATE TABLE IF NOT EXISTS sessions (
      token      TEXT PRIMARY KEY,
      user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,

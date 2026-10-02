@@ -100,17 +100,23 @@ erDiagram
     users ||--o{ sessions : "a"
     users ||--o{ unlocks : "débloque"
     users ||--o{ races : "a couru"
+    users ||--o{ identities : "se connecte avec"
     users {
         int id PK
         text username "unique sans tenir compte de la casse"
         text display_name
-        text password_hash "argon2id"
+        text password_hash "argon2id; vide si GitHub/Discord seulement"
         bool is_admin
     }
     sessions {
         text token PK "aléatoire, 32 octets"
         int user_id FK
         timestamptz expires_at "30 jours"
+    }
+    identities {
+        text provider PK "github ou discord"
+        text provider_id PK "l'identifiant chez le fournisseur"
+        int user_id FK "un de chaque au plus par compte"
     }
     unlocks {
         int user_id FK
@@ -164,7 +170,8 @@ erDiagram
 | Route | Rôle |
 | --- | --- |
 | `POST /api/auth/signup`, `login`, `logout` | Comptes; la session est un cookie HttpOnly |
-| `GET /api/auth/me` | L'utilisateur connecté (ou `null`) |
+| `GET /api/auth/me` | L'utilisateur connecté (ou `null`) et les fournisseurs proposés |
+| `GET /api/auth/github/start`, `…/callback` (idem `discord`) | Connexion OAuth (AUTH-1, AUTH-2); connecté, cela lie le compte (AUTH-3). Détails dans `server/oauth.ts` |
 | `GET /api/text?lang=en\|fr&kind=sentences\|words` | Un texte pour l'entraînement |
 | `GET /api/stats/me` | Résumé et 10 dernières courses (connecté) |
 | `GET /api/stats/leaderboard` | Meilleurs scores du serveur |
@@ -201,7 +208,7 @@ est un réglage séparé (TXT-7).
 
 ## Tests et intégration continue (TECH-7)
 
-`bun test` lance 59 tests : règles du moteur de frappe, score et
+`bun test` lance 65 tests : règles du moteur de frappe, score et
 dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types, les tests
 (avec une vraie base PostgreSQL) et le build à chaque envoi.

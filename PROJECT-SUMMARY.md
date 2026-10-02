@@ -2,7 +2,7 @@
 
 Orientation for a new session. Read this instead of exploring the codebase;
 open individual files only for the part you're changing.
-*Last updated: 2026-10-02 (the server judges the keys; rider name rules).*
+*Last updated: 2026-10-02 (GitHub/Discord sign-in; the server judges the keys).*
 
 ## What it is
 
@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 59 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 65 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -96,6 +96,17 @@ and must not touch the database (it would keep Neon awake). The session
 cookie is `Secure` when `NODE_ENV=production`. Render redeploys on push only
 when CI passes. Guide and justification: `docs/deploiement.md`.
 
+## GitHub / Discord sign-in (AUTH-1, 2, 3)
+
+`server/oauth.ts` holds the flow (state cookie, code → token → profile).
+Keys come from `GITHUB_*` / `DISCORD_*` env vars; a provider without keys
+isn't offered. The callback URL is built from `PUBLIC_URL`, else Render's
+`RENDER_EXTERNAL_URL`, else `http://localhost:$PORT`, and must be registered
+with the provider. Accounts are matched by the provider's **id**, never the
+login. A first sign-in creates a password-less account (username from the
+login, made unique); signed in, the same flow links instead. Tests fake both
+providers by swapping `globalThis.fetch` in `tests/api.test.ts`.
+
 ## Class docs (TECH-5, TECH-8)
 
 `docs/` holds the French documentation for the teacher: `architecture.md`
@@ -145,7 +156,9 @@ French key is a type error. Components call `useT()` and read `t.lobby.start(n)`
 ## Data model (PostgreSQL)
 
 `users` (username case-insensitive via a `lower(username)` unique index,
-argon2id hash, `is_admin`) · `sessions` (random token, expiry) · `unlocks`
+argon2id hash, NULL for GitHub/Discord-only accounts, `is_admin`) ·
+`identities` (provider + provider id → user, one of each per user; AUTH-1/2/3) ·
+`sessions` (random token, expiry) · `unlocks`
 (account → mount) · `races` (one row per finished race: wpm, accuracy,
 time_ms, place, riders) · `passages` (language `en`/`fr`, body) · `words`
 (dictionary per language, for random-word races).
@@ -164,7 +177,8 @@ Practice has the same two choices.
 Socket: `joinRoom` `toggleReady` `updateSettings`(host) `startRace`(host) `typed`
 `playAgain`(host) `leaveRoom` → `roomUpdate` `positions`.
 
-HTTP: `POST /api/auth/{signup,login,logout}` · `GET /api/auth/me` ·
+HTTP: `POST /api/auth/{signup,login,logout}` · `GET /api/auth/me` (+ configured providers) ·
+`GET /api/auth/{github,discord}/{start,callback}` (`server/oauth.ts`; signed in = link) ·
 `GET /api/text` · `GET /api/stats/me` · `GET /api/stats/leaderboard` ·
 `POST /api/admin/mount`.
 

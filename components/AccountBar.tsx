@@ -48,10 +48,10 @@ export default function AccountBar() {
       <Link href="/stats" className={navLink}>
         {t.nav.myStats}
       </Link>
-      <span className="inline-flex items-center gap-2 text-strong">
+      <Link href="/account" className="inline-flex items-center gap-2 text-strong no-underline hover:text-accent">
         {user.displayName}
         {user.isAdmin && <HostTag>{t.common.admin}</HostTag>}
-      </span>
+      </Link>
       <button className="btn-link" onClick={signOut}>
         {t.nav.signOut}
       </button>

@@ -7,7 +7,8 @@
 import { randomBytes } from "node:crypto";
 import { sql } from "./db";
 import { USERNAME_RE, cleanRiderName } from "../lib/names";
-import type { ErrorCode, User } from "../lib/types";
+import type { ErrorCode, Provider, User } from "../lib/types";
+import type { ExternalProfile } from "./oauth";
 
 export const SESSION_COOKIE = "chocobo_session";
 const SESSION_DAYS = 30;
@@ -49,10 +50,10 @@ export async function createUser({
 }
 
 export async function verifyLogin(username: string, password: unknown): Promise<User | null> {
-  const [row]: { id: number; password_hash: string }[] = await sql`
+  const [row]: { id: number; password_hash: string | null }[] = await sql`
     SELECT id, password_hash FROM users WHERE lower(username) = lower(${username ?? ""})`;
-  // Hash even when the user doesn't exist, so a missing account and a wrong
-  // password take the same time to answer.
+  // Hash even when the user doesn't exist (or signs in with GitHub/Discord
+  // only, and has no password), so every refusal takes the same time.
   const hash =
     row?.password_hash ??
     "$argon2id$v=19$m=65536,t=2,p=1$aaaaaaaaaaaaaaaa$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -92,7 +93,55 @@ export async function findUserById(id: number): Promise<User | null> {
     displayName: row.display_name,
     isAdmin: Boolean(row.is_admin),
     unlocks: await mountsFor(row.id),
+    linked: await linkedProviders(row.id),
   };
+}
+
+async function linkedProviders(userId: number): Promise<Provider[]> {
+  const rows: { provider: Provider }[] = await sql`
+    SELECT provider FROM identities WHERE user_id = ${userId} ORDER BY provider`;
+  return rows.map((r) => r.provider);
+}
+
+/** The account a GitHub or Discord identity belongs to, if any. */
+export async function findUserByIdentity(provider: Provider, providerId: string): Promise<User | null> {
+  const [row]: { user_id: number }[] = await sql`
+    SELECT user_id FROM identities WHERE provider = ${provider} AND provider_id = ${providerId}`;
+  return row ? findUserById(row.user_id) : null;
+}
+
+export async function linkIdentity(userId: number, provider: Provider, providerId: string): Promise<void> {
+  await sql`
+    INSERT INTO identities (provider, provider_id, user_id) VALUES (${provider}, ${providerId}, ${userId})`;
+}
+
+/** A free username made from the provider's login: "Phil.B" → "Phil_B", then "Phil_B2", "Phil_B3"… */
+async function freeUsername(login: string): Promise<string> {
+  const base = login.replace(/[^a-z0-9_-]/gi, "_").slice(0, 16).padEnd(3, "_");
+  for (let n = 1; n < 1000; n++) {
+    const suffix = n === 1 ? "" : String(n);
+    const candidate = base.slice(0, 16 - suffix.length) + suffix;
+    const [taken] = await sql`SELECT 1 FROM users WHERE lower(username) = lower(${candidate})`;
+    if (!taken) return candidate;
+  }
+  return `rider_${randomBytes(4).toString("hex")}`;
+}
+
+/** First sign-in with GitHub or Discord: a new account, with no password, tied to that identity. */
+export async function createOAuthUser(provider: Provider, profile: ExternalProfile): Promise<User> {
+  const username = await freeUsername(profile.login);
+  const displayName =
+    cleanRiderName(profile.name?.slice(0, 16)) ?? cleanRiderName(profile.login.slice(0, 16)) ?? username;
+  const id = await sql.begin(async (tx) => {
+    const [row]: { id: number }[] = await tx`
+      INSERT INTO users (username, display_name, password_hash)
+      VALUES (${username}, ${displayName}, NULL)
+      RETURNING id`;
+    await tx`
+      INSERT INTO identities (provider, provider_id, user_id) VALUES (${provider}, ${profile.id}, ${row.id})`;
+    return row.id;
+  });
+  return (await findUserById(id))!;
 }
 
 export async function mountsFor(userId: number): Promise<string[]> {
