@@ -2,7 +2,7 @@
 
 Orientation for a new session. Read this instead of exploring the codebase;
 open individual files only for the part you're changing.
-*Last updated: 2026-09-24 (moved to TypeScript + Tailwind).*
+*Last updated: 2026-10-02 (the server judges the keys; rider name rules).*
 
 ## What it is
 
@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 54 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 59 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -52,9 +52,15 @@ at boot by `server/db.ts`; there is no migration step.
 
 ## Rules that must not be broken
 
-- **The server decides everything that matters.** Clients only send "I typed N
-  correct characters". Positions, finish order, WPM and time come from
-  `server/rooms.ts`. Progress faster than ~300 WPM is ignored.
+- **The server decides everything that matters.** Clients only send the keys
+  they pressed (`typed(base, keys)`), never a verdict. `server/rooms.ts`
+  replays them through the same rules as the browser (`replayKeys` in
+  `lib/typing.ts`) against its own copy of the text; positions, accuracy,
+  finish order, WPM and time come from that. Progress faster than ~300 WPM
+  is ignored. This exists because a friend patched the page's `applyInput`
+  so every key counted as right, and the server believed the count.
+  What it can't stop: a script that sends the *right* keys (a bot), which
+  only the speed limit bounds.
 - **Restricted mounts are enforced server-side** in `safeColor()`. Hiding them
   in the picker is cosmetic; the colour is just a string a client sends.
 - **Ranking is by score (TXT-9)**: score = WPM × accuracy (`scoreOf` in
@@ -62,8 +68,8 @@ at boot by `server/db.ts`; there is no migration step.
   (`rankFinishers` in `server/rooms.ts`), best score first, ties to whoever
   crossed first; DNFs get no place. The first bird across the line can lose.
   No minimum-accuracy threshold yet (H-11 says 80%; undecided).
-- **Accuracy is reported by the browser** (only it counts keystrokes) — treat
-  it as self-reported.
+- **Accuracy is counted by the server** from the keys it was sent, at the
+  finish. The figure shown during the race is the browser's own estimate.
 - **One host per room.** The host opens the room, presses start and spectates;
   they never type. Only ready riders join a race (`player.racing` snapshot).
   If the host drops, the seat is held 20s for a reconnect, then the
@@ -155,7 +161,7 @@ Practice has the same two choices.
 
 ## Interfaces
 
-Socket: `joinRoom` `toggleReady` `updateSettings`(host) `startRace`(host) `progress`
+Socket: `joinRoom` `toggleReady` `updateSettings`(host) `startRace`(host) `typed`
 `playAgain`(host) `leaveRoom` → `roomUpdate` `positions`.
 
 HTTP: `POST /api/auth/{signup,login,logout}` · `GET /api/auth/me` ·
@@ -216,11 +222,11 @@ light-theme tweaks, `wide:` / `max-wide:` for the 900px breakpoint. Only
    socket every second and page navigation breaks in dev.
 2. **Files in `server/` only load at startup** — after editing them, restart,
    or you'll debug a mount the server doesn't know about.
-3. Accuracy travels **with the finishing `progress`** (`progress(n, accuracy)`),
-   because the last finisher ends the race on the spot: a separate message
-   arrived too late, and older races in the DB have no accuracy because of
-   it. Only the first accuracy per race counts. A tab that
-   reloads after finishing has forgotten its mistakes and would re-send 100%.
+3. A report (`typed`) must start where the server's count is (`base`), or it
+   is ignored: behind means already counted, ahead means an earlier report
+   was lost. A reloaded tab restarts from the server's `charIndex`, so the
+   two stay in step. Older races in the DB have no accuracy (it used to
+   arrive in a separate, late message).
 4. The rider profile (name/mount/role) lives in `sessionStorage`, so it's
    per-tab; a fresh tab shows the in-room join card instead.
 5. `eslint-disable` lines look like comments but are directives — don't strip

@@ -81,11 +81,13 @@ things or split the function instead.
 ## How it works
 
 - **The server is the referee** (`server/rooms.ts`): it keeps every room in
-  memory, picks the text, runs the countdown, collects each player's progress,
-  broadcasts positions ~10×/second, and decides the finish order and WPM.
+  memory, picks the text, runs the countdown, judges every key each player
+  pressed, broadcasts positions ~10×/second, and decides the finish order,
+  WPM and accuracy.
 - **Clients only type and draw.** The browser works out what you typed
-  locally (instant feedback), sends "I've typed N correct characters" to the
-  server, and draws the track from what the server sends back.
+  locally (instant feedback), but that verdict stays on your screen: it sends
+  the keys themselves to the server, which checks them against the text
+  again, and draws the track from what the server sends back.
 
 | File | What it does |
 | --- | --- |
@@ -175,7 +177,7 @@ bun scripts/admin.ts delete-text 7
 | `toggleReady` | client → server | – (riders only) |
 | `updateSettings` | client → server | `{ language?, kind? }` (host only, lobby only; broadcast to the room) |
 | `startRace` | client → server | – (host only; ready riders take part) |
-| `progress` | client → server | number of correct characters typed, plus the accuracy on the finishing report |
+| `typed` | client → server | the keys pressed since the last report (`\b` for a backspace) and how many characters were right before them; the server judges them |
 | `playAgain` | client → server | – (host only: back to the lobby) |
 | `leaveRoom` | client → server | – |
 | `roomUpdate` | server → room | full room: status, text, players |

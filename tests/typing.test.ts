@@ -4,7 +4,9 @@ import {
   applyInput,
   correctPrefixLength,
   EMPTY_STATE,
+  keysBetween,
   MAX_CHARS_PAST_MISTAKE,
+  replayKeys,
   shouldReport,
   wpmOf,
   type TypingState,
@@ -108,5 +110,26 @@ describe("accuracyOf and wpmOf", () => {
   });
   test("no wpm in the first second", () => {
     expect(wpmOf(10, 900)).toBe(0);
+  });
+});
+
+describe("what the server is sent, and what it makes of it", () => {
+  test("keysBetween gives the characters added, or one backspace per character removed", () => {
+    expect(keysBetween("the", "the q")).toBe(" q");
+    expect(keysBetween("the qx", "the ")).toBe("\b\b");
+    expect(keysBetween("the", "tha")).toBe("");
+  });
+  test("replaying the keys gives the same state as typing them", () => {
+    const keys = "the quixk\b\bck bird";
+    expect(replayKeys(EMPTY_STATE, keys, TEXT, 1000)).toEqual(typeKeys(keys));
+  });
+  test("a wrong key is wrong for the server whatever the page claimed", () => {
+    const s = replayKeys(EMPTY_STATE, "xxxxx", TEXT, 1000);
+    expect(correctPrefixLength(s.input, TEXT)).toBe(0);
+    expect(s.mistakes).toBe(5);
+  });
+  test("keys the rules refuse are skipped", () => {
+    const s = replayKeys(EMPTY_STATE, "\b" + "x".repeat(20), TEXT, 1000);
+    expect(s.input.length).toBe(MAX_CHARS_PAST_MISTAKE);
   });
 });

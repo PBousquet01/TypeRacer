@@ -73,10 +73,7 @@ export function useRoom(code: string, profile: Profile | null) {
     () => getSocket().emit("startRace", null, (res) => "error" in res && setError(res.error)),
     [],
   );
-  const sendProgress = useCallback(
-    (charIndex: number, accuracy?: number) => getSocket().emit("progress", charIndex, accuracy),
-    [],
-  );
+  const sendKeys = useCallback((base: number, keys: string) => getSocket().emit("typed", base, keys), []);
   const playAgain = useCallback(() => getSocket().emit("playAgain"), []);
   const updateSettings = useCallback(
     (settings: Partial<RoomSettings>) => getSocket().emit("updateSettings", settings),
@@ -92,7 +89,7 @@ export function useRoom(code: string, profile: Profile | null) {
     finishDeadline,
     toggleReady,
     startRace,
-    sendProgress,
+    sendKeys,
     playAgain,
     updateSettings,
   };

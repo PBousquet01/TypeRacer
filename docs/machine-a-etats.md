@@ -49,7 +49,7 @@ stateDiagram-v2
 | Rejoindre le salon | Oui (cavalier ou hôte) | Oui, comme **spectateur** jusqu'à la prochaine course (COURSE-7) | Oui, comme **spectateur** (COURSE-7) | Oui, voit les résultats |
 | Se déclarer prêt (`toggleReady`) | Oui | Non | Non | Non |
 | Changer les réglages (`updateSettings`, hôte) | Oui, diffusés à tous (COURSE-11) | Non | Non | Non |
-| Envoyer sa progression (`progress`) | Ignorée | Ignorée | Acceptée si plausible (anti-triche : max ~300 MPM) | Seulement pour renvoyer une précision perdue |
+| Envoyer ses touches (`typed`) | Ignorées | Ignorées | Jugées par le serveur; acceptées si plausibles (anti-triche : max ~300 MPM) | Ignorées |
 | Lancer (`startRace`) / revenir au salon (`playAgain`) | Lancer | — | — | Revenir au salon |
 | Un partant se déconnecte | — | Sa voie est gardée 30 s (COURSE-14) | Sa voie et sa progression sont gardées 30 s (COURSE-14) | Son résultat est gardé jusqu'au retour au salon |
 

@@ -30,7 +30,7 @@ export default function RoomPage() {
     finishDeadline,
     toggleReady,
     startRace,
-    sendProgress,
+    sendKeys,
     playAgain,
     updateSettings,
   } = useRoom(code, profile);
@@ -100,7 +100,7 @@ export default function RoomPage() {
             myId={myId}
             raceStartedAt={raceStartedAt}
             finishDeadline={finishDeadline}
-            onProgress={sendProgress}
+            onKeys={sendKeys}
           />
         ) : (
           <SpectatorScreen

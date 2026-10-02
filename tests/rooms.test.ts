@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { client, freshCode, sleep, startGameServer, type TestClient } from "./helpers";
 import { migrate } from "../server/db";
 import { FINISH_GRACE_MS, MAX_RIDERS } from "../lib/rules";
+import { MAX_CHARS_PAST_MISTAKE } from "../lib/typing";
 
 let server: Awaited<ReturnType<typeof startGameServer>>;
 const opened: TestClient[] = [];
@@ -11,6 +12,9 @@ async function open(code: string, name: string, role: "host" | "rider") {
   opened.push(c);
   return c;
 }
+
+/** `count` wrong keys, each one fixed with a backspace, before `passage` typed cleanly. */
+const sloppy = (passage: string, count: number) => (passage[0] === "~" ? "!\b" : "~\b").repeat(count) + passage;
 
 /** A room with a host and two ready riders. */
 async function readyRoom() {
@@ -125,6 +129,7 @@ describe("lobby rules", () => {
 
 describe("a full race", () => {
   let room: Awaited<ReturnType<typeof readyRoom>>;
+  let text = "";
   let length = 0;
 
   test("the race starts after a countdown", async () => {
@@ -132,14 +137,27 @@ describe("a full race", () => {
     expect(await room.host.startRace()).toEqual({ ok: true });
     const countdown = await room.host.until((r) => r.status === "countdown");
     expect(countdown.text.length).toBeGreaterThan(40); // a real passage from the bank
-    length = countdown.text.length;
+    text = countdown.text;
+    length = text.length;
     await room.host.until((r) => r.status === "racing", 5000);
   });
 
   test("progress faster than a human is ignored (anti-cheat)", async () => {
-    room.a.socket.emit("progress", length);
+    room.a.socket.emit("typed", 0, text);
     await sleep(300);
     expect(room.host.room?.players.find((p) => p.name === "Alice")?.finished).toBe(false);
+  });
+
+  test("the server judges the keys: wrong ones don't move the bird", async () => {
+    await sleep(1000); // 20 characters in under a second would trip the anti-cheat
+    room.b.socket.emit("typed", 0, "~".repeat(20)); // a tampered page calling these 20 keys right
+    room.b.socket.emit("typed", 20, text.slice(20, 40)); // or claiming to be 20 characters in
+    room.a.socket.emit("typed", 0, text.slice(0, 20));
+    await sleep(200); // mid-race progress goes out in the `positions` feed, not in room updates
+    room.a.close();
+    const r = await room.host.until((x) => x.players.some((p) => p.name === "Alice" && p.away));
+    expect(r.players.find((p) => p.name === "Bob")?.charIndex).toBe(0);
+    expect(r.players.find((p) => p.name === "Alice")?.charIndex).toBe(20);
   });
 
   test("COURSE-7: someone arriving mid-race watches", async () => {
@@ -150,12 +168,6 @@ describe("a full race", () => {
   });
 
   test("COURSE-14: a dropped rider keeps their lane and progress", async () => {
-    await sleep(1000); // 20 characters in under a second would trip the anti-cheat
-    room.a.socket.emit("progress", 20);
-    await sleep(200); // mid-race progress goes out in the `positions` feed, not in room updates
-    room.a.close();
-    await room.host.until((r) => r.players.some((p) => p.name === "Alice" && p.away));
-
     room.a = await open(room.code, "Alice", "rider"); // same tab, same clientId
     await room.a.join();
     const back = await room.host.until((r) => r.players.some((p) => p.name === "Alice" && !p.away));
@@ -164,28 +176,32 @@ describe("a full race", () => {
 
   test("COURSE-15: the first finish starts the last call", async () => {
     await sleep(Math.ceil(length / 25) * 1000); // stay under the ~300 WPM limit
-    room.b.socket.emit("progress", length, 70); // Bob crosses first, sloppily
+    room.b.socket.emit("typed", 0, sloppy(text, Math.round(length / 2))); // Bob crosses first, sloppily
     const r = await room.host.until((x) => x.finishIn !== null);
     expect(r.finishIn!).toBeGreaterThan(FINISH_GRACE_MS - 2000);
   }, 15_000);
 
   test("TXT-9: the careful rider wins on score, even crossing second", async () => {
     await sleep(1200);
-    room.a.socket.emit("progress", length, 99); // last finisher: the race ends on the spot
+    room.a.socket.emit("typed", 20, text.slice(20)); // last finisher: the race ends on the spot
     const r = await room.host.until((x) => x.status === "finished");
     const alice = r.players.find((p) => p.name === "Alice")!;
     const bob = r.players.find((p) => p.name === "Bob")!;
-    expect(alice.accuracy).toBe(99); // arrived with the finish, not after
-    expect(alice.score).toBe(Math.round((alice.wpm! * 99) / 100));
+    expect(alice.accuracy).toBe(100); // counted by the server from the keys it received
+    // Bob's wrong keys from earlier count too (the 5 the rules let through before he had to fix them).
+    const wrong = Math.round(length / 2) + MAX_CHARS_PAST_MISTAKE;
+    expect(bob.accuracy).toBe(Math.round((length / (length + wrong)) * 100));
+    expect(alice.score).toBe(alice.wpm!);
     expect(bob.timeMs!).toBeLessThan(alice.timeMs!);
     expect(alice.place).toBe(1);
     expect(bob.place).toBe(2);
   });
 
-  test("a reported accuracy can't be overwritten", async () => {
-    room.b.socket.emit("progress", length, 100);
+  test("a finished rider's result can't be changed", async () => {
+    const before = room.host.room?.players.find((p) => p.name === "Bob");
+    room.b.socket.emit("typed", 0, text);
     await sleep(200);
-    expect(room.host.room?.players.find((p) => p.name === "Bob")?.accuracy).toBe(70);
+    expect(room.host.room?.players.find((p) => p.name === "Bob")).toEqual(before!);
   });
 
   test("back to the lobby keeps everyone", async () => {

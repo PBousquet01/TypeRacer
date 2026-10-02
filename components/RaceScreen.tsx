@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTypingEngine } from "@/hooks/useTypingEngine";
 import { formatTime } from "@/lib/format";
 import type { PublicRoom } from "@/lib/types";
@@ -16,7 +16,7 @@ interface RaceScreenProps {
   myId: string | null;
   raceStartedAt: number | null;
   finishDeadline: number | null;
-  onProgress: (charIndex: number, accuracy?: number) => void;
+  onKeys: (base: number, keys: string) => void;
 }
 
 export default function RaceScreen({
@@ -24,7 +24,7 @@ export default function RaceScreen({
   myId,
   raceStartedAt,
   finishDeadline,
-  onProgress,
+  onKeys,
 }: RaceScreenProps) {
   const t = useT();
   const racing = room.status === "racing";
@@ -32,16 +32,25 @@ export default function RaceScreen({
   const [resume] = useState(() =>
     me && me.charIndex > 0 && raceStartedAt ? { correctChars: me.charIndex, startedAt: raceStartedAt } : null,
   );
-  const engine = useTypingEngine(room.text, { enabled: racing && !me?.finished, onProgress, resume });
+  const sentRef = useRef<[base: number, keys: string][]>([]);
+  const report = useCallback(
+    (base: number, keys: string) => {
+      sentRef.current.push([base, keys]);
+      onKeys(base, keys);
+    },
+    [onKeys],
+  );
+  const engine = useTypingEngine(room.text, { enabled: racing && !me?.finished, onKeys: report, resume });
   const socketRef = useRef(myId);
 
-  // A dropped connection comes back on a new socket id. Anything sent while it
-  // was down may have been lost, so tell the server where we are again.
+  // A dropped connection comes back on a new socket id. Reports sent while it
+  // was down may have been lost, so send them all again in order: the server
+  // skips the ones it already has (their base is behind its own count).
   useEffect(() => {
     if (!myId || socketRef.current === myId) return;
     socketRef.current = myId;
-    if (engine.correctChars > 0) onProgress(engine.correctChars, engine.isDone ? engine.accuracy : undefined);
-  }, [myId, engine.correctChars, engine.isDone, engine.accuracy, onProgress]);
+    sentRef.current.forEach(([base, keys]) => onKeys(base, keys));
+  }, [myId, onKeys]);
 
   return (
     <div className="grid gap-3.5">

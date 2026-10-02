@@ -53,7 +53,7 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | COURSE-14 | Un joueur déconnecté revient avec sa progression | Essentiel | ✅ | `holdLane`, `reclaimLane`, reprise dans `components/RaceScreen.tsx` | « COURSE-14: a dropped rider keeps their lane and progress » | Voie gardée 30 s (`RECONNECT_MS`), même onglet. |
 | COURSE-15 | Minuteur de fin après le premier arrivé | Essentiel | ✅ | `startFinishClock`, `components/FinishClock.tsx` | « COURSE-15: the first finish starts the last call » | 30 s (H-3). |
 | COURSE-16 | Bouton « Partie rapide » | Souhaitable | ❌ | — | — | |
-| COURSE-17 | Copier-coller bloqué dans la zone de frappe | Essentiel | ✅ | `components/TypingBox.tsx` (`onPaste`), `lib/typing.ts` | « pasting text past the end is ignored », « the limit also holds when several characters arrive at once », « progress faster than a human is ignored (anti-cheat) » | Collage bloqué dans la page, et le serveur ignore toute progression trop rapide. |
+| COURSE-17 | Copier-coller bloqué dans la zone de frappe | Essentiel | ✅ | `components/TypingBox.tsx` (`onPaste`), `lib/typing.ts` | « pasting text past the end is ignored », « the limit also holds when several characters arrive at once », « progress faster than a human is ignored (anti-cheat) », « the server judges the keys: wrong ones don't move the bird » | Collage bloqué dans la page; le serveur juge lui-même chaque touche et ignore toute progression trop rapide. |
 
 ## Visibilité des salons (VIS)
 
@@ -84,7 +84,7 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | TXT-6 | Accents, ponctuation, majuscules au choix | Souhaitable | ❌ | — | — | |
 | TXT-7 | Langue du texte distincte de la langue du site | Souhaitable | ✅ | `room.settings.language`, `components/Lobby.tsx` | « COURSE-11: the host's settings reach riders; riders can't change them » | Un nouveau salon part dans la langue d'interface de l'hôte. |
 | TXT-8 | Fautes : continuer ou corriger, au choix de l'hôte | Essentiel | 🟡 | `lib/typing.ts` (`MAX_CHARS_PAST_MISTAKE`) | « can't type more than 5 characters past a mistake », « fixed mistakes still count against accuracy » | Correction obligatoire seulement (défaut de H-10); l'option « laisser la faute » reste à faire. |
-| TXT-9 | Le classement pénalise les joueurs rapides mais imprécis | Essentiel | ✅ | `lib/rules.ts` (`scoreOf`), `rankFinishers` | « TXT-9: the careful rider wins on score, even crossing second », « a careful typist can beat a faster, sloppy one », « a reported accuracy can't be overwritten » | Score = MPM × précision (H-11). Le seuil minimal de précision n'est pas encore décidé. |
+| TXT-9 | Le classement pénalise les joueurs rapides mais imprécis | Essentiel | ✅ | `lib/rules.ts` (`scoreOf`), `rankFinishers` | « TXT-9: the careful rider wins on score, even crossing second », « a careful typist can beat a faster, sloppy one », « a finished rider's result can't be changed » | Score = MPM × précision (H-11), précision comptée par le serveur. Le seuil minimal de précision n'est pas encore décidé. |
 
 ## Bots (BOT)
 
@@ -136,7 +136,7 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | TECH-4 | Temps réel (WebSocket ou équivalent) | Essentiel | ✅ | Socket.IO, `server/rooms.ts` | Tous les tests de `rooms.test.ts` | |
 | TECH-5 | Machine à états documentée | Essentiel | ✅ | `server/rooms.ts` | [machine-a-etats.md](machine-a-etats.md) | |
 | TECH-6 | Hébergement HTTPS; choix justifié | Essentiel | ✅ | `render.yaml`, `GET /api/health` | En ligne : <https://chocobo-race.onrender.com> (HTTPS valide, HTTP redirigé, course complète jouée par WebSocket le 2 octobre 2026) | Render + Neon, gratuits. Justification dans [deploiement.md](deploiement.md). |
-| TECH-7 | Tests automatisés et intégration continue | Essentiel | ✅ | `tests/`, `.github/workflows/ci.yml` | 54 tests; CI verte sur GitHub | |
+| TECH-7 | Tests automatisés et intégration continue | Essentiel | ✅ | `tests/`, `.github/workflows/ci.yml` | 59 tests; CI verte sur GitHub | |
 | TECH-8 | Documentation technique et matrice tenue à jour | Essentiel | ✅ | `docs/` | Ce document | |
 | TECH-9 | Checkpoint #1 : en ligne en HTTPS, auth de base, début du design | Essentiel | ✅ | <https://chocobo-race.onrender.com> | Voir TECH-6 | Site en ligne en HTTPS, comptes par nom d'utilisateur et mot de passe, design en place. |
 

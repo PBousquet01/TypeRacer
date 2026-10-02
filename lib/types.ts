@@ -112,9 +112,9 @@ export interface ClientToServerEvents {
   toggleReady: () => void;
   startRace: (payload: null, reply?: (res: ActionReply) => void) => void;
   updateSettings: (settings: Partial<RoomSettings>) => void;
-  // accuracy rides along with the finishing report, so the server has it
-  // before the race can end
-  progress: (charIndex: number, accuracy?: number) => void;
+  // The keys pressed since the last report ("\b" for a backspace), and how
+  // many characters were right before them. No verdict: the server judges.
+  typed: (base: number, keys: string) => void;
   playAgain: () => void;
   leaveRoom: () => void;
 }

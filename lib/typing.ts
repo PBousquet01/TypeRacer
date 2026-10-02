@@ -77,9 +77,33 @@ export function applyInput(state: TypingState, value: string, text: string, now:
   };
 }
 
+// What the browser sends to the server is the keys themselves, never a
+// verdict: the server runs them through applyInput again (replayKeys) and
+// works out the progress and the accuracy itself. A page whose code has been
+// tampered with can show its own rider anything, but it can't make the
+// server count a wrong key as a right one.
+export const BACKSPACE = "\b";
+
+/** The keys that turned `input` into `value`: the characters added, or one BACKSPACE per character removed. */
+export function keysBetween(input: string, value: string): string {
+  if (value.startsWith(input)) return value.slice(input.length);
+  if (input.startsWith(value)) return BACKSPACE.repeat(input.length - value.length);
+  return "";
+}
+
+/** Applies `keys` one at a time, as a keyboard would. A key the rules refuse is skipped. */
+export function replayKeys(state: TypingState, keys: string, text: string, now: number): TypingState {
+  let current = state;
+  for (let i = 0; i < keys.length; i++) {
+    const value = keys[i] === BACKSPACE ? current.input.slice(0, -1) : current.input + keys[i];
+    current = applyInput(current, value, text, now) ?? current;
+  }
+  return current;
+}
+
 /**
- * Whether to tell the server about `correctChars`: at every completed word
- * and at the very end, and never the same number twice.
+ * Whether to send the server a report now that `correctChars` are right: at
+ * every completed word and at the very end, and never the same point twice.
  */
 export function shouldReport(text: string, correctChars: number, alreadyReported: number): boolean {
   if (correctChars <= alreadyReported) return false;

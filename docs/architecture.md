@@ -153,7 +153,7 @@ erDiagram
 | `toggleReady` | navigateur → serveur | — (cavalier, dans le salon) |
 | `updateSettings` | navigateur → serveur | `{ language?, kind? }` (hôte, dans le salon) |
 | `startRace` | navigateur → serveur | — (hôte). Réponse : `ok` ou code d'erreur |
-| `progress` | navigateur → serveur | nombre de caractères corrects; la précision accompagne l'envoi final |
+| `typed` | navigateur → serveur | les touches tapées depuis le dernier envoi (`\b` pour un retour arrière) et le nombre de caractères corrects avant elles; c'est le serveur qui les juge |
 | `playAgain` | navigateur → serveur | — (hôte, après la course) |
 | `leaveRoom` | navigateur → serveur | — |
 | `roomUpdate` | serveur → salon | l'état public complet du salon |
@@ -181,11 +181,15 @@ Le serveur n'envoie jamais de phrases : les erreurs sont des **codes**
 - **Session** : jeton aléatoire dans un cookie `HttpOnly` et `SameSite=Lax`;
   un script de la page ne peut pas le lire.
 - **SQL** toujours paramétré (voir TECH-3).
-- **Le serveur décide** : progression plus rapide qu'un humain ignorée, montures
-  verrouillées vérifiées côté serveur, seule la première précision déclarée
-  compte.
-- **Limite connue** : la précision est calculée par le navigateur (c'est lui
-  qui voit les touches), donc déclarée par le joueur.
+- **Le serveur décide** : le navigateur envoie les touches tapées, jamais un
+  verdict. Le serveur les rejoue avec les mêmes règles (`replayKeys` dans
+  `lib/typing.ts`) sur sa propre copie du texte et en tire la progression et
+  la précision. Une page dont le code a été modifié pour compter chaque
+  touche comme bonne n'avance donc pas. Progression plus rapide qu'un humain
+  ignorée, montures verrouillées vérifiées côté serveur.
+- **Limite connue** : un script qui envoie les *bonnes* touches à la place
+  du joueur (un robot) reste possible, comme sur tout jeu de frappe en
+  ligne; seule la limite de vitesse (~300 MPM) le borne.
 
 ## Langues (UX-5)
 
@@ -197,7 +201,7 @@ est un réglage séparé (TXT-7).
 
 ## Tests et intégration continue (TECH-7)
 
-`bun test` lance 54 tests : règles du moteur de frappe, score et
+`bun test` lance 59 tests : règles du moteur de frappe, score et
 dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types, les tests
 (avec une vraie base PostgreSQL) et le build à chaque envoi.
@@ -215,7 +219,7 @@ bun test                       # les tests (utilisent aussi la base)
 ## Limites connues
 
 - Hébergement gratuit : le serveur s'endort après 15 minutes sans visite (voir [deploiement.md](deploiement.md)).
-- La précision est déclarée par le navigateur (voir Sécurité).
+- Un robot qui envoie les bonnes touches n'est limité que par la vitesse maximale (voir Sécurité).
 - Un hôte ne tape jamais; il ne peut pas choisir de jouer (COURSE-5).
 - L'état des salons est en mémoire : un redémarrage du serveur interrompt les
   courses en cours.

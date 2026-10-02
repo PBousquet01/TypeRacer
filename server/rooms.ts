@@ -1,6 +1,7 @@
-// The referee, and the only authority on a race. Clients send nothing but
-// "I typed N correct characters"; positions, finish order, WPM and who may
-// ride what are all decided here. One host (who never types) per room.
+// The referee, and the only authority on a race. Clients send the keys they
+// pressed and nothing else; whether those keys were right, and so positions,
+// accuracy, finish order, WPM, and who may ride what, are all decided here.
+// One host (who never types) per room.
 //
 // A race moves through four states, and only ever forwards:
 //
@@ -13,6 +14,7 @@ import { isKind, isLanguage, pickText } from "./texts";
 import { recordRace } from "./stats";
 import { FINISH_GRACE_MS, MAX_RIDERS, MIN_RIDERS, RECONNECT_MS, scoreOf } from "../lib/rules";
 import { cleanRiderName } from "../lib/names";
+import { accuracyOf, correctPrefixLength, EMPTY_STATE, replayKeys, type TypingState } from "../lib/typing";
 import type {
   ClientToServerEvents,
   ErrorCode,
@@ -43,7 +45,8 @@ export interface Player {
   role: Role;
   ready: boolean;
   racing: boolean; // taking part in the current race (late arrivals watch until the next one)
-  charIndex: number;
+  typing: TypingState; // the server's own copy of the typing engine for this rider; never sent to anyone
+  charIndex: number; // how many characters from the start are right, according to `typing`
   finished: boolean;
   place: number | null;
   wpm: number | null;
@@ -74,6 +77,7 @@ const COUNTDOWN_MS = 3000;
 const TICK_MS = 100; // how often positions are broadcast during a race
 const MAX_RACE_MS = 3 * 60 * 1000; // unfinished riders get a DNF after this
 const MAX_CHARS_PER_SEC = 25; // ~300 WPM; progress faster than this is ignored
+const MAX_KEYS_PER_REPORT = 2000; // a report is one word plus its corrections; anything longer isn't typing
 // How long the host seat is held open when the host drops (a refresh, a flaky
 // connection) before the longest-present player inherits it.
 const HOST_RECLAIM_MS = 20000;
@@ -128,6 +132,7 @@ function newPlayer(
     role,
     ready: false,
     racing: false,
+    typing: EMPTY_STATE,
     charIndex: 0,
     finished: false,
     place: null,
@@ -142,6 +147,7 @@ function newPlayer(
 function resetPlayer(player: Player) {
   Object.assign(player, {
     racing: false,
+    typing: EMPTY_STATE,
     charIndex: 0,
     finished: false,
     place: null,
@@ -166,7 +172,7 @@ const raceInProgress = (room: Room) => room.status === "countdown" || room.statu
 function playerList(room: Room): PublicPlayer[] {
   return [...room.players.entries()].map(([id, p]) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars -- pulled out so they stay on the server
-    const { clientId, userId, ...shared } = p;
+    const { clientId, userId, typing, ...shared } = p;
     return { id, ...shared, progress: room.text ? p.charIndex / room.text.length : 0 };
   });
 }
@@ -222,9 +228,8 @@ function startRace(io: IO, room: Room) {
 
 // TXT-9: the ranking punishes fast but sloppy typing. Places go by score
 // (wpm × accuracy) among the riders who finished, so crossing the line first
-// isn't enough on its own. Equal scores go to whoever crossed first; a
-// finisher with no accuracy (their report never arrived) ranks after the
-// scored ones. Riders who didn't finish get no place (DNF).
+// isn't enough on its own. Equal scores go to whoever crossed first.
+// Riders who didn't finish get no place (DNF).
 function rankFinishers(room: Room) {
   const finishers = racers(room).filter((p) => p.finished);
   finishers.sort(
@@ -240,8 +245,6 @@ function endRace(io: IO, room: Room) {
   room.status = "finished";
   room.finishAt = null;
   rankFinishers(room);
-  // Save results before telling anyone: accuracy arrives with each rider's
-  // finishing report, so the stored rows are complete.
   racers(room).forEach((player) =>
     recordRace(room, player).catch((err) => console.error("could not save a race result", err)),
   );
@@ -340,17 +343,6 @@ function reclaimLane(room: Room, oldId: string, newId: string) {
   player.away = false;
   room.players = new Map([...room.players].map(([id, p]) => (id === oldId ? [newId, p] : [id, p])));
   return player;
-}
-
-// Accuracy is counted in the browser, so the rider reports their own (treat
-// it as self-reported). Only the first report counts: a tab reloaded after the
-// finish has forgotten its mistakes and would otherwise send 100%.
-function setAccuracy(player: Player, accuracy: unknown): boolean {
-  const value = Number(accuracy);
-  if (player.accuracy !== null || accuracy == null || !Number.isFinite(value)) return false;
-  player.accuracy = Math.max(0, Math.min(100, Math.round(value)));
-  player.score = player.wpm === null ? null : scoreOf(player.wpm, player.accuracy);
-  return true;
 }
 
 function currentRoom(socket: ClientSocket): Room | undefined {
@@ -518,32 +510,38 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     broadcastRoom(io, room);
   });
 
-  socket.on("progress", (charIndex, accuracy) => {
+  // The rider's keys since their last report. The browser has its own idea
+  // of which ones were right, and it isn't asked: the keys go through the
+  // same rules here (lib/typing.ts), against the server's copy of the text.
+  socket.on("typed", (base, keys) => {
     const room = currentRoom(socket);
     const player = room?.players.get(socket.id);
-    if (!room || !player || !player.racing) return;
+    if (!room || !player || !player.racing || player.finished || room.status !== "racing") return;
+    if (typeof keys !== "string" || keys.length > MAX_KEYS_PER_REPORT) return;
+    // Reports continue from where the server is. One that starts behind was
+    // already counted (resent after a reconnect); one that starts ahead
+    // follows a report that never arrived.
+    if (base !== player.charIndex) return;
 
-    // Already finished: the only thing worth hearing is an accuracy that got
-    // lost on the way (the rider resends it after a reconnect).
-    if (player.finished) {
-      if (setAccuracy(player, accuracy)) broadcastRoom(io, room);
-      return;
-    }
-    if (room.status !== "racing") return;
+    const now = Date.now();
+    // A report starts after the last correct character: anything wrong typed
+    // beyond it by an earlier report is dropped (its mistakes stay counted).
+    const from = { ...player.typing, input: room.text.slice(0, player.charIndex) };
+    const typing = replayKeys(from, keys, room.text, now);
+    const n = correctPrefixLength(typing.input, room.text);
 
-    const n = Math.floor(Number(charIndex));
-    if (!Number.isFinite(n) || n <= player.charIndex) return;
-
-    const elapsedSec = (Date.now() - room.startAt) / 1000;
+    const elapsedSec = (now - room.startAt) / 1000;
     if (n > elapsedSec * MAX_CHARS_PER_SEC + 10) return; // impossibly fast: ignore
 
-    player.charIndex = Math.min(n, room.text.length);
+    player.typing = typing;
+    player.charIndex = n;
 
-    if (player.charIndex === room.text.length) {
+    if (n === room.text.length) {
       player.finished = true;
       player.wpm = Math.round(room.text.length / 5 / (elapsedSec / 60));
       player.timeMs = Math.round(elapsedSec * 1000);
-      setAccuracy(player, accuracy);
+      player.accuracy = accuracyOf(typing.keystrokes, typing.mistakes);
+      player.score = scoreOf(player.wpm, player.accuracy);
       startFinishClock(io, room);
       broadcastRoom(io, room);
       endIfEveryoneFinished(io, room);
