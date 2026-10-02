@@ -3,7 +3,7 @@
 État de chaque exigence du cahier des charges (*Cahier des charges — Course de
 frappe*), où elle se trouve dans le code et comment elle est vérifiée.
 
-*Dernière mise à jour : 28 septembre 2026.* À mettre à jour dans le même
+*Dernière mise à jour : 2 octobre 2026.* À mettre à jour dans le même
 commit que tout changement qui fait avancer une exigence.
 
 **Légende** : ✅ fait · 🟡 partiel · ❌ pas commencé · ⏳ en attente d'une
@@ -15,11 +15,11 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 
 | Priorité | ✅ | 🟡 | ❌ | ⏳ | Total |
 | --- | --- | --- | --- | --- | --- |
-| Essentiel | 25 | 8 | 5 | 2 | 40 |
+| Essentiel | 27 | 8 | 5 | 0 | 40 |
 | Souhaitable | 4 | 5 | 14 | 0 | 23 |
 | Moins prioritaire | 0 | 0 | 5 | 0 | 5 |
 | Non classée (AUTH-5) | 1 | 0 | 0 | 0 | 1 |
-| **Total** | **30** | **13** | **24** | **2** | **69** |
+| **Total** | **32** | **13** | **24** | **0** | **69** |
 
 ## Authentification et comptes (AUTH)
 
@@ -135,10 +135,10 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | TECH-3 | PostgreSQL; outil d'accès choisi et justifié | Essentiel | ✅ | `server/db.ts` | Tests de `api.test.ts` et `rooms.test.ts` sur une vraie base | Justification dans [architecture.md](architecture.md#pourquoi-bunsql-plutôt-quun-orm-tech-3). |
 | TECH-4 | Temps réel (WebSocket ou équivalent) | Essentiel | ✅ | Socket.IO, `server/rooms.ts` | Tous les tests de `rooms.test.ts` | |
 | TECH-5 | Machine à états documentée | Essentiel | ✅ | `server/rooms.ts` | [machine-a-etats.md](machine-a-etats.md) | |
-| TECH-6 | Hébergement HTTPS; choix justifié | Essentiel | ⏳ | `render.yaml`, `GET /api/health` | — | Mise en ligne en cours sur Render + Neon. Justification et étapes dans [deploiement.md](deploiement.md). |
+| TECH-6 | Hébergement HTTPS; choix justifié | Essentiel | ✅ | `render.yaml`, `GET /api/health` | En ligne : <https://chocobo-race.onrender.com> (HTTPS valide, HTTP redirigé, course complète jouée par WebSocket le 2 octobre 2026) | Render + Neon, gratuits. Justification dans [deploiement.md](deploiement.md). |
 | TECH-7 | Tests automatisés et intégration continue | Essentiel | ✅ | `tests/`, `.github/workflows/ci.yml` | 48 tests; CI verte sur GitHub | |
 | TECH-8 | Documentation technique et matrice tenue à jour | Essentiel | ✅ | `docs/` | Ce document | |
-| TECH-9 | Checkpoint #1 : en ligne en HTTPS, auth de base, début du design | Essentiel | ⏳ | — | — | Auth de base et design faits; dépend de TECH-6. |
+| TECH-9 | Checkpoint #1 : en ligne en HTTPS, auth de base, début du design | Essentiel | ✅ | <https://chocobo-race.onrender.com> | Voir TECH-6 | Site en ligne en HTTPS, comptes par nom d'utilisateur et mot de passe, design en place. |
 
 ## Écarts avec le cahier des charges
 
@@ -165,4 +165,4 @@ automatisés de `tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
 | H-13 : pas de rôle spécial pour l'enseignant | ✅ Appliquée |
 | H-15 : banque de textes FR/EN + mots au hasard | ✅ Appliquée |
 | H-17 : filtre de mots interdits et expulsion | ❌ Pas fait |
-| H-18 : hébergement Fly.io ou VPS | ⏳ Remplacé par Render + Neon (gratuits), mise en ligne en cours |
+| H-18 : hébergement Fly.io ou VPS | ✅ Remplacé par Render + Neon (gratuits), en ligne |

@@ -82,6 +82,7 @@ at boot by `server/db.ts`; there is no migration step.
 
 ## Hosting (TECH-6)
 
+Live at <https://chocobo-race.onrender.com> since 2026-10-02.
 Render free web service (one always-on instance, so in-memory rooms work) +
 Neon free Postgres. `render.yaml` is the Blueprint; `DATABASE_URL` is set in
 the Render dashboard, never committed. `GET /api/health` is the health check

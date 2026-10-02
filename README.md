@@ -1,5 +1,7 @@
 # 🐤 Chocobo Race
 
+**Play it: <https://chocobo-race.onrender.com>** (free hosting: the first visit after a quiet spell takes about a minute to wake the server).
+
 A multiplayer typing race (like Monkeytype) where every rider is a chocobo
 running down a track. Type fast, run fast.
 

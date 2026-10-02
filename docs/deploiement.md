@@ -1,5 +1,7 @@
 # Déploiement (TECH-6)
 
+**Site en ligne : <https://chocobo-race.onrender.com>**
+
 Le site est hébergé gratuitement, en HTTPS, sur deux services infonuagiques :
 
 | Quoi | Où | Forfait |
