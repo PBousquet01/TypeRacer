@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTypingEngine } from "@/hooks/useTypingEngine";
+import { useRecentBonuses } from "@/hooks/useRecentBonuses";
 import { formatTime } from "@/lib/format";
-import type { PublicRoom } from "@/lib/types";
+import type { BonusEvent, PublicRoom } from "@/lib/types";
 import Track from "./Track";
 import TypingBox from "./TypingBox";
 import Countdown from "./Countdown";
 import FinishClock from "./FinishClock";
-import { Stat, StatsBar } from "./ui";
+import { Notice, Stat, StatsBar } from "./ui";
 import { useT } from "@/lib/i18n";
 
 interface RaceScreenProps {
@@ -17,6 +18,8 @@ interface RaceScreenProps {
   raceStartedAt: number | null;
   finishDeadline: number | null;
   onKeys: (base: number, keys: string) => void;
+  myText: string | null; // BONUS-04: set once a bonus changed this rider's text
+  bonusEvents: (BonusEvent & { at: number })[];
 }
 
 export default function RaceScreen({
@@ -25,6 +28,8 @@ export default function RaceScreen({
   raceStartedAt,
   finishDeadline,
   onKeys,
+  myText,
+  bonusEvents,
 }: RaceScreenProps) {
   const t = useT();
   const racing = room.status === "racing";
@@ -40,7 +45,20 @@ export default function RaceScreen({
     },
     [onKeys],
   );
-  const engine = useTypingEngine(room.text, { enabled: racing && !me?.finished, onKeys: report, resume });
+  const text = myText ?? room.text;
+  const engine = useTypingEngine(text, { enabled: racing && !me?.finished, onKeys: report, resume });
+  const recent = useRecentBonuses(bonusEvents);
+  const flashes = Object.fromEntries(recent.map((e) => [e.target, e.kind]));
+  const fogged = recent.some((e) => e.kind === "fog" && e.target === myId);
+  const mine = recent.findLast((e) => e.from === myId || e.target === myId);
+  const nameOf = (id: string) => room.players.find((p) => p.id === id)?.name ?? "?";
+  const message = !mine
+    ? null
+    : mine.from === myId
+      ? t.bonus.earned[mine.kind]
+      : mine.kind === "shorten"
+        ? null
+        : t.bonus.against[mine.kind](nameOf(mine.from));
   const socketRef = useRef(myId);
 
   // A dropped connection comes back on a new socket id. Reports sent while it
@@ -69,11 +87,13 @@ export default function RaceScreen({
           textLength={room.text.length}
           raceStartedAt={raceStartedAt}
           stalled={engine.hasMistake}
+          flashes={flashes}
         />
         {room.status === "countdown" && <Countdown startsIn={room.startsIn} />}
       </div>
 
-      <TypingBox text={room.text} engine={engine} enabled={racing} />
+      {message && <Notice>{message}</Notice>}
+      <TypingBox text={text} engine={engine} enabled={racing} fogged={fogged} />
     </div>
   );
 }

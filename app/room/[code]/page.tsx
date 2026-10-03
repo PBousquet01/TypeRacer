@@ -39,6 +39,8 @@ export default function RoomPage() {
     removeBot,
     invites,
     createInvite,
+    myText,
+    bonusEvents,
   } = useRoom(code, profile, invite);
 
   if (saved === undefined && !chosen) return <Loading>{t.common.saddlingUp}</Loading>;
@@ -112,6 +114,8 @@ export default function RoomPage() {
             raceStartedAt={raceStartedAt}
             finishDeadline={finishDeadline}
             onKeys={sendKeys}
+            myText={myText}
+            bonusEvents={bonusEvents}
           />
         ) : (
           <SpectatorScreen
@@ -119,6 +123,7 @@ export default function RoomPage() {
             raceStartedAt={raceStartedAt}
             finishDeadline={finishDeadline}
             isHost={isHost}
+            bonusEvents={bonusEvents}
           />
         ))}
 
@@ -130,6 +135,7 @@ export default function RoomPage() {
           isHost={isHost}
           hostName={hostName}
           onPlayAgain={playAgain}
+          bonuses={room.settings.bonuses}
         />
       )}
     </main>

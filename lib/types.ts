@@ -7,6 +7,7 @@ export type Role = "host" | "rider";
 export type RoomStatus = "lobby" | "countdown" | "racing" | "finished";
 
 import type { BotLevel } from "./bots";
+import type { BonusKind } from "./bonuses";
 
 export type TextLanguage = "en" | "fr";
 /** Language of the interface (UX-5). Same two as the texts, but a separate choice. */
@@ -66,6 +67,7 @@ export type Visibility = "public" | "code" | "private";
 export interface RoomSettings extends TextSettings {
   hostRides: boolean; // COURSE-5: the host races too, instead of only watching
   visibility: Visibility;
+  bonuses: boolean; // CONF-09: comeback bonuses on or off
 }
 
 /** SALLE-04: one of the host's invite links, as the host sees it. */
@@ -103,7 +105,17 @@ export interface PublicPlayer {
   score: number | null; // wpm × accuracy; decides the final places (TXT-9)
   away: boolean; // dropped mid-race; their lane is held until they reconnect
   bot: BotLevel | null; // BOT-04: a bot, and how good it is; null for a person
-  progress: number; // 0..1
+  bonuses: BonusKind[]; // comeback bonuses this rider earned in the race (RES-02)
+  textLength: number; // their own text can grow or shrink with bonuses (BONUS-04)
+  progress: number; // 0..1, against their own text
+}
+
+/** BONUS-03: a bonus being played, announced to the whole room. */
+export interface BonusEvent {
+  kind: BonusKind;
+  from: string; // the lagging rider who earned it
+  target: string; // whose race it changes
+  durationMs: number; // how long it lasts on screen (the fog's length)
 }
 
 export interface PublicRoom {
@@ -175,6 +187,8 @@ export interface ServerToClientEvents {
   roomUpdate: (room: PublicRoom) => void;
   roomList: (rooms: RoomSummary[]) => void; // JOIN-02, to sockets watching the explorer
   inviteList: (invites: InviteSummary[]) => void; // SALLE-04, to the host only
+  yourText: (text: string) => void; // BONUS-04: this rider's own text, after a bonus changed it
+  bonus: (event: BonusEvent) => void; // BONUS-03
   positions: (positions: Position[]) => void;
 }
 

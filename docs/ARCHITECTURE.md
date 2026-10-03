@@ -344,6 +344,8 @@ sequenceDiagram
 | `positions` | serveur → salle | toutes les 100 ms pendant la course : `{ id, progress }` par partant |
 | `roomList` | serveur → explorateur | les salles publiques (code, hôte, participants, capacité, texte, état), dès qu'une salle change, au plus deux fois par seconde |
 | `inviteList` | serveur → hôte seulement | ses liens d'invitation et qui les a utilisés |
+| `bonus` | serveur → salle | un bonus de remontée joué : type, qui l'a gagné, qui il touche (BONUS-03) |
+| `yourText` | serveur → un joueur | son propre texte, après qu'un bonus l'a raccourci ou allongé (BONUS-04) |
 
 Charge réseau (PERF-02) : un participant envoie au plus un message par mot
 fini, pas un par touche; le serveur regroupe toutes les positions dans un
@@ -453,8 +455,8 @@ chemin que les humains.**
 4. **Personnes d'abord** : une course demande au moins une personne
    (COURSE-02, erreur `need-human`); la place d'hôte ne passe jamais à un
    bot (SALLE-08); une salle où il ne reste que des bots est fermée.
-5. **À venir** : quand les bonus existeront (BONUS-04), le plan d'un bot
-   sera recalculé depuis sa position si son texte change.
+5. **Bonus** (BONUS-04) : si un bonus change le texte d'un bot, son plan est
+   recalculé depuis sa position (`replanBot`); dans le brouillard, il perd 2 s.
 
 ### Le modèle de frappe
 
@@ -540,7 +542,7 @@ taper** est un réglage séparé de la salle (CONF-02).
 
 ## Tests et intégration continue (TECH-09)
 
-`bun test` lance 95 tests : règles du moteur de frappe, moteur des bots,
+`bun test` lance 105 tests : règles du moteur de frappe, moteur des bots,
 score et dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types
 (`tsc --noEmit`), les tests (avec une vraie base PostgreSQL) et le build à

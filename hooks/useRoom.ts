@@ -5,7 +5,7 @@ import { getSocket } from "@/lib/socket";
 import { clientId } from "@/lib/profile";
 import { useI18n } from "@/lib/i18n";
 import type { BotLevel } from "@/lib/bots";
-import type { ErrorCode, InviteSummary, NoticeCode, Position, Profile, PublicRoom, RoomSettings } from "@/lib/types";
+import type { BonusEvent, ErrorCode, InviteSummary, NoticeCode, Position, Profile, PublicRoom, RoomSettings } from "@/lib/types";
 
 export function useRoom(code: string, profile: Profile | null, invite: string | null = null) {
   const { lang } = useI18n();
@@ -20,6 +20,10 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
   const [finishDeadline, setFinishDeadline] = useState<number | null>(null);
   const [invites, setInvites] = useState<InviteSummary[]>([]);
+  // BONUS-04: this rider's own text once a bonus changed it (null: the room's text).
+  const [myText, setMyText] = useState<string | null>(null);
+  // BONUS-03: bonuses played in the last few seconds, for the announcements.
+  const [bonusEvents, setBonusEvents] = useState<(BonusEvent & { at: number })[]>([]);
   const lastStatus = useRef<PublicRoom["status"] | null>(null);
 
   useEffect(() => {
@@ -38,6 +42,10 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
 
     const onRoom = (next: PublicRoom) => {
       if (lastStatus.current !== null && lastStatus.current !== next.status) setNotice(null);
+      if (next.status === "lobby" || next.status === "countdown") {
+        setMyText(null);
+        setBonusEvents([]);
+      }
       lastStatus.current = next.status;
       setRoom(next);
       setRaceStartedAt((current) => {
@@ -60,6 +68,12 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
     socket.on("roomUpdate", onRoom);
     socket.on("positions", onPositions);
     socket.on("inviteList", setInvites);
+    const onBonus = (event: BonusEvent) => {
+      const at = Date.now();
+      setBonusEvents((list) => [...list.filter((e) => at - e.at < 10_000), { ...event, at }]);
+    };
+    socket.on("yourText", setMyText);
+    socket.on("bonus", onBonus);
     socket.on("connect", join); // also rejoins after a dropped connection
     if (socket.connected) join();
 
@@ -69,6 +83,8 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
       socket.off("roomUpdate", onRoom);
       socket.off("positions", onPositions);
       socket.off("inviteList", setInvites);
+      socket.off("yourText", setMyText);
+      socket.off("bonus", onBonus);
       socket.off("connect", join);
     };
   }, [code, profile, invite]);
@@ -116,5 +132,7 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
     removeBot,
     invites,
     createInvite,
+    myText,
+    bonusEvents,
   };
 }

@@ -77,6 +77,20 @@ export const fr: Dictionary = {
     title: "Chocobo Race",
     description: "Une course de frappe multijoueur. Ton oiseau court exactement aussi vite que tu tapes.",
   },
+  bonus: {
+    names: { shorten: "−3 mots", lengthen: "+3 mots", fog: "Brouillard" },
+    earned: {
+      shorten: "Bonus de remontée : ton texte vient de perdre 3 mots !",
+      lengthen: "Bonus de remontée : tu as donné 3 mots de plus au meneur.",
+      fog: "Bonus de remontée : tu as envoyé du brouillard sur les prochains mots du meneur.",
+    },
+    against: {
+      shorten: "",
+      lengthen: (name) => `${name} a joué un bonus de remontée : 3 mots de plus pour toi.`,
+      fog: (name) => `${name} a joué un bonus de remontée : brouillard sur tes prochains mots !`,
+    },
+    column: "Bonus",
+  },
   bot: {
     tag: "BOT",
     levels: {
@@ -226,6 +240,10 @@ export const fr: Dictionary = {
     addBot: "Ajouter un bot",
     removeBot: "Retirer",
     botsHint: "Les bots courent comme tout le monde : même texte, mêmes règles, et ils sont toujours prêts. Il faut quand même une personne.",
+    bonusesLabel: "Bonus de remontée",
+    bonusesOptions: { on: "Activés", off: "Désactivés" },
+    bonusesHint:
+      "Quand le meneur passe 25, 50 et 75 % du texte, les cavaliers loin derrière reçoivent un bonus : 3 mots de moins dans leur texte, 3 mots de plus pour le meneur, ou du brouillard sur ses prochains mots.",
     visibilityLabel: "Qui peut entrer",
     visibilityOptions: { public: "Public", code: "Sur code", private: "Privé" },
     visibilityHint: {

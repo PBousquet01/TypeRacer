@@ -74,6 +74,7 @@ export const settingsChange = z.object({
   kind: textKind.optional(),
   hostRides: z.boolean().optional(),
   visibility: visibility.optional(),
+  bonuses: z.boolean().optional(),
 });
 
 export const setWatchingArgs = z.tuple([z.string().max(64), z.boolean()]);

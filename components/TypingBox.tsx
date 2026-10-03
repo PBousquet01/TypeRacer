@@ -20,15 +20,17 @@ interface TypingBoxProps {
   text: string;
   engine: TypingEngine;
   enabled: boolean;
+  fogged?: boolean; // BONUS-02: the words ahead are blurred for a while
 }
 
-export default function TypingBox({ text, engine, enabled }: TypingBoxProps) {
+export default function TypingBox({ text, engine, enabled, fogged = false }: TypingBoxProps) {
   const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Also when typing opens up again: "+3 words" can reach a rider who had just finished their text.
   useEffect(() => {
-    if (enabled) inputRef.current?.focus();
-  }, [enabled]);
+    if (enabled && !engine.isDone) inputRef.current?.focus();
+  }, [enabled, engine.isDone]);
 
   return (
     <div className={cn(PROMPT_BOX, "cursor-text focus-within:border-accent")} onClick={() => inputRef.current?.focus()}>
@@ -56,7 +58,10 @@ export default function TypingBox({ text, engine, enabled }: TypingBoxProps) {
             className={
               i === engine.input.length
                 ? "animate-blink bg-accent text-ink motion-reduce:animate-none light:text-white"
-                : CHAR_STYLE[engine.charStates[i] ?? "pending"]
+                : cn(
+                    CHAR_STYLE[engine.charStates[i] ?? "pending"],
+                    fogged && i > engine.input.length && "blur-[5px] select-none",
+                  )
             }
           >
             {ch}

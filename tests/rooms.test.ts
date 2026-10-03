@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { client, freshCode, sleep, startGameServer, type ClientOptions, type TestClient } from "./helpers";
 import { publicRooms, quickRaceRoom, reserveRoomCode } from "../server/rooms";
-import type { InviteSummary, RoomSummary } from "../lib/types";
+import type { BonusEvent, InviteSummary, RoomSummary } from "../lib/types";
 import { migrate } from "../server/db";
 import { FINISH_GRACE_MS, MAX_RIDERS } from "../lib/rules";
 import { MAX_CHARS_PAST_MISTAKE } from "../lib/typing";
@@ -171,7 +171,7 @@ describe("lobby rules", () => {
     raw(host).emit("updateSettings", { language: "fr", hostRides: "yes" }); // one bad value spoils the message
     raw(host).emit("updateSettings", "fr");
     await sleep(150);
-    expect(host.room?.settings).toEqual({ language: "en", kind: "sentences", hostRides: false, visibility: "code" });
+    expect(host.room?.settings).toEqual({ language: "en", kind: "sentences", hostRides: false, visibility: "code", bonuses: false });
   });
 
   test("TECH-07: setWatching with the wrong types is ignored", async () => {
@@ -503,4 +503,94 @@ describe("visibility and joining", () => {
     const late = await open(code, "Late", "rider", { invite: made.token });
     expect(await late.join()).toEqual({ error: "no-room" });
   });
+});
+
+describe("comeback bonuses", () => {
+  test("BONUS-01 to BONUS-04: the rider left behind gets a bonus at the leader's first checkpoint", async () => {
+    const { host, a, b } = await readyRoom(); // Alice will lead, Bob stays behind
+    host.socket.emit("updateSettings", { bonuses: true });
+    await host.until((r) => r.settings.bonuses);
+    const events: BonusEvent[] = [];
+    const texts: Record<string, string[]> = { Alice: [], Bob: [] };
+    a.socket.on("bonus", (e) => events.push(e));
+    a.socket.on("yourText", (t) => texts.Alice.push(t));
+    b.socket.on("yourText", (t) => texts.Bob.push(t));
+
+    expect(await host.startRace()).toEqual({ ok: true });
+    const { text } = await a.until((r) => r.status === "racing");
+    const alice = a.me()!.id;
+    const bob = b.me()!.id;
+
+    // Alice types whole words past a quarter of the text, slowly enough for the anti-cheat.
+    const quarter = text.indexOf(" ", Math.ceil(text.length * 0.25)) + 1;
+    await sleep((quarter / 20) * 1000);
+    a.socket.emit("typed", 0, text.slice(0, quarter));
+    await sleep(300);
+
+    expect(events).toHaveLength(1); // one checkpoint, one lagging rider
+    const [event] = events;
+    expect(event.from).toBe(bob);
+    const room = await b.until((r) => r.players.some((p) => p.bonuses.length > 0));
+    expect(room.players.find((p) => p.id === bob)?.bonuses).toEqual([event.kind]);
+
+    let bobText = text;
+    if (event.kind === "shorten") {
+      expect(event.target).toBe(bob);
+      bobText = texts.Bob.at(-1)!;
+      expect(text.startsWith(bobText)).toBe(true);
+      expect(bobText.split(" ")).toHaveLength(text.split(" ").length - 3);
+    } else {
+      expect(event.target).toBe(alice); // "+3 words" and fog slow the leader down
+      if (event.kind === "lengthen") {
+        const aliceText = texts.Alice.at(-1)!;
+        expect(aliceText.startsWith(`${text} `)).toBe(true);
+        expect(aliceText.split(" ")).toHaveLength(text.split(" ").length + 3);
+        expect(room.players.find((p) => p.id === alice)?.textLength).toBe(aliceText.length);
+      }
+    }
+    expect(room.players.find((p) => p.id === bob)?.textLength).toBe(bobText.length);
+
+    // BONUS-04: Bob's race is against his own text, shortened or not.
+    await sleep(Math.max(0, (bobText.length / 22) * 1000 - (quarter / 20) * 1000));
+    b.socket.emit("typed", 0, bobText);
+    const done = await b.until((r) => r.players.some((p) => p.id === bob && p.finished), 8000);
+    expect(done.players.find((p) => p.id === bob)?.wpm).toBeGreaterThan(0);
+  }, 30_000);
+
+  test("BOT-04: a bot leader hit by a bonus still finishes its own, changed text", async () => {
+    const code = freshCode();
+    const host = await open(code, "Host", "host");
+    await host.join();
+    const a = await open(code, "Alice", "rider");
+    await a.join();
+    host.socket.emit("addBot", "impossible");
+    host.socket.emit("updateSettings", { bonuses: true });
+    a.socket.emit("toggleReady");
+    await host.until((r) => r.settings.bonuses && r.players.some((p) => p.bot) && r.players.some((p) => p.ready && !p.bot));
+    const events: BonusEvent[] = [];
+    a.socket.on("bonus", (e) => events.push(e));
+
+    expect(await host.startRace()).toEqual({ ok: true });
+    const done = await a.until((r) => r.players.some((p) => p.bot && p.finished), 25_000);
+    const bot = done.players.find((p) => p.bot)!;
+    expect(events.length).toBeGreaterThanOrEqual(1); // Alice, who never types, is behind at every checkpoint
+    expect(events.every((e) => e.from === done.players.find((p) => p.name === "Alice")!.id)).toBe(true);
+    const lengthened = events.filter((e) => e.kind === "lengthen" && e.target === bot.id).length;
+    expect(bot.textLength).toBeGreaterThanOrEqual(done.text.length); // never shortened: it's the leader
+    expect(bot.progress).toBe(1);
+    if (lengthened > 0) expect(bot.textLength).toBeGreaterThan(done.text.length);
+  }, 40_000);
+
+  test("CONF-09: with bonuses off, nobody gets one", async () => {
+    const { host, a } = await readyRoom();
+    const events: BonusEvent[] = [];
+    a.socket.on("bonus", (e) => events.push(e));
+    expect(await host.startRace()).toEqual({ ok: true });
+    const { text } = await a.until((r) => r.status === "racing");
+    const half = text.indexOf(" ", Math.ceil(text.length * 0.5)) + 1;
+    await sleep((half / 20) * 1000);
+    a.socket.emit("typed", 0, text.slice(0, half));
+    await sleep(300);
+    expect(events).toHaveLength(0);
+  }, 20_000);
 });

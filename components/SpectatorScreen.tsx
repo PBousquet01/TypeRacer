@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { formatTime } from "@/lib/format";
-import type { PublicRoom } from "@/lib/types";
+import type { BonusEvent, PublicRoom } from "@/lib/types";
+import { useRecentBonuses } from "@/hooks/useRecentBonuses";
 import Track from "./Track";
 import Countdown from "./Countdown";
 import FinishClock from "./FinishClock";
@@ -15,12 +16,14 @@ interface SpectatorScreenProps {
   raceStartedAt: number | null;
   finishDeadline: number | null;
   isHost: boolean;
+  bonusEvents: (BonusEvent & { at: number })[];
 }
 
-export default function SpectatorScreen({ room, raceStartedAt, finishDeadline, isHost }: SpectatorScreenProps) {
+export default function SpectatorScreen({ room, raceStartedAt, finishDeadline, isHost, bonusEvents }: SpectatorScreenProps) {
   const t = useT();
   const racing = room.status === "racing";
   const field = room.players.filter((p) => p.racing);
+  const flashes = Object.fromEntries(useRecentBonuses(bonusEvents).map((e) => [e.target, e.kind]));
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -50,6 +53,7 @@ export default function SpectatorScreen({ room, raceStartedAt, finishDeadline, i
           textLength={room.text.length}
           raceStartedAt={raceStartedAt}
           stalled={false}
+          flashes={flashes}
         />
         {room.status === "countdown" && <Countdown startsIn={room.startsIn} />}
       </div>

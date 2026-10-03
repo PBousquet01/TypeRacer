@@ -24,7 +24,17 @@ import {
   scoreOf,
 } from "../lib/rules";
 import { accuracyOf, correctPrefixLength, EMPTY_STATE, replayKeys, type TypingState } from "../lib/typing";
-import { planBot, seedOf, type BotKey, type BotLevel } from "../lib/bots";
+import { planBot, seededRandom, seedOf, type BotKey, type BotLevel } from "../lib/bots";
+import {
+  awardCheckpoint,
+  BONUS_WORDS,
+  checkpointsPassed,
+  FOG_MS,
+  lengthen,
+  pickWords,
+  shorten,
+  type BonusKind,
+} from "../lib/bonuses";
 import type {
   ActionReply,
   InviteSummary,
@@ -95,6 +105,8 @@ export interface Player {
   bot: BotLevel | null; // a bot (BOT-01), and its level; null for a person
   botPlan: BotKey[]; // the keys this bot will press in the current race (lib/bots.ts)
   botNext: number; // index of the next key in botPlan to play
+  text: string; // this rider's own copy of the race text; bonuses can lengthen or shorten it
+  bonuses: BonusKind[]; // comeback bonuses earned this race
 }
 
 export interface Room {
@@ -114,6 +126,7 @@ export interface Room {
   ticker: ReturnType<typeof setInterval> | null;
   createdAt: number; // JOIN-03: quick play prefers the oldest of two equally full rooms
   invites: Map<string, Invite>; // token -> invite (SALLE-04)
+  checkpoints: number; // BONUS-01: how many of the leader's checkpoints have been played this race
 }
 
 const COUNTDOWN_MS = 3000;
@@ -150,7 +163,7 @@ function createRoom(code: string, language: TextLanguage, visibility: Visibility
     text: "",
     startAt: 0,
     finishAt: null,
-    settings: { language, kind: "sentences", hostRides: false, visibility },
+    settings: { language, kind: "sentences", hostRides: false, visibility, bonuses: false },
     players: new Map(),
     hostId: null,
     hostClientId: null,
@@ -160,6 +173,7 @@ function createRoom(code: string, language: TextLanguage, visibility: Visibility
     ticker: null,
     createdAt: Date.now(),
     invites: new Map(),
+    checkpoints: 0,
   };
 }
 
@@ -198,6 +212,8 @@ function newPlayer(
     bot: null,
     botPlan: [],
     botNext: 0,
+    text: "",
+    bonuses: [],
   };
 }
 
@@ -233,6 +249,8 @@ function resetPlayer(player: Player) {
     accuracy: null,
     timeMs: null,
     score: null,
+    text: "",
+    bonuses: [],
   });
 }
 
@@ -257,8 +275,8 @@ const raceInProgress = (room: Room) => room.status === "countdown" || room.statu
 function playerList(room: Room): PublicPlayer[] {
   return [...room.players.entries()].map(([id, p]) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars -- pulled out so they stay on the server
-    const { clientId, userId, typing, botPlan, botNext, ...shared } = p;
-    return { id, ...shared, progress: room.text ? p.charIndex / room.text.length : 0 };
+    const { clientId, userId, typing, botPlan, botNext, text, ...shared } = p;
+    return { id, ...shared, textLength: text.length, progress: text ? p.charIndex / text.length : 0 };
   });
 }
 
@@ -341,9 +359,11 @@ function startCountdown(io: IO, room: Room, starters: Player[], text: string) {
   room.text = text;
   room.startAt = Date.now() + COUNTDOWN_MS;
   room.finishAt = null;
+  room.checkpoints = 0;
   room.players.forEach(resetPlayer);
   starters.forEach((p) => {
     p.racing = true;
+    p.text = text;
   });
   // BOT-05: the seed comes from the room, the race and the bot, so a race can
   // be replayed exactly, and two bots of the same level don't type in step.
@@ -367,7 +387,7 @@ function driveBots(io: IO, room: Room) {
     while (player.botNext < player.botPlan.length && player.botPlan[player.botNext].atMs <= elapsed) {
       keys += player.botPlan[player.botNext++].key;
     }
-    if (keys) advance(io, room, player, replayKeys(player.typing, keys, room.text, now), now);
+    if (keys) advance(io, room, player, replayKeys(player.typing, keys, player.text, now), now);
     if (room.status !== "racing") return; // that key ended the race
   }
 }
@@ -378,16 +398,16 @@ function driveBots(io: IO, room: Room) {
  * event) and bots (driveBots) both come through here.
  */
 function advance(io: IO, room: Room, player: Player, typing: TypingState, now: number) {
-  const n = correctPrefixLength(typing.input, room.text);
+  const n = correctPrefixLength(typing.input, player.text);
   const elapsedSec = (now - room.startAt) / 1000;
   if (n > elapsedSec * MAX_CHARS_PER_SEC + 10) return; // impossibly fast: ignore
 
   player.typing = typing;
   player.charIndex = n;
 
-  if (n === room.text.length) {
+  if (n === player.text.length) {
     player.finished = true;
-    player.wpm = Math.round(room.text.length / 5 / (elapsedSec / 60));
+    player.wpm = Math.round(player.text.length / 5 / (elapsedSec / 60));
     player.timeMs = Math.round(elapsedSec * 1000);
     player.accuracy = accuracyOf(typing.keystrokes, typing.mistakes);
     player.score = scoreOf(player.wpm, player.accuracy);
@@ -395,6 +415,59 @@ function advance(io: IO, room: Room, player: Player, typing: TypingState, now: n
     broadcastRoom(io, room);
     endIfEveryoneFinished(io, room);
   }
+  if (room.status === "racing") playCheckpoints(io, room, now);
+}
+
+// Comeback bonuses (BONUS-01 to BONUS-04). The rule itself is in
+// lib/bonuses.ts; this plays it on the room: once the leader passes a
+// checkpoint, the lagging riders' bonuses change the texts concerned, the
+// riders whose text changed get their new copy, and everyone is told.
+function playCheckpoints(io: IO, room: Room, now: number) {
+  if (!room.settings.bonuses) return;
+  const field = [...room.players.entries()]
+    .filter(([, p]) => p.racing)
+    .map(([id, p]) => ({ id, progress: p.charIndex / p.text.length, finished: p.finished, bonuses: p.bonuses.length }));
+  const reached = checkpointsPassed(Math.max(...field.map((c) => c.progress)));
+  if (room.checkpoints >= reached) return;
+  // One checkpoint at a time, even if the leader jumped past two at once.
+  room.checkpoints++;
+  const seed = seedOf(`${room.code}:${room.raceId}:checkpoint${room.checkpoints}`);
+  const canShorten = (id: string) => {
+    const p = room.players.get(id)!;
+    return shorten(p.text, p.charIndex) !== null;
+  };
+  const rand = seededRandom(seed + 1);
+  for (const award of awardCheckpoint(field, seed, canShorten)) {
+    const earner = room.players.get(award.to)!;
+    const target = room.players.get(award.target)!;
+    earner.bonuses.push(award.kind);
+    if (award.kind === "shorten") target.text = shorten(target.text, target.charIndex)!;
+    if (award.kind === "lengthen") target.text = lengthen(target.text, pickWords(room.text, BONUS_WORDS, rand));
+    if (award.kind !== "fog") {
+      io.to(award.target).emit("yourText", target.text);
+      if (target.bot) replanBot(room, award.target, target, now);
+    } else if (target.bot) {
+      // A bot can't be blinded, so the fog costs it time instead: it stops typing for part of it.
+      target.botPlan = target.botPlan.map((k, i) => (i < target.botNext ? k : { ...k, atMs: k.atMs + FOG_MS / 2 }));
+    }
+    io.to(room.code).emit("bonus", { kind: award.kind, from: award.to, target: award.target, durationMs: FOG_MS });
+  }
+  // Progress on the track is against each rider's own text, which may have just changed.
+  broadcastRoom(io, room);
+}
+
+/** A bot whose text changed types the rest of the new text, starting from where it is. */
+function replanBot(room: Room, id: string, bot: Player, now: number) {
+  // Anything wrong it had typed past the last correct character is dropped,
+  // as for a person's report. Its mistakes stay counted.
+  bot.typing = { ...bot.typing, input: bot.text.slice(0, bot.charIndex) };
+  const offset = now - room.startAt;
+  const seed = seedOf(`${room.code}:${room.raceId}:${id}:${bot.text.length}`);
+  bot.botPlan = planBot({ seed, text: bot.text.slice(bot.charIndex), level: bot.bot! }).map((k) => ({
+    ...k,
+    atMs: k.atMs + offset,
+  }));
+  bot.botNext = 0;
 }
 
 function startRace(io: IO, room: Room) {
@@ -659,6 +732,8 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       reply({ ok: true, role: player.role, note: null });
       broadcastRoom(io, room);
       sendInvites(io, room);
+      // BONUS-04: their text may have changed with a bonus; the room only carries the original.
+      if (player.text && player.text !== room.text) socket.emit("yourText", player.text);
       return;
     }
 
@@ -772,12 +847,13 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const changes = parse(settingsChange, payload);
     if (!room || !isHost(room, socket) || room.status !== "lobby" || !changes.ok) return;
 
-    const { language, kind, hostRides, visibility } = changes.data;
+    const { language, kind, hostRides, visibility, bonuses } = changes.data;
     room.settings = {
       language: language ?? room.settings.language,
       kind: kind ?? room.settings.kind,
       hostRides: hostRides ?? room.settings.hostRides,
       visibility: visibility ?? room.settings.visibility,
+      bonuses: bonuses ?? room.settings.bonuses,
     };
     broadcastRoom(io, room);
   });
@@ -813,8 +889,8 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const now = Date.now();
     // A report starts after the last correct character: anything wrong typed
     // beyond it by an earlier report is dropped (its mistakes stay counted).
-    const from = { ...player.typing, input: room.text.slice(0, player.charIndex) };
-    advance(io, room, player, replayKeys(from, keys, room.text, now), now);
+    const from = { ...player.typing, input: player.text.slice(0, player.charIndex) };
+    advance(io, room, player, replayKeys(from, keys, player.text, now), now);
   });
 
   // CONF-10: the host adds and removes bots in the lobby. They count towards

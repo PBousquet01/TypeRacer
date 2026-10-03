@@ -19,10 +19,10 @@ que tout changement qui fait avancer une exigence.
 | Comptes et profil (AUTH) | 1 | 3 | 2 | 6 |
 | Salles et visibilité (SALLE) | 3 | 3 | 4 | 10 |
 | Rejoindre une course (JOIN) | 2 | 1 | 0 | 3 |
-| Configuration (CONF) | 4 | 2 | 6 | 12 |
+| Configuration (CONF) | 5 | 2 | 5 | 12 |
 | Déroulement d'une course (COURSE) | 7 | 3 | 1 | 11 |
-| Bots (BOT) | 4 | 1 | 0 | 5 |
-| Bonus de remontée (BONUS) | 0 | 0 | 4 | 4 |
+| Bots (BOT) | 5 | 0 | 0 | 5 |
+| Bonus de remontée (BONUS) | 4 | 0 | 0 | 4 |
 | Résultats (RES) | 1 | 2 | 2 | 5 |
 | Historique (HIST) | 0 | 1 | 1 | 2 |
 | Internationalisation (I18N) | 2 | 0 | 1 | 3 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 2 | 0 | 1 | 3 |
-| **Total** | **42** | **23** | **25** | **90** |
+| **Total** | **48** | **22** | **20** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -44,7 +44,7 @@ que tout changement qui fait avancer une exigence.
 | TECH-06 | ✅ | `server/rooms.ts`, `components/Track.tsx` | Tous les tests de `rooms.test.ts` | Socket.IO. Voir [ADR-001](ARCHITECTURE.md#adr-001--technologie-temps-réel). |
 | TECH-07 | ✅ | `server/schemas.ts`, `server/rooms.ts`, `server/api.ts` | « TECH-07: a join of the wrong shape is refused, and a bad acknowledgement can't crash the server », « TECH-07: setWatching with the wrong types is ignored », « invalid settings are ignored », « the server judges the keys: wrong ones don't move the bird », « a body that isn't the expected shape gets the matching error code », « a body that isn't JSON is a bad request », « a text in a language the site doesn't have is refused » | Zod : chaque message Socket.IO qui porte des données (`joinRoom`, `updateSettings`, `setWatching`, `typed`), chaque corps JSON (`signup`, `login`, `admin/mount`) et chaque paramètre d'URL (`/api/text`, retour OAuth). Les messages d'erreur des schémas sont les codes d'erreur de l'API. Le projet n'utilise pas d'actions serveur Next.js. |
 | TECH-08 | ✅ | `render.yaml` | — | Render et Neon en forfaits gratuits; GitHub et Discord OAuth gratuits. Rien à payer pour corriger. |
-| TECH-09 | ✅ | `.github/workflows/ci.yml` | 95 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
+| TECH-09 | ✅ | `.github/workflows/ci.yml` | 105 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
 | TECH-10 | ✅ | `.env.example`, `.gitignore` | — | Toutes les variables lues par le serveur et les scripts y sont documentées. Aucun secret commité. |
 
 ## Identité visuelle et design (DES)
@@ -104,7 +104,7 @@ que tout changement qui fait avancer une exigence.
 | CONF-06 | ❌ | — | — | Ponctuation, nombres, majuscules, accents. |
 | CONF-07 | ❌ | — | — | Caractères à inclure ou exclure. |
 | CONF-08 | 🟡 | `lib/typing.ts` (`MAX_CHARS_PAST_MISTAKE`) | « can't type more than 5 characters past a mistake », « fixed mistakes still count against accuracy » | Correction obligatoire seulement. **Reste** : mode libre. |
-| CONF-09 | ❌ | — | — | Dépend des bonus (BONUS). |
+| CONF-09 | ✅ | `settings.bonuses`, réglage « Bonus de remontée » de `components/Lobby.tsx` | « CONF-09: with bonuses off, nobody gets one » | Désactivés par défaut; l'hôte les active dans la salle d'attente. |
 | CONF-10 | ✅ | `addBot`, `removeBot` dans `server/rooms.ts`, panneau « Bots » de `components/Lobby.tsx` | « CONF-10: the host adds and removes bots; riders can't, and a made-up level is ignored » | L'hôte ajoute un bot du niveau choisi ou le retire, dans la salle d'attente. Les bots comptent dans la capacité. |
 | CONF-11 | 🟡 | réglage « Qui peut entrer » de `components/Lobby.tsx` | « SALLE-03: only public rooms are listed, and the list follows changes live » | La visibilité se règle dans la salle d'attente. **Reste** : la capacité (SALLE-05). |
 | CONF-12 | ✅ | `updateSettings`, `components/Lobby.tsx` | « COURSE-11: the host's settings reach riders; riders can't change them », « invalid settings are ignored » | Diffusée à toute la salle en direct. |
@@ -134,17 +134,17 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 | BOT-01 | ✅ | `lib/bots.ts` (`BOT_LEVELS`) | « BOT-01: every level finishes the text at a speed in its range », « BOT-01, BOT-03: slower levels make more mistakes », « BOT-01, BOT-04: a bot races through the same referee, finishes in its speed range and gets a place » | Valeurs retenues : Noob 10–20 MPM, ~12 % d'erreurs; Débutant 20–35, ~8 %; Intermédiaire 35–60, ~5 %; Expert 70–100, ~2 %; Impossible 140–170, ~0,5 % (plafonné à 170 pour rester loin de la limite anti-triche de ~300 MPM). Le MPM final est tiré dans la plage au début de chaque course. |
 | BOT-02 | ✅ | `planBot` dans `lib/bots.ts` | « BOT-02: the speed varies; no metronome », « BOT-02: bots hesitate before hard words » | Bruit sur chaque touche, rythme qui dérive d'un mot à l'autre (rafales et ralentissements), pauses avant les mots difficiles (`wordDifficulty` : longueur, majuscules, chiffres, ponctuation, accents). |
 | BOT-03 | ✅ | `planBot` dans `lib/bots.ts` | « BOT-03: in correct mode a bot fixes every slip; in free mode it never backspaces », « BOT-01, BOT-03: slower levels make more mistakes » | Une erreur tombe sur une touche voisine (QWERTY). En correction obligatoire, le bot continue 0 à 2 caractères, s'arrête, efface et retape : le temps perdu le ralentit. Le mode libre est prêt dans le moteur; il servira quand CONF-08 sera fait. |
-| BOT-04 | 🟡 | `BotTag` dans `components/ui.tsx`, `Lobby.tsx`, `Track.tsx`, `Results.tsx` | « BOT-01, BOT-04: a bot races through the same referee, finishes in its speed range and gets a place » | Étiquette « BOT » dans la salle, sur la piste et sur le podium; niveau affiché dans la salle et le tableau des résultats. Les touches des bots passent par le même arbitre que celles des personnes. **Reste** : les bonus (BONUS), qui n'existent pas encore. |
+| BOT-04 | ✅ | `BotTag` dans `components/ui.tsx`, `replanBot` dans `server/rooms.ts` | « BOT-01, BOT-04: a bot races through the same referee, finishes in its speed range and gets a place », « BOT-04: a bot leader hit by a bonus still finishes its own, changed text » | Étiquette « BOT » partout. Les bots reçoivent bonus et malus : texte changé → plan recalculé depuis leur position; brouillard → ils perdent 2 s. |
 | BOT-05 | ✅ | `lib/bots.ts` (`seededRandom`, `seedOf`, `planBot`) | « BOT-05: the same seed plays the same race; another seed plays a different one », et tous les tests de `tests/bots.test.ts` | Fonction pure, sans `Math.random` ni horloge. La graine vient du code de la salle, du numéro de la course et du bot. |
 
 ## Bonus de remontée (BONUS)
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| BONUS-01 | ❌ | — | — | |
-| BONUS-02 | ❌ | — | — | |
-| BONUS-03 | ❌ | — | — | |
-| BONUS-04 | ❌ | — | — | |
+| BONUS-01 | ✅ | `lib/bonuses.ts` (`laggards`, `checkpointsPassed`), `playCheckpoints` dans `server/rooms.ts` | « BONUS-01: checkpoints at 25, 50 and 75 % of the leader's text », « BONUS-01: lagging means last, or more than 25 % behind the leader », « BONUS-01: no more than 3 bonuses each, and nothing for riders who finished », « BONUS-01 to BONUS-04: the rider left behind gets a bonus at the leader's first checkpoint » | Règle exacte en tête de `lib/bonuses.ts` : points de contrôle quand le meneur passe 25, 50 et 75 % de son texte; en retard = encore en course, pas le meneur, et dernier ou à plus de 25 % derrière; un bonus par point de contrôle, donc 3 au plus. |
+| BONUS-02 | ✅ | `lib/bonuses.ts` (`awardCheckpoint`, `shorten`, `lengthen`) | « BONUS-02: the leader is slowed at most once per checkpoint; the others shorten their own text », « BONUS-02: all three kinds come up, and the same seed gives the same bonuses », « BONUS-02: a text too short to lose words gives the leader +3 words instead » | Trois types tirés au hasard (graine) : −3 mots (texte du joueur en retard), +3 mots (texte du meneur), brouillard (prochains mots du meneur flous 4 s). Le meneur n'est touché qu'une fois par point de contrôle. |
+| BONUS-03 | ✅ | événement `bonus`, `hooks/useRecentBonuses.ts`, `Track.tsx`, `RaceScreen.tsx`, `SpectatorScreen.tsx` | « BONUS-01 to BONUS-04: the rider left behind gets a bonus at the leader's first checkpoint » | Étiquette sur la piste à côté du cavalier touché, message au-dessus de la zone de frappe pour le joueur concerné, flou sur la zone de frappe pendant le brouillard. |
+| BONUS-04 | ✅ | `text` de chaque joueur dans `server/rooms.ts`, événement `yourText` | « BONUS-01 to BONUS-04: the rider left behind gets a bonus at the leader's first checkpoint », « BONUS-04: words change only at the end, after where the rider is » | Chaque joueur a sa copie du texte; les mots ne changent qu'à la fin, après sa position. Progression = caractères validés ÷ longueur de son texte; MPM calculé sur son texte (annexe A). |
 
 ## Résultats et statistiques (RES)
 
@@ -175,7 +175,7 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| TEST-01 | ✅ | `tests/` | 95 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
+| TEST-01 | ✅ | `tests/` | 105 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
 | TEST-02 | ❌ | — | — | Playwright. |
 | TEST-03 | ❌ | — | — | La connexion par nom d'utilisateur et mot de passe existe déjà; les tests Playwright l'utiliseront. |
 

@@ -6,6 +6,7 @@ import { BotTag } from "./ui";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import type { BotLevel } from "@/lib/bots";
+import type { BonusKind } from "@/lib/bonuses";
 
 const START = 14;
 const RUN = 86;
@@ -25,6 +26,7 @@ export interface TrackRider {
   liveWpm?: number;
   away?: boolean;
   bot?: BotLevel | null;
+  textLength?: number; // their own text, which a bonus can change
 }
 
 interface TrackProps {
@@ -34,6 +36,7 @@ interface TrackProps {
   textLength: number;
   raceStartedAt: number | null;
   stalled: boolean;
+  flashes?: Record<string, BonusKind>; // BONUS-03: a bonus that just hit this rider
 }
 
 function liveWpm(progress: number, textLength: number, raceStartedAt: number | null, now: number) {
@@ -43,7 +46,7 @@ function liveWpm(progress: number, textLength: number, raceStartedAt: number | n
   return Math.round((progress * textLength) / 5 / minutes);
 }
 
-export default function Track({ players, myId, racing, textLength, raceStartedAt, stalled }: TrackProps) {
+export default function Track({ players, myId, racing, textLength, raceStartedAt, stalled, flashes = {} }: TrackProps) {
   const t = useT();
   const [now, setNow] = useState(() => Date.now());
 
@@ -94,6 +97,11 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
                   >
                     {p.name}
                     {p.bot && <BotTag>{t.bot.tag}</BotTag>}
+                    {flashes[p.id] && (
+                      <span className="ml-1.5 animate-pulse bg-amber px-1.5 py-[3px] text-ink motion-reduce:animate-none">
+                        {t.bonus.names[flashes[p.id]]}
+                      </span>
+                    )}
                     {isMe && <span className="text-muted max-wide:hidden"> · {t.common.you}</span>}
                     {p.away && <span className="text-amber"> · {t.race.reconnecting}</span>}
                   </span>
@@ -105,7 +113,7 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
                     <span className="font-body text-label/none whitespace-nowrap text-copy max-wide:hidden">
                       {p.finished
                         ? `${p.wpm} ${t.race.wpm} · ${t.race.finished}${p.score != null ? ` · ${t.common.pts(p.score).toUpperCase()}` : ""}`
-                        : `${p.liveWpm ?? liveWpm(progress, textLength, raceStartedAt, now)} ${t.race.wpm} · ${Math.round(progress * 100)}%`}
+                        : `${p.liveWpm ?? liveWpm(progress, p.textLength ?? textLength, raceStartedAt, now)} ${t.race.wpm} · ${Math.round(progress * 100)}%`}
                     </span>
                   )}
                 </div>

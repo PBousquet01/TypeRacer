@@ -2,6 +2,7 @@ import { CHOCOBO_COLORS, isCustomColor } from "../chocobos";
 import { RIDER_NAME_MAX, RIDER_NAME_MIN } from "../names";
 import { MIN_RIDERS } from "../rules";
 import type { BotLevel } from "../bots";
+import type { BonusKind } from "../bonuses";
 import type { ErrorCode, NoticeCode, RoomStatus, TextSettings, TextKind, TextLanguage, Visibility } from "../types";
 
 const LANGUAGES: Record<TextLanguage, string> = { en: "English", fr: "French" };
@@ -59,6 +60,21 @@ export const en = {
   meta: {
     title: "Chocobo Race",
     description: "A multiplayer typing race. Your bird runs exactly as fast as you type.",
+  },
+  bonus: {
+    names: { shorten: "−3 words", lengthen: "+3 words", fog: "Fog" } satisfies Record<BonusKind, string>,
+    // What the rider concerned reads above their typing box.
+    earned: {
+      shorten: "Comeback bonus: your text just lost 3 words!",
+      lengthen: "Comeback bonus: you gave the leader 3 more words to type.",
+      fog: "Comeback bonus: you sent fog over the leader's next words.",
+    } satisfies Record<BonusKind, string>,
+    against: {
+      shorten: "",
+      lengthen: (name: string) => `${name} played a comeback bonus: 3 more words for you.`,
+      fog: (name: string) => `${name} played a comeback bonus: fog over your next words!`,
+    },
+    column: "Bonuses",
   },
   bot: {
     tag: "BOT",
@@ -210,6 +226,10 @@ export const en = {
     addBot: "Add a bot",
     removeBot: "Remove",
     botsHint: "Bots race like people: same text, same rules, and they're always ready. A race still needs one person.",
+    bonusesLabel: "Comeback bonuses",
+    bonusesOptions: { on: "On", off: "Off" },
+    bonusesHint:
+      "When the leader passes 25, 50 and 75 % of the text, riders far behind get a bonus: 3 words off their own text, 3 more for the leader, or fog over the leader's next words.",
     visibilityLabel: "Who can join",
     visibilityOptions: { public: "Public", code: "With code", private: "Private" } satisfies Record<Visibility, string>,
     visibilityHint: {

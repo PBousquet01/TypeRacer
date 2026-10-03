@@ -169,6 +169,13 @@ export default function Lobby({
                 onChange={(choice) => onChangeSettings({ hostRides: choice === "ride" })}
               />
               <Choice
+                label={t.lobby.bonusesLabel}
+                value={room.settings.bonuses ? "on" : "off"}
+                options={t.lobby.bonusesOptions}
+                onChange={(choice) => onChangeSettings({ bonuses: choice === "on" })}
+              />
+              {room.settings.bonuses && <FinePrint>{t.lobby.bonusesHint}</FinePrint>}
+              <Choice
                 label={t.lobby.visibilityLabel}
                 value={room.settings.visibility}
                 options={t.lobby.visibilityOptions}

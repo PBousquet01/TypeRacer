@@ -38,9 +38,10 @@ interface ResultsProps {
   isHost: boolean;
   hostName: string | undefined;
   onPlayAgain: () => void;
+  bonuses: boolean; // comeback bonuses were on: show who got which (RES-02)
 }
 
-export default function Results({ players, myId, roomCode, isHost, hostName, onPlayAgain }: ResultsProps) {
+export default function Results({ players, myId, roomCode, isHost, hostName, onPlayAgain, bonuses }: ResultsProps) {
   const t = useT();
   const ranked = rank(players.filter((p) => p.racing));
   const me = ranked.find((p) => p.id === myId);
@@ -113,6 +114,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                 <Th num>{t.results.wpm}</Th>
                 <Th num>{t.results.acc}</Th>
                 <Th num>{t.results.time}</Th>
+                {bonuses && <Th>{t.bonus.column}</Th>}
               </tr>
             </thead>
             <tbody>
@@ -134,6 +136,9 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                     <Td num className={tone}>{p.wpm ?? "—"}</Td>
                     <Td num className={tone}>{p.accuracy != null ? `${p.accuracy}%` : "—"}</Td>
                     <Td num className={tone}>{p.place ? formatTime(p.timeMs) : t.common.place(null)}</Td>
+                    {bonuses && (
+                      <Td className={tone}>{p.bonuses.map((b) => t.bonus.names[b]).join(", ") || "—"}</Td>
+                    )}
                   </tr>
                 );
               })}
