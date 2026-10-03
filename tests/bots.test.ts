@@ -104,6 +104,10 @@ describe("bots", () => {
     const free = planBot({ seed: 3, text, level: "noob", errorMode: "free" });
     expect(free.some((k) => k.key === BACKSPACE)).toBe(false);
     expect(free).toHaveLength(text.length);
+    let state = EMPTY_STATE;
+    for (const { key, atMs } of free) state = applyInput(state, state.input + key, text, atMs, "free") ?? state;
+    expect(state.input).toHaveLength(text.length); // the free rules let the bot finish
+    expect(state.mistakes).toBeGreaterThan(0);
   });
 
   test("the fastest bot stays under the server's anti-cheat limit", () => {

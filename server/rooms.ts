@@ -26,7 +26,7 @@ import {
   scoreOf,
   type RaceStatus,
 } from "../lib/rules";
-import { accuracyOf, correctPrefixLength, EMPTY_STATE, replayKeys, type TypingState } from "../lib/typing";
+import { accuracyOf, correctCount, EMPTY_STATE, progressChars, replayKeys, type TypingState } from "../lib/typing";
 import { DEFAULT_TEXT_OPTIONS } from "../lib/textgen";
 import { planBot, seededRandom, seedOf, type BotKey, type BotLevel } from "../lib/bots";
 import {
@@ -185,6 +185,7 @@ function createRoom(code: string, language: TextLanguage, visibility: Visibility
       visibility,
       bonuses: false,
       maxTimeMs: DEFAULT_MAX_TIME_MS,
+      errorMode: "correct",
       ...DEFAULT_TEXT_OPTIONS,
     },
     players: new Map(),
@@ -416,7 +417,12 @@ function startCountdown(io: IO, room: Room, starters: Player[], text: string) {
   // be replayed exactly, and two bots of the same level don't type in step.
   for (const [id, p] of room.players) {
     if (p.bot && p.racing) {
-      p.botPlan = planBot({ seed: seedOf(`${room.code}:${room.raceId}:${id}`), text, level: p.bot });
+      p.botPlan = planBot({
+        seed: seedOf(`${room.code}:${room.raceId}:${id}`),
+        text,
+        level: p.bot,
+        errorMode: room.settings.errorMode,
+      });
       p.botNext = 0;
     }
   }
@@ -451,7 +457,10 @@ function driveBots(io: IO, room: Room) {
     while (player.botNext < player.botPlan.length && player.botPlan[player.botNext].atMs <= elapsed) {
       keys += player.botPlan[player.botNext++].key;
     }
-    if (keys) advance(io, room, player, replayKeys(player.typing, keys, player.text, now, countMiss(player)), now);
+    if (keys) {
+      const typing = replayKeys(player.typing, keys, player.text, now, countMiss(player), room.settings.errorMode);
+      advance(io, room, player, typing, now);
+    }
     if (room.status !== "racing") return; // that key ended the race
   }
 }
@@ -462,7 +471,7 @@ function driveBots(io: IO, room: Room) {
  * event) and bots (driveBots) both come through here.
  */
 function advance(io: IO, room: Room, player: Player, typing: TypingState, now: number) {
-  const n = correctPrefixLength(typing.input, player.text);
+  const n = progressChars(typing.input, player.text, room.settings.errorMode);
   const elapsedSec = (now - room.startAt) / 1000;
   if (n > elapsedSec * MAX_CHARS_PER_SEC + 10) return; // impossibly fast: ignore
 
@@ -470,7 +479,8 @@ function advance(io: IO, room: Room, player: Player, typing: TypingState, now: n
   player.charIndex = n;
 
   if (n === player.text.length) {
-    player.wpm = Math.round(player.text.length / 5 / (elapsedSec / 60));
+    // Annex A: net WPM counts the right characters only (all of them, in "correct" mode).
+    player.wpm = Math.round(correctCount(typing.input, player.text) / 5 / (elapsedSec / 60));
     player.timeMs = Math.round(elapsedSec * 1000);
     player.accuracy = accuracyOf(typing.keystrokes, typing.mistakes);
     player.score = scoreOf(player.wpm, player.accuracy);
@@ -529,7 +539,12 @@ function replanBot(room: Room, id: string, bot: Player, now: number) {
   bot.typing = { ...bot.typing, input: bot.text.slice(0, bot.charIndex) };
   const offset = now - room.startAt;
   const seed = seedOf(`${room.code}:${room.raceId}:${id}:${bot.text.length}`);
-  bot.botPlan = planBot({ seed, text: bot.text.slice(bot.charIndex), level: bot.bot! }).map((k) => ({
+  bot.botPlan = planBot({
+    seed,
+    text: bot.text.slice(bot.charIndex),
+    level: bot.bot!,
+    errorMode: room.settings.errorMode,
+  }).map((k) => ({
     ...k,
     atMs: k.atMs + offset,
   }));
@@ -979,8 +994,10 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const now = Date.now();
     // A report starts after the last correct character: anything wrong typed
     // beyond it by an earlier report is dropped (its mistakes stay counted).
-    const from = { ...player.typing, input: player.text.slice(0, player.charIndex) };
-    advance(io, room, player, replayKeys(from, keys, player.text, now, countMiss(player)), now);
+    // In "free" mode the wrong characters are part of the text typed so far, so they stay.
+    const mode = room.settings.errorMode;
+    const from = mode === "free" ? player.typing : { ...player.typing, input: player.text.slice(0, player.charIndex) };
+    advance(io, room, player, replayKeys(from, keys, player.text, now, countMiss(player), mode), now);
   });
 
   // CONF-10: the host adds and removes bots in the lobby. They count towards

@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 119 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 121 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -127,6 +127,11 @@ join instead.
   (null = no limit) and the text options; `updateSettings` merges whatever
   Zod accepted. `lib/textgen.ts` builds the text (pure, rules at the top);
   `server/texts.ts` feeds it the language's passages and dictionary.
+- **Error modes (CONF-08).** `settings.errorMode` is "correct" (default:
+  held 5 chars past a mistake) or "free". Progress is `progressChars`
+  (correct prefix, or everything typed in free mode); net WPM is
+  `correctCount` / 5 / min. In free mode the server keeps the wrong
+  characters between reports instead of trimming back to the last correct one.
 - **Bots are riders without a socket** (`bot: BotLevel`, ids `bot-N`; ADR-002
   in `docs/ARCHITECTURE.md`). The host adds/removes them in the lobby. At the
   start each bot gets a plan from `planBot` (`lib/bots.ts`, pure, seeded from

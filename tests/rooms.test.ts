@@ -194,6 +194,28 @@ describe("lobby rules", () => {
     expect(host.room!.settings.maxTimeMs).toBe(60_000);
   });
 
+  test("CONF-08: in free mode a rider finishes with mistakes left in, and they count", async () => {
+    const { host, a, b } = await readyRoom();
+    host.socket.emit("updateSettings", { errorMode: "free", length: 10 });
+    await host.until((x) => x.settings.errorMode === "free" && x.settings.length === 10);
+    expect(await host.startRace()).toEqual({ ok: true });
+    const { text } = await a.until((x) => x.status === "racing");
+    // Alice gets every third letter wrong and never fixes anything.
+    const typed = [...text].map((c, i) => (i % 3 === 1 && c !== " " ? (c === "x" ? "y" : "x") : c)).join("");
+    await sleep((text.length / 20) * 1000);
+    a.socket.emit("typed", 0, typed);
+    b.socket.emit("typed", 0, text);
+    const r = await host.until((x) => x.status === "finished");
+    const alice = r.players.find((p) => p.name === "Alice")!;
+    const bob = r.players.find((p) => p.name === "Bob")!;
+    expect(alice.finished).toBe(true);
+    const wrong = [...typed].filter((c, i) => c !== text[i]).length;
+    expect(alice.errors).toBe(wrong);
+    expect(alice.accuracy).toBeLessThan(100);
+    expect(alice.wpm!).toBeLessThan(alice.rawWpm!); // net WPM leaves the wrong characters out
+    expect(bob).toMatchObject({ errors: 0, accuracy: 100 });
+  }, 20_000);
+
   test("TECH-07: setWatching with the wrong types is ignored", async () => {
     const { host } = await readyRoom();
     const alice = host.room!.players.find((p) => p.name === "Alice")!;

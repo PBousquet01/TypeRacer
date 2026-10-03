@@ -4,11 +4,10 @@
 // unit-tested. The referee (server/rooms.ts) plays the plan back and sends the
 // keys through the same rules as a human's (replayKeys), so bots get no
 // special treatment: same progress, accuracy, WPM and ranking.
-import { BACKSPACE } from "./typing";
+import { BACKSPACE, type ErrorMode } from "./typing";
 
 export const BOT_LEVEL_IDS = ["noob", "beginner", "intermediate", "expert", "impossible"] as const;
 export type BotLevel = (typeof BOT_LEVEL_IDS)[number];
-export type ErrorMode = "correct" | "free";
 
 export interface BotProfile {
   wpm: [number, number]; // the WPM a bot of this level finishes with is drawn in this range

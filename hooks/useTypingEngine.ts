@@ -4,11 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   accuracyOf,
   applyInput,
+  correctCount,
   correctPrefixLength,
   EMPTY_STATE,
   keysBetween,
+  progressChars,
   shouldReport,
   wpmOf,
+  type ErrorMode,
   type TypingState,
 } from "@/lib/typing";
 
@@ -34,6 +37,7 @@ interface EngineOptions {
   // are gone from this tab, so the figure on screen counts them as clean;
   // the server kept the real count, and the result comes from the server.
   resume?: { correctChars: number; startedAt: number } | null;
+  mode?: ErrorMode; // CONF-08
 }
 
 /**
@@ -44,7 +48,7 @@ interface EngineOptions {
  * `base` being how many characters were right at that point; the server
  * judges those keys itself to move the chocobo and compute the score.
  */
-export function useTypingEngine(text: string, { enabled, onKeys, resume }: EngineOptions): TypingEngine {
+export function useTypingEngine(text: string, { enabled, onKeys, resume, mode = "correct" }: EngineOptions): TypingEngine {
   const [typing, setTyping] = useState<TypingState>(() => {
     const done = resume ? Math.min(resume.correctChars, text.length) : 0;
     if (done === 0) return EMPTY_STATE;
@@ -55,7 +59,9 @@ export function useTypingEngine(text: string, { enabled, onKeys, resume }: Engin
   const unsentRef = useRef({ base: typing.input.length, keys: "" });
 
   const { input, startedAt, finishedAt, keystrokes, mistakes } = typing;
-  const correctChars = correctPrefixLength(input, text);
+  // How far along: the right characters from the start, or in "free" mode
+  // every character typed. Reports to the server count the same way.
+  const correctChars = progressChars(input, text, mode);
   const isDone = correctChars === text.length;
 
   useEffect(() => {
@@ -67,7 +73,7 @@ export function useTypingEngine(text: string, { enabled, onKeys, resume }: Engin
   function handleChange(value: string): boolean {
     if (!enabled) return false;
     const time = Date.now();
-    const next = applyInput(typing, value, text, time);
+    const next = applyInput(typing, value, text, time, mode);
     if (!next) return false;
 
     setTyping(next);
@@ -77,7 +83,7 @@ export function useTypingEngine(text: string, { enabled, onKeys, resume }: Engin
     // the keyboard produced and decides for itself whether it was right.
     const unsent = unsentRef.current;
     unsent.keys += keysBetween(input, value);
-    const nextCorrect = correctPrefixLength(next.input, text);
+    const nextCorrect = progressChars(next.input, text, mode);
     if (shouldReport(text, nextCorrect, unsent.base)) {
       onKeys?.(unsent.base, unsent.keys);
       unsentRef.current = { base: nextCorrect, keys: "" };
@@ -101,9 +107,9 @@ export function useTypingEngine(text: string, { enabled, onKeys, resume }: Engin
     handleChange,
     charStates,
     correctChars,
-    hasMistake: correctChars < input.length,
+    hasMistake: mode === "correct" && correctPrefixLength(input, text) < input.length,
     elapsedMs,
-    wpm: wpmOf(correctChars, elapsedMs),
+    wpm: wpmOf(correctCount(input, text), elapsedMs),
     accuracy: accuracyOf(keystrokes, mistakes),
     isDone,
   };

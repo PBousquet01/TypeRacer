@@ -240,6 +240,13 @@ export default function Lobby({
                 options={t.lobby.lengthOptions}
                 onChange={(key) => onChangeSettings({ length: Number(key) })}
               />
+              <Choice
+                label={t.lobby.errorModeLabel}
+                value={room.settings.errorMode}
+                options={t.lobby.errorModeOptions}
+                onChange={(errorMode) => onChangeSettings({ errorMode })}
+              />
+              <FinePrint>{t.lobby.errorModeHint[room.settings.errorMode]}</FinePrint>
               <Choice<Complexity>
                 label={t.lobby.complexityLabel}
                 value={room.settings.complexity}
@@ -324,8 +331,12 @@ export default function Lobby({
                   {t.text.label(room.settings)} · {t.lobby.textDetail(room.settings.length, t.lobby.complexityOptions[room.settings.complexity])}
                 </SpecRow>
                 <SpecRow label={t.lobby.timeRow}>{t.lobby.timeOptions[timeKey(room.settings.maxTimeMs)]}</SpecRow>
-              <SpecRow label={t.lobby.backspace}>{t.lobby.backspaceValue}</SpecRow>
-              <SpecRow label={t.lobby.mistakes}>{t.lobby.mistakesValue}</SpecRow>
+              <SpecRow label={t.lobby.backspace}>
+                {room.settings.errorMode === "free" ? t.lobby.backspaceFree : t.lobby.backspaceValue}
+              </SpecRow>
+              <SpecRow label={t.lobby.mistakes}>
+                {room.settings.errorMode === "free" ? t.lobby.mistakesFree : t.lobby.mistakesValue}
+              </SpecRow>
               <SpecRow label={t.lobby.winner}>{t.lobby.winnerValue}</SpecRow>
               <SpecRow label={t.lobby.lastCall}>{t.lobby.lastCallValue}</SpecRow>
             </Spec>

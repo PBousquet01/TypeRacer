@@ -6,6 +6,14 @@
 // mistake. You have to go back and fix it first.
 export const MAX_CHARS_PAST_MISTAKE = 5;
 
+/**
+ * CONF-08: "correct" (the default) holds you at a mistake until it's fixed,
+ * as above. "free" lets you carry on: the wrong character stays, counts
+ * against your accuracy and your net WPM, and you finish once you've typed as
+ * many characters as the text has.
+ */
+export type ErrorMode = "correct" | "free";
+
 export interface TypingState {
   input: string; // everything typed so far
   startedAt: number | null; // time of the first keystroke (the timer starts there, like Monkeytype)
@@ -29,6 +37,21 @@ export function correctPrefixLength(input: string, text: string): number {
   return i;
 }
 
+/** How many characters typed match the text, wherever they are. */
+export function correctCount(input: string, text: string): number {
+  let n = 0;
+  for (let i = 0; i < input.length; i++) if (input[i] === text[i]) n++;
+  return n;
+}
+
+/**
+ * How far along the text a rider is: the right characters from the start in
+ * "correct" mode, every character typed in "free" mode.
+ */
+export function progressChars(input: string, text: string, mode: ErrorMode = "correct"): number {
+  return mode === "free" ? Math.min(input.length, text.length) : correctPrefixLength(input, text);
+}
+
 /** Share of keys that were right, fixed mistakes included. */
 export function accuracyOf(keystrokes: number, mistakes: number): number {
   return keystrokes ? Math.round(((keystrokes - mistakes) / keystrokes) * 100) : 100;
@@ -43,9 +66,15 @@ export function wpmOf(correctChars: number, elapsedMs: number): number {
  * The input box now holds `value`. Returns the next state, or null when the
  * change isn't allowed (and the box should stay as it was).
  */
-export function applyInput(state: TypingState, value: string, text: string, now: number): TypingState | null {
+export function applyInput(
+  state: TypingState,
+  value: string,
+  text: string,
+  now: number,
+  mode: ErrorMode = "correct",
+): TypingState | null {
   const { input } = state;
-  if (correctPrefixLength(input, text) === text.length) return null; // already finished
+  if (progressChars(input, text, mode) === text.length) return null; // already finished
 
   // Only typing or deleting at the end counts, so a moved cursor or an
   // edit in the middle can't desynchronise the engine.
@@ -57,7 +86,7 @@ export function applyInput(state: TypingState, value: string, text: string, now:
   // several characters at once (autocorrect, dictation, a phone keyboard).
   if (isTyping) {
     if (value.length > text.length) return null;
-    if (value.length > correctPrefixLength(value, text) + MAX_CHARS_PAST_MISTAKE) return null;
+    if (mode === "correct" && value.length > correctPrefixLength(value, text) + MAX_CHARS_PAST_MISTAKE) return null;
   }
 
   // Accuracy counts every key pressed, fixed mistakes included.
@@ -67,7 +96,7 @@ export function applyInput(state: TypingState, value: string, text: string, now:
     if (added[i] !== text[input.length + i]) newMistakes++;
   }
 
-  const done = correctPrefixLength(value, text) === text.length;
+  const done = progressChars(value, text, mode) === text.length;
   return {
     input: value,
     startedAt: state.startedAt ?? now,
@@ -102,12 +131,13 @@ export function replayKeys(
   text: string,
   now: number,
   onMiss?: (expected: string) => void,
+  mode: ErrorMode = "correct",
 ): TypingState {
   let current = state;
   for (let i = 0; i < keys.length; i++) {
     const at = current.input.length;
     const value = keys[i] === BACKSPACE ? current.input.slice(0, -1) : current.input + keys[i];
-    const next = applyInput(current, value, text, now);
+    const next = applyInput(current, value, text, now, mode);
     if (next && keys[i] !== BACKSPACE && keys[i] !== text[at]) onMiss?.(text[at]);
     current = next ?? current;
   }

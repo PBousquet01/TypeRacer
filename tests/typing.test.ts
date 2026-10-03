@@ -7,6 +7,8 @@ import {
   keysBetween,
   MAX_CHARS_PAST_MISTAKE,
   replayKeys,
+  progressChars,
+  correctCount,
   shouldReport,
   wpmOf,
   type TypingState,
@@ -139,4 +141,19 @@ test("RES-03: replaying keys reports which characters were missed", () => {
   // Two wrong tries at the "e", then a wrong "o" where the "a" belongs.
   replayKeys(EMPTY_STATE, "thx\bw\be co\bat", "the cat", 0, (c) => missed.push(c));
   expect(missed).toEqual(["e", "e", "a"]);
+});
+
+test("CONF-08: in free mode a rider carries on past mistakes and finishes at the text's length", () => {
+  const text = "the cat sat";
+  let state = EMPTY_STATE;
+  for (const value of ["tha", "tha xyz", "tha xyz sat"]) {
+    state = applyInput(state, value, text, 0, "free") ?? state;
+  }
+  expect(state.input).toBe("tha xyz sat"); // far more than 5 characters past the first mistake
+  expect(progressChars(state.input, text, "free")).toBe(text.length);
+  expect(correctCount(state.input, text)).toBe(7); // "th", " ", " sat"
+  expect(state.mistakes).toBe(4);
+  expect(applyInput(state, "tha xyz sat!", text, 0, "free")).toBeNull(); // finished: nothing more
+  // The same keys in "correct" mode stop 5 characters past the mistake.
+  expect(applyInput(EMPTY_STATE, "tha xyz s", text, 0)).toBeNull();
 });

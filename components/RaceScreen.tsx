@@ -46,7 +46,12 @@ export default function RaceScreen({
     [onKeys],
   );
   const text = myText ?? room.text;
-  const engine = useTypingEngine(text, { enabled: racing && !me?.finished, onKeys: report, resume });
+  const engine = useTypingEngine(text, {
+    enabled: racing && !me?.finished,
+    onKeys: report,
+    resume,
+    mode: room.settings.errorMode,
+  });
   const recent = useRecentBonuses(bonusEvents);
   const flashes = Object.fromEntries(recent.map((e) => [e.target, e.kind]));
   const fogged = recent.some((e) => e.kind === "fog" && e.target === myId);

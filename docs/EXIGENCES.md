@@ -19,7 +19,7 @@ que tout changement qui fait avancer une exigence.
 | Comptes et profil (AUTH) | 4 | 2 | 0 | 6 |
 | Salles et visibilité (SALLE) | 5 | 2 | 3 | 10 |
 | Rejoindre une course (JOIN) | 3 | 0 | 0 | 3 |
-| Configuration (CONF) | 10 | 2 | 0 | 12 |
+| Configuration (CONF) | 11 | 1 | 0 | 12 |
 | Déroulement d'une course (COURSE) | 7 | 3 | 1 | 11 |
 | Bots (BOT) | 5 | 0 | 0 | 5 |
 | Bonus de remontée (BONUS) | 4 | 0 | 0 | 4 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 3 | 0 | 0 | 3 |
-| **Total** | **66** | **17** | **7** | **90** |
+| **Total** | **67** | **16** | **7** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -44,7 +44,7 @@ que tout changement qui fait avancer une exigence.
 | TECH-06 | ✅ | `server/rooms.ts`, `components/Track.tsx` | Tous les tests de `rooms.test.ts` | Socket.IO. Voir [ADR-001](ARCHITECTURE.md#adr-001--technologie-temps-réel). |
 | TECH-07 | ✅ | `server/schemas.ts`, `server/rooms.ts`, `server/api.ts` | « TECH-07: a join of the wrong shape is refused, and a bad acknowledgement can't crash the server », « TECH-07: setWatching with the wrong types is ignored », « invalid settings are ignored », « the server judges the keys: wrong ones don't move the bird », « a body that isn't the expected shape gets the matching error code », « a body that isn't JSON is a bad request », « a text in a language the site doesn't have is refused » | Zod : chaque message Socket.IO qui porte des données (`joinRoom`, `updateSettings`, `setWatching`, `typed`), chaque corps JSON (`signup`, `login`, `admin/mount`) et chaque paramètre d'URL (`/api/text`, retour OAuth). Les messages d'erreur des schémas sont les codes d'erreur de l'API. Le projet n'utilise pas d'actions serveur Next.js. |
 | TECH-08 | ✅ | `render.yaml` | — | Render et Neon en forfaits gratuits; GitHub et Discord OAuth gratuits. Rien à payer pour corriger. |
-| TECH-09 | ✅ | `.github/workflows/ci.yml` | 119 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
+| TECH-09 | ✅ | `.github/workflows/ci.yml` | 121 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
 | TECH-10 | ✅ | `.env.example`, `.gitignore` | — | Toutes les variables lues par le serveur et les scripts y sont documentées. Aucun secret commité. |
 
 ## Identité visuelle et design (DES)
@@ -103,7 +103,7 @@ que tout changement qui fait avancer une exigence.
 | CONF-05 | ✅ | `lib/textgen.ts` (`buildText`) (`passageLevel`, `wordFits`), réglage « Difficulté » | « CONF-05: complexity is measured: word length, accents, apostrophes » | Critères mesurables. Passages : longueur moyenne des mots (en lettres) : facile sous 4,3, moyen de 4,3 à 4,6, difficile à partir de 4,6 (seuils choisis pour répartir la banque en trois). Mots au hasard : facile = 3 ou 4 lettres sans accent ni apostrophe; moyen = 6 lettres au plus; difficile = 5 lettres et plus. |
 | CONF-06 | ✅ | `lib/textgen.ts` (`buildText`), boutons « Dans le texte » | « CONF-06: punctuation, capitals and accents can be taken out of any text », « CONF-06: random words get numbers, capitals and punctuation when asked » | Désactivés, la ponctuation, les majuscules et les accents sont retirés de tout texte (les apostrophes dans les mots restent). Activés, les mots au hasard reçoivent des majuscules, des virgules et points, et des nombres. Choix documenté : les nombres ne s'ajoutent qu'aux mots au hasard, car les passages sont de vrais textes (option désactivée pour eux). |
 | CONF-07 | ✅ | `lib/textgen.ts` (`buildText`), champs « Pratiquer ces lettres » / « Exclure ces lettres » | « CONF-07: excluded characters never appear; included ones are in every word » | Mots au hasard seulement (désactivé pour les passages, comme le permet l'exigence). Exclure : aucun mot contenant ces lettres, accents compris (exclure « e » exclut « é »). Inclure : seulement des mots qui contiennent l'une d'elles; s'il en reste moins de 5, ce filtre est abandonné plutôt que de faire échouer la course. |
-| CONF-08 | 🟡 | `lib/typing.ts` (`MAX_CHARS_PAST_MISTAKE`) | « can't type more than 5 characters past a mistake », « fixed mistakes still count against accuracy » | Correction obligatoire seulement. **Reste** : mode libre. |
+| CONF-08 | ✅ | `ErrorMode`, `progressChars`, `correctCount` dans `lib/typing.ts`; `settings.errorMode`; réglage « Fautes » de `components/Lobby.tsx` | « CONF-08: in free mode a rider carries on past mistakes and finishes at the text's length », « CONF-08: in free mode a rider finishes with mistakes left in, and they count », « BOT-03: in correct mode a bot fixes every slip; in free mode it never backspaces », « can't type more than 5 characters past a mistake » | Correction obligatoire (par défaut) : impossible d'aller plus de 5 caractères au-delà d'une faute. Libre : on continue, la faute reste et compte dans la précision, le nombre d'erreurs et le MPM net (seuls les caractères justes comptent, annexe A); on finit en ayant tapé autant de caractères que le texte. Les mêmes règles servent au navigateur, au serveur et aux bots. |
 | CONF-09 | ✅ | `settings.bonuses`, réglage « Bonus de remontée » de `components/Lobby.tsx` | « CONF-09: with bonuses off, nobody gets one » | Désactivés par défaut; l'hôte les active dans la salle d'attente. |
 | CONF-10 | ✅ | `addBot`, `removeBot` dans `server/rooms.ts`, panneau « Bots » de `components/Lobby.tsx` | « CONF-10: the host adds and removes bots; riders can't, and a made-up level is ignored » | L'hôte ajoute un bot du niveau choisi ou le retire, dans la salle d'attente. Les bots comptent dans la capacité. |
 | CONF-11 | 🟡 | réglage « Qui peut entrer » de `components/Lobby.tsx` | « SALLE-03: only public rooms are listed, and the list follows changes live » | La visibilité se règle dans la salle d'attente. **Reste** : la capacité (SALLE-05). |
@@ -175,7 +175,7 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| TEST-01 | ✅ | `tests/` | 119 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
+| TEST-01 | ✅ | `tests/` | 121 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
 | TEST-02 | ❌ | — | — | Playwright. |
 | TEST-03 | ❌ | — | — | La connexion par nom d'utilisateur et mot de passe existe déjà; les tests Playwright l'utiliseront. |
 

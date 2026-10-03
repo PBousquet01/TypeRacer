@@ -84,6 +84,7 @@ export const settingsChange = z.object({
   accents: z.boolean().optional(),
   include: z.string().max(20).optional(), // CONF-07
   exclude: z.string().max(20).optional(),
+  errorMode: z.enum(["correct", "free"]).optional(), // CONF-08
 });
 
 export const setWatchingArgs = z.tuple([z.string().max(64), z.boolean()]);
