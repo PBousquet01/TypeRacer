@@ -579,9 +579,10 @@ chaque envoi.
 
 ```bash
 bun install
-createdb chocobo_race          # PostgreSQL doit tourner
-cp .env.example .env           # puis y mettre DATABASE_URL
-bun run dev                    # http://localhost:3000
+docker compose up -d           # PostgreSQL 17 sur localhost:5434 (compose.yaml)
+cp .env.example .env           # pointe déjà vers cette base
+bun run dev                    # applique les migrations, puis http://localhost:3000
+bun run db:seed                # facultatif : comptes de démonstration et historique
 bun test                       # les tests (utilisent aussi la base)
 ```
 

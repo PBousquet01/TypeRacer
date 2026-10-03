@@ -43,18 +43,20 @@ reading the source.
 
 ## Run it
 
+You need [Bun](https://bun.sh) and [Docker](https://www.docker.com/products/docker-desktop/)
+(for PostgreSQL).
+
 ```bash
 bun install
-createdb chocobo_race          # needs PostgreSQL running
-cp .env.example .env           # then point DATABASE_URL at it
-bun run dev
+docker compose up -d           # PostgreSQL 17 on localhost:5434 (see compose.yaml)
+cp .env.example .env           # already points at that database
+bun run dev                    # applies the migrations, then serves the site
+bun run db:seed                # optional: demo accounts with a race history
 ```
 
-On a Mac, PostgreSQL comes from Homebrew:
-
-```bash
-brew install postgresql@17 && brew services start postgresql@17
-```
+`docker compose down` stops the database; `docker compose down -v` also
+erases its data. To use a PostgreSQL you already have instead, put its
+address in `DATABASE_URL` in `.env`.
 
 Run the tests (they need the database too):
 

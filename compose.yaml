@@ -1,0 +1,31 @@
+# Local PostgreSQL for development and tests:
+#
+#   docker compose up -d        start it (data is kept in the "pgdata" volume)
+#   docker compose down         stop it (add -v to also erase the data)
+#
+# Then DATABASE_URL in .env is the one in .env.example. The server applies
+# the migrations in drizzle/ when it starts; `bun run db:seed` adds demo data.
+#
+# Port 5434 on this machine, so it doesn't clash with a Postgres already
+# installed on 5432 (or 5433). The password is for local use only: the port
+# is only open on 127.0.0.1.
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chocobo
+      POSTGRES_PASSWORD: chocobo
+      POSTGRES_DB: chocobo_race
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chocobo -d chocobo_race"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  pgdata:

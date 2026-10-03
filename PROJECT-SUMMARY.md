@@ -24,10 +24,13 @@ bun run build
 bun scripts/admin.ts list
 ```
 
-PostgreSQL runs via Homebrew (`brew services start postgresql@17`), database
-`chocobo_race`, connection string in `.env` (git-ignored). **On this Mac it
-listens on port 5433**, not 5432: the hacksorel-2 project's Docker stack
-publishes its own Postgres on 5432. Use `psql -p 5433 -d chocobo_race`. The schema is
+Local PostgreSQL runs in Docker: `docker compose up -d` (`compose.yaml`,
+postgres:17 on **127.0.0.1:5434**, user/password/db `chocobo`/`chocobo`/
+`chocobo_race`, data in the `pgdata` volume). `.env` points there since
+2026-10-03; the old Homebrew Postgres on 5433 still has the pre-Docker copy
+(`.env.bak-before-docker`). Port 5434 because 5432 is hacksorel-2's Docker
+Postgres and 5433 Homebrew's. `docker exec -it testingaiweb-db-1 psql -U
+chocobo -d chocobo_race` for a shell. The schema is
 `server/schema.ts` (Drizzle); migrations live in `drizzle/` and run at boot
 (`migrate()` in `server/db.ts`). **Never edit the database or a committed
 migration by hand**: change `schema.ts`, run `bun run db:generate`, commit
