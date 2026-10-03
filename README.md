@@ -19,10 +19,10 @@ Built with Next.js (React) in TypeScript, Tailwind CSS, Socket.IO, Bun and Postg
 The interface is in French and English (button in the top bar); the texts to
 type are a separate choice the host makes in the lobby.
 
-Class documentation (in French) lives in `docs/`: the technical documentation
-(`docs/architecture.md`), the race state machine (`docs/machine-a-etats.md`)
-and the requirements matrix (`docs/matrice-des-exigences.md`). Update the
-matrix in the same commit as any change that moves a requirement forward.
+Class documentation (in French) lives in `docs/`: the architecture, data
+model and race state machine (`docs/ARCHITECTURE.md`) and the requirements
+matrix (`docs/EXIGENCES.md`). Update the matrix in the same commit as any
+change that moves a requirement forward.
 
 New to the codebase? `PROJECT-SUMMARY.md` is the short orientation: the
 architecture, the rules the server enforces, and the gotchas — quicker than

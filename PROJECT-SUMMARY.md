@@ -2,7 +2,7 @@
 
 Orientation for a new session. Read this instead of exploring the codebase;
 open individual files only for the part you're changing.
-*Last updated: 2026-10-02 (GitHub/Discord sign-in; the server judges the keys).*
+*Last updated: 2026-10-02 (docs follow the teacher's PDF: ARCHITECTURE.md, EXIGENCES.md).*
 
 ## What it is
 
@@ -112,13 +112,20 @@ login. A first sign-in creates a password-less account (username from the
 login, made unique); signed in, the same flow links instead. Tests fake both
 providers by swapping `globalThis.fetch` in `tests/api.test.ts`.
 
-## Class docs (TECH-5, TECH-8)
+## Class docs
 
-`docs/` holds the French documentation for the teacher: `architecture.md`
-(incl. the TECH-3 "why no ORM" justification), `machine-a-etats.md` (Mermaid
-state diagram, transitions, timers) and `matrice-des-exigences.md` (every
-requirement: status, code, test). **Keep the matrix current**: when a change
-moves a requirement, update its row and the summary counts in the same commit.
+The graded spec is the teacher's *Web V — Travail de session* PDF (IDs like
+TECH-01, SALLE-04, CONF-08). The project's own first cahier des charges (IDs
+like COURSE-3, TXT-9) still names some tests and code comments; where the two
+disagree, the PDF wins.
+
+`docs/` holds the French documentation for the teacher: `ARCHITECTURE.md`
+(data model, state machine, realtime message flow, ADR-001 realtime choice,
+ADR-002 planned bots), `EXIGENCES.md` (every PDF requirement: status, files,
+tests, notes) and `deploiement.md`. **Keep `EXIGENCES.md` current**: when a
+change moves a requirement, update its row and the summary counts in the same
+commit. Never mark a requirement complete when it isn't: the teacher penalises
+that more than an honest "partiel".
 
 ## Tests and CI (TECH-7)
 
