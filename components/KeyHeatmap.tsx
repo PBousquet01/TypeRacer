@@ -51,8 +51,8 @@ export default function KeyHeatmap({ racers, myId }: KeyHeatmapProps) {
         title={t.charts.missedTimes(label(k), n)}
         aria-label={t.charts.missedTimes(label(k), n)}
         className={cn(
-          "grid h-8 place-items-center rounded-sm border font-body text-[11px] max-wide:h-7 max-wide:text-[10px]",
-          wide ? "w-[min(260px,60%)]" : "w-8 max-wide:w-[7.5%]",
+          "grid h-8 min-w-0 place-items-center rounded-sm border font-body text-[11px] max-wide:h-7 max-wide:text-[10px]",
+          wide ? "w-[min(260px,60%)]" : "max-w-8 flex-1",
           n > 0 ? cn(HEAT[step(n)], HEAT_TEXT[step(n)], "border-transparent font-medium") : "border-edge/25 text-muted light:border-ink/20",
         )}
       >
@@ -88,9 +88,9 @@ export default function KeyHeatmap({ racers, myId }: KeyHeatmapProps) {
         <p className="m-0 font-body text-sm text-copy">{t.charts.noMisses(rider.name)}</p>
       ) : (
         <>
-          <div className="grid justify-items-center gap-1.5" role="img" aria-label={t.charts.heatLabel(rider.name)}>
+          <div className="grid w-full max-w-[460px] justify-self-center gap-1.5" role="img" aria-label={t.charts.heatLabel(rider.name)}>
             {ROWS.map((row, r) => (
-              <div key={row} className="flex gap-1.5" style={{ paddingLeft: `${r * 10}px` }}>
+              <div key={row} className="flex justify-center gap-[1.2%]" style={{ paddingLeft: `${r * 2.5}%` }}>
                 {[...row].map((k) => key(k))}
               </div>
             ))}
