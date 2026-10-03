@@ -184,6 +184,34 @@ describe("GitHub and Discord (AUTH-1, AUTH-2, AUTH-3)", () => {
   });
 });
 
+describe("input validation (TECH-07)", () => {
+  test("a body that isn't the expected shape gets the matching error code", async () => {
+    const cases: [string, unknown, string][] = [
+      ["/api/auth/signup", { username: ["phil"], password: "longenough" }, "username-format"],
+      ["/api/auth/signup", { username: "philtest", password: 12345678 }, "password-short"],
+      ["/api/auth/signup", [], "bad-request"],
+      ["/api/auth/login", { username: "philtest", password: { $ne: "" } }, "bad-request"],
+    ];
+    for (const [path, body, error] of cases) {
+      const res = await post(path, body);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error });
+    }
+  });
+
+  test("a body that isn't JSON is a bad request", async () => {
+    const res = await fetch(`${base}/api/auth/login`, { method: "POST", body: "username=phil" });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad-request" });
+  });
+
+  test("a text in a language the site doesn't have is refused", async () => {
+    const res = await fetch(`${base}/api/text?lang=de`);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "bad-request" });
+  });
+});
+
 describe("rooms", () => {
   test("SALLE-02: the server hands a host a fresh six-character code", async () => {
     const codes = new Set<string>();

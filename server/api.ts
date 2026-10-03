@@ -5,8 +5,9 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { count, desc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "./db";
 import { races, users } from "./schema";
-import { isKind, isLanguage, pickText } from "./texts";
+import { pickText } from "./texts";
 import { reserveRoomCode } from "./rooms";
+import { loginBody, mountBody, oauthCallbackQuery, parse, queryOf, signupBody, textQuery } from "./schemas";
 import { authorizeUrl, configuredProviders, fetchProfile, isProvider, newState, stateCookie, stateMatches } from "./oauth";
 import {
   createOAuthUser,
@@ -21,14 +22,12 @@ import {
   sessionCookie,
   tokenFromCookies,
   userForToken,
-  validateCredentials,
   verifyLogin,
 } from "./auth";
 import type { ErrorCode, LeaderboardRow, RecentRace, StatsSummary, User } from "../lib/types";
 
 const MAX_BODY = 4096;
 
-type Body = Record<string, unknown>;
 
 function send(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
   const payload = JSON.stringify(body);
@@ -45,7 +44,8 @@ function redirect(res: ServerResponse, location: string, cookies: string[] = [])
   res.end();
 }
 
-function readJson(req: IncomingMessage): Promise<Body | null> {
+/** The request body as parsed JSON, or null if it isn't JSON or is too big. Not yet validated. */
+function readJson(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolve) => {
     let raw = "";
     req.on("data", (chunk) => {
@@ -58,8 +58,7 @@ function readJson(req: IncomingMessage): Promise<Body | null> {
     });
     req.on("end", () => {
       try {
-        const parsed: unknown = raw ? JSON.parse(raw) : {};
-        resolve(parsed && typeof parsed === "object" ? (parsed as Body) : null);
+        resolve(raw ? JSON.parse(raw) : {});
       } catch {
         resolve(null);
       }
@@ -154,9 +153,11 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
       return true;
     }
 
-    if (url.searchParams.get("error")) return fail("oauth-cancelled"), true; // they said no on the provider's page
-    if (!stateMatches(req.headers.cookie, provider, url.searchParams.get("state"))) return fail("oauth-failed"), true;
-    const profile = await fetchProfile(provider, url.searchParams.get("code") ?? "");
+    const query = parse(oauthCallbackQuery, queryOf(url));
+    if (!query.ok) return fail("oauth-failed"), true;
+    if (query.data.error) return fail("oauth-cancelled"), true; // they said no on the provider's page
+    if (!stateMatches(req.headers.cookie, provider, query.data.state ?? null)) return fail("oauth-failed"), true;
+    const profile = await fetchProfile(provider, query.data.code ?? "");
     if (!profile) return fail("oauth-failed"), true;
 
     const owner = await findUserByIdentity(provider, profile.id);
@@ -178,18 +179,11 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   }
 
   if (path === "/api/auth/signup" && method === "POST") {
-    const body = await readJson(req);
-    if (!body) return send(res, 400, { error: "bad-request" }), true;
+    const body = parse(signupBody, await readJson(req));
+    if (!body.ok) return send(res, 400, { error: body.error }), true;
 
-    const username = String(body.username ?? "").trim();
-    const problem = validateCredentials(username, body.password);
-    if (problem) return send(res, 400, { error: problem }), true;
-
-    const created = await createUser({
-      username,
-      password: body.password as string, // validateCredentials checked it's a string
-      displayName: typeof body.displayName === "string" ? body.displayName : "",
-    });
+    const { username, password, displayName = "" } = body.data;
+    const created = await createUser({ username, password, displayName });
     if ("error" in created) {
       return send(res, created.error === "username-taken" ? 409 : 400, { error: created.error }), true;
     }
@@ -200,10 +194,10 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   }
 
   if (path === "/api/auth/login" && method === "POST") {
-    const body = await readJson(req);
-    if (!body) return send(res, 400, { error: "bad-request" }), true;
+    const body = parse(loginBody, await readJson(req));
+    if (!body.ok) return send(res, 400, { error: body.error }), true;
 
-    const user = await verifyLogin(String(body.username ?? "").trim(), body.password);
+    const user = await verifyLogin(body.data.username, body.data.password);
     if (!user) return send(res, 401, { error: "wrong-credentials" }), true;
 
     const token = await createSession(user.id);
@@ -218,12 +212,9 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   }
 
   if (path === "/api/text" && method === "GET") {
-    const language = url.searchParams.get("lang");
-    const kind = url.searchParams.get("kind");
-    const text = await pickText({
-      language: isLanguage(language) ? language : undefined,
-      kind: isKind(kind) ? kind : undefined,
-    });
+    const query = parse(textQuery, queryOf(url));
+    if (!query.ok) return send(res, 400, { error: query.error }), true;
+    const text = await pickText({ language: query.data.lang, kind: query.data.kind });
     send(res, 200, { text });
     return true;
   }
@@ -263,13 +254,13 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   if (path === "/api/admin/mount" && method === "POST") {
     if (!me?.isAdmin) return send(res, 403, { error: "admin-only" }), true;
 
-    const body = await readJson(req);
-    const target = await findUserByUsername(String(body?.username ?? "").trim());
-    const mount = String(body?.mount ?? "").trim();
+    const body = parse(mountBody, await readJson(req));
+    if (!body.ok) return send(res, 400, { error: body.error }), true;
+    const { username, mount, revoke } = body.data;
+    const target = await findUserByUsername(username);
     if (!target) return send(res, 404, { error: "no-account" }), true;
-    if (!mount) return send(res, 400, { error: "which-mount" }), true;
 
-    if (body?.revoke) await revokeMount(target.id, mount);
+    if (revoke) await revokeMount(target.id, mount);
     else await grantMount(target.id, mount);
     send(res, 200, { user: publicUser(await findUserByUsername(target.username)) });
     return true;

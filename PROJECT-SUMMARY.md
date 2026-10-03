@@ -77,6 +77,12 @@ join instead.
   The join field cleans what's typed (`normalizeRoomCode`) and caps the
   *cleaned* length: a `maxLength` on the raw input would cut off a pasted
   `ABC-DEF`.
+- **Every input goes through a Zod schema** (`server/schemas.ts`, TECH-07):
+  socket payloads, JSON bodies, query strings. A schema's error messages are
+  `ErrorCode`s (registered with `code()`), so `parse()` returns the precise
+  code or `bad-request`. Socket acks go through `ackOf()`: a client can pass
+  a non-function where Socket.IO expects the callback, and calling it would
+  throw an unhandled error. New socket event or route? Add its schema first.
 - **Restricted mounts are enforced server-side** in `safeColor()`. Hiding them
   in the picker is cosmetic; the colour is just a string a client sends.
 - **Ranking is by score (TXT-9)**: score = WPM × accuracy (`scoreOf` in

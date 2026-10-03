@@ -8,22 +8,17 @@ import { randomBytes } from "node:crypto";
 import { and, eq, lte, sql } from "drizzle-orm";
 import { db } from "./db";
 import { identities, sessions, unlocks, users } from "./schema";
-import { USERNAME_RE, cleanRiderName } from "../lib/names";
+import { cleanRiderName } from "../lib/names";
 import type { ErrorCode, Provider, User } from "../lib/types";
 import type { ExternalProfile } from "./oauth";
+import { credentials, parse } from "./schemas";
 
 export const SESSION_COOKIE = "chocobo_session";
 const SESSION_DAYS = 30;
-const MIN_PASSWORD = 8;
-
-export function validateCredentials(username: string | undefined, password: unknown): ErrorCode | null {
-  if (!USERNAME_RE.test(username ?? "")) {
-    return "username-format";
-  }
-  if (typeof password !== "string" || password.length < MIN_PASSWORD) {
-    return "password-short";
-  }
-  return null;
+/** For the admin CLI, which takes the same accounts as the sign-up form. */
+export function validateCredentials(username: unknown, password: unknown): ErrorCode | null {
+  const result = parse(credentials, { username, password });
+  return result.ok ? null : result.error;
 }
 
 // Usernames are case-insensitive; this matches the users_username_lower index.

@@ -405,8 +405,8 @@ le seul à le modifier.
   rien et les connexions sont coupées après quelques minutes.
 - Un redémarrage du serveur interrompt les courses en cours.
 - Le protocole est typé une fois (`lib/types.ts`) et vérifié par le
-  compilateur des deux côtés. La validation des messages par un schéma
-  (TECH-07) reste à ajouter.
+  compilateur des deux côtés, et chaque message reçu est validé par un
+  schéma Zod (TECH-07).
 
 ## ADR-002 : gestion des bots
 
@@ -487,6 +487,12 @@ chemin que les humains.**
   vérifié au retour; les comptes sont liés par l'identifiant du fournisseur,
   jamais par le nom affiché.
 - **SQL** toujours paramétré.
+- **Entrées validées par un schéma** (TECH-07, `server/schemas.ts`, Zod) :
+  messages Socket.IO, corps JSON et paramètres d'URL. Une entrée qui ne
+  respecte pas son schéma est refusée avec un code d'erreur
+  (`bad-request`, ou le code précis du champ : `bad-code`, `name-format`…).
+  Le rappel d'accusé de réception d'un message est aussi vérifié : un client
+  qui en envoie un faux ne peut pas faire planter le serveur.
 - **Le serveur décide** : le navigateur envoie les touches tapées, jamais un
   verdict. Le serveur les rejoue avec les mêmes règles (`replayKeys` dans
   `lib/typing.ts`) sur sa propre copie du texte. Une page modifiée pour

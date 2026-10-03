@@ -11,8 +11,9 @@
 //                                                                finisher, or 3 min
 import { randomInt } from "node:crypto";
 import type { Server, Socket } from "socket.io";
-import { isKind, isLanguage, pickText } from "./texts";
+import { pickText } from "./texts";
 import { recordRace } from "./stats";
+import { ackOf, joinPayload, parse, setWatchingArgs, settingsChange, typedArgs } from "./schemas";
 import {
   FINISH_GRACE_MS,
   MAX_RIDERS,
@@ -20,15 +21,14 @@ import {
   RECONNECT_MS,
   ROOM_CODE_CHARS,
   ROOM_CODE_LENGTH,
-  isRoomCode,
-  normalizeRoomCode,
   scoreOf,
 } from "../lib/rules";
-import { cleanRiderName } from "../lib/names";
 import { accuracyOf, correctPrefixLength, EMPTY_STATE, replayKeys, type TypingState } from "../lib/typing";
 import type {
+  ActionReply,
   ClientToServerEvents,
   ErrorCode,
+  JoinReply,
   PublicPlayer,
   PublicRoom,
   Role,
@@ -90,6 +90,7 @@ const TICK_MS = 100; // how often positions are broadcast during a race
 const MAX_RACE_MS = 3 * 60 * 1000; // unfinished riders get a DNF after this
 const MAX_CHARS_PER_SEC = 25; // ~300 WPM; progress faster than this is ignored
 const MAX_KEYS_PER_REPORT = 2000; // a report is one word plus its corrections; anything longer isn't typing
+const TYPED_ARGS = typedArgs(MAX_KEYS_PER_REPORT);
 // How long the host seat is held open when the host drops (a refresh, a flaky
 // connection) before the longest-present player inherits it.
 const HOST_RECLAIM_MS = 20000;
@@ -450,13 +451,12 @@ function claimReservedCode(code: string): boolean {
 }
 
 export function registerRoomHandlers(io: IO, socket: ClientSocket) {
-  socket.on("joinRoom", (payload, reply = () => {}) => {
-    const { color, role, clientId } = payload ?? {};
-    const code = normalizeRoomCode(payload?.code);
-    const name = cleanRiderName(payload?.name);
+  socket.on("joinRoom", (payload, ack) => {
+    const reply = ackOf<JoinReply>(ack);
+    const parsed = parse(joinPayload, payload);
+    if (!parsed.ok) return reply({ error: parsed.error });
+    const { code, name, color, role, clientId, lang } = parsed.data;
     const wantsHost = role === "host";
-    if (!isRoomCode(code)) return reply({ error: "bad-code" });
-    if (!name) return reply({ error: "name-format" });
 
     leaveCurrentRoom(io, socket);
 
@@ -467,7 +467,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       if (!wantsHost || !claimReservedCode(code)) {
         return reply({ error: "no-room" });
       }
-      room = createRoom(code, isLanguage(payload?.lang) ? payload.lang : "en");
+      room = createRoom(code, lang ?? "en");
       rooms.set(code, room);
     }
 
@@ -539,7 +539,8 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     broadcastRoom(io, room);
   });
 
-  socket.on("startRace", async (_payload, reply = () => {}) => {
+  socket.on("startRace", async (_payload, ack) => {
+    const reply = ackOf<ActionReply>(ack);
     const room = currentRoom(socket);
     const check = (): ErrorCode | null => {
       if (!room || !isHost(room, socket)) return "host-only";
@@ -569,25 +570,29 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
   // COURSE-11: the host's choices go out to the whole room at once, so riders
   // see the language and text type change while they wait. Lobby only: a
   // race already has its text.
-  socket.on("updateSettings", (changes) => {
+  socket.on("updateSettings", (payload) => {
     const room = currentRoom(socket);
-    if (!room || !isHost(room, socket) || room.status !== "lobby") return;
+    const changes = parse(settingsChange, payload);
+    if (!room || !isHost(room, socket) || room.status !== "lobby" || !changes.ok) return;
 
-    const next = { ...room.settings };
-    if (isLanguage(changes?.language)) next.language = changes.language;
-    if (isKind(changes?.kind)) next.kind = changes.kind;
-    if (typeof changes?.hostRides === "boolean") next.hostRides = changes.hostRides;
-    room.settings = next;
+    const { language, kind, hostRides } = changes.data;
+    room.settings = {
+      language: language ?? room.settings.language,
+      kind: kind ?? room.settings.kind,
+      hostRides: hostRides ?? room.settings.hostRides,
+    };
     broadcastRoom(io, room);
   });
 
   // COURSE-6: the host sends a rider to the stands, or lets them back in.
   // Lobby only, so nobody is pulled out of a race they're typing in.
-  socket.on("setWatching", (playerId, watching) => {
+  socket.on("setWatching", (...args) => {
     const room = currentRoom(socket);
-    if (!room || !isHost(room, socket) || room.status !== "lobby") return;
-    const target = room.players.get(String(playerId));
-    if (!target || target.role !== "rider" || typeof watching !== "boolean") return;
+    const parsed = parse(setWatchingArgs, args);
+    if (!room || !isHost(room, socket) || room.status !== "lobby" || !parsed.ok) return;
+    const [playerId, watching] = parsed.data;
+    const target = room.players.get(playerId);
+    if (!target || target.role !== "rider") return;
     target.watching = watching;
     target.ready = false;
     broadcastRoom(io, room);
@@ -596,11 +601,12 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
   // The rider's keys since their last report. The browser has its own idea
   // of which ones were right, and it isn't asked: the keys go through the
   // same rules here (lib/typing.ts), against the server's copy of the text.
-  socket.on("typed", (base, keys) => {
+  socket.on("typed", (...args) => {
     const room = currentRoom(socket);
     const player = room?.players.get(socket.id);
-    if (!room || !player || !player.racing || player.finished || room.status !== "racing") return;
-    if (typeof keys !== "string" || keys.length > MAX_KEYS_PER_REPORT) return;
+    const parsed = parse(TYPED_ARGS, args);
+    if (!room || !player || !player.racing || player.finished || room.status !== "racing" || !parsed.ok) return;
+    const [base, keys] = parsed.data;
     // Reports continue from where the server is. One that starts behind was
     // already counted (resent after a reconnect); one that starts ahead
     // follows a report that never arrived.

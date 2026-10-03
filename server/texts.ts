@@ -16,10 +16,6 @@ export function isLanguage(value: unknown): value is TextLanguage {
   return value === "en" || value === "fr";
 }
 
-export function isKind(value: unknown): value is TextKind {
-  return value === "sentences" || value === "words";
-}
-
 async function randomPassage(language: TextLanguage): Promise<string | null> {
   const [row] = await db
     .select({ body: passages.body })

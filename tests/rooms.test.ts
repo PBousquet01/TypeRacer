@@ -13,6 +13,9 @@ async function open(code: string, name: string, role: "host" | "rider") {
   return c;
 }
 
+/** A socket as a hand-written client sees it: any event, any arguments. */
+const raw = (c: TestClient) => c.socket as unknown as { emit: (event: string, ...args: unknown[]) => void };
+
 /** `count` wrong keys, each one fixed with a backspace, before `passage` typed cleanly. */
 const sloppy = (passage: string, count: number) => (passage[0] === "~" ? "!\b" : "~\b").repeat(count) + passage;
 
@@ -87,6 +90,21 @@ describe("lobby rules", () => {
     expect(await a.join()).toEqual({ error: "no-room" });
   });
 
+  test("TECH-07: a join of the wrong shape is refused, and a bad acknowledgement can't crash the server", async () => {
+    const code = freshCode();
+    const host = await open(code, "Host", "host");
+    const answer = (payload: unknown) =>
+      new Promise((resolve) => raw(host).emit("joinRoom", payload, resolve));
+    expect(await answer(42)).toEqual({ error: "bad-request" });
+    expect(await answer({ code, name: "Host", role: "boss" })).toEqual({ error: "bad-request" });
+    expect(await answer({ code, name: ["Host"] })).toEqual({ error: "name-format" });
+
+    raw(host).emit("joinRoom", { code, name: "Host", role: "host" }, "not a function");
+    await sleep(100);
+    const rider = await open(code, "Alice", "rider");
+    expect(await rider.join()).toMatchObject({ ok: true }); // the server is still up, and the room exists
+  });
+
   test("SALLE-02: room codes are six unambiguous characters", () => {
     for (let i = 0; i < 200; i++) {
       expect(freshCode()).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
@@ -148,8 +166,19 @@ describe("lobby rules", () => {
   test("invalid settings are ignored", async () => {
     const { host } = await readyRoom();
     host.socket.emit("updateSettings", { language: "de" as "en", kind: "code" as "words" });
+    raw(host).emit("updateSettings", { language: "fr", hostRides: "yes" }); // one bad value spoils the message
+    raw(host).emit("updateSettings", "fr");
     await sleep(150);
     expect(host.room?.settings).toEqual({ language: "en", kind: "sentences", hostRides: false });
+  });
+
+  test("TECH-07: setWatching with the wrong types is ignored", async () => {
+    const { host } = await readyRoom();
+    const alice = host.room!.players.find((p) => p.name === "Alice")!;
+    raw(host).emit("setWatching", alice.id, "true");
+    raw(host).emit("setWatching", { id: alice.id }, true);
+    await sleep(150);
+    expect(host.room?.players.find((p) => p.name === "Alice")?.watching).toBe(false);
   });
 
   test("COURSE-5: a host who rides counts towards the minimum and races", async () => {
@@ -243,6 +272,8 @@ describe("a full race", () => {
     await sleep(1000); // 20 characters in under a second would trip the anti-cheat
     room.b.socket.emit("typed", 0, "~".repeat(20)); // a tampered page calling these 20 keys right
     room.b.socket.emit("typed", 20, text.slice(20, 40)); // or claiming to be 20 characters in
+    raw(room.b).emit("typed", "0", text.slice(0, 20)); // TECH-07: wrong types are dropped too
+    raw(room.b).emit("typed", 0, [text.slice(0, 20)]);
     room.a.socket.emit("typed", 0, text.slice(0, 20));
     await sleep(200); // mid-race progress goes out in the `positions` feed, not in room updates
     room.a.close();
