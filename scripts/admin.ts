@@ -11,9 +11,11 @@
 //   bun scripts/admin.ts add-text <en|fr> "<passage>"
 //   bun scripts/admin.ts delete-text <id>
 import { randomBytes } from "node:crypto";
-import { sql } from "../server/db";
+import { asc, countDistinct, desc, eq, sql } from "drizzle-orm";
+import { db, migrate, sql as connection } from "../server/db";
+import { passages, races, unlocks, users, words } from "../server/schema";
 import { createUser, findUserByUsername, grantMount, revokeMount, validateCredentials } from "../server/auth";
-import { migrate } from "../server/db";
+import { isLanguage } from "../server/texts";
 import type { User } from "../lib/types";
 import { en } from "../lib/i18n/en";
 
@@ -41,14 +43,21 @@ async function needUser(): Promise<User> {
 
 switch (command) {
   case "list": {
-    const rows = await sql`
-      SELECT users.username, users.display_name AS name, users.is_admin AS admin,
-             (SELECT COUNT(*)::int FROM races WHERE races.user_id = users.id) AS races,
-             (SELECT string_agg(mount, ',' ORDER BY mount) FROM unlocks
-               WHERE unlocks.user_id = users.id) AS unlocks
-        FROM users ORDER BY users.id`;
+    const rows = await db
+      .select({
+        username: users.username,
+        name: users.displayName,
+        admin: users.isAdmin,
+        races: countDistinct(races.id),
+        unlocks: sql<string | null>`string_agg(distinct ${unlocks.mount}, ',' order by ${unlocks.mount})`,
+      })
+      .from(users)
+      .leftJoin(races, eq(races.userId, users.id))
+      .leftJoin(unlocks, eq(unlocks.userId, users.id))
+      .groupBy(users.id)
+      .orderBy(users.id);
     if (!rows.length) console.log("No accounts yet.");
-    for (const r of rows as { username: string; name: string; admin: boolean; races: number; unlocks: string | null }[]) {
+    for (const r of rows) {
       console.log(
         `${r.username.padEnd(16)} ${r.name.padEnd(16)} ${r.admin ? "admin" : "     "}  ` +
           `${String(r.races).padStart(3)} races  unlocks: ${r.unlocks ?? "—"}`,
@@ -76,13 +85,13 @@ switch (command) {
   }
   case "delete": {
     const user = await needUser();
-    await sql`DELETE FROM users WHERE id = ${user.id}`;
+    await db.delete(users).where(eq(users.id, user.id));
     console.log(`Deleted ${user.username} and everything attached to it.`);
     break;
   }
   case "make-admin": {
     const user = await needUser();
-    await sql`UPDATE users SET is_admin = true WHERE id = ${user.id}`;
+    await db.update(users).set({ isAdmin: true }).where(eq(users.id, user.id));
     console.log(`${user.username} is now an admin.`);
     break;
   }
@@ -100,35 +109,45 @@ switch (command) {
   }
   case "stats": {
     const user = await needUser();
-    const rows = await sql`
-      SELECT room_code, wpm, accuracy, place, riders,
-             to_char(finished_at, 'YYYY-MM-DD HH24:MI') AS finished_at
-        FROM races WHERE user_id = ${user.id} ORDER BY id DESC LIMIT 10`;
+    const rows = await db
+      .select({
+        roomCode: races.roomCode,
+        wpm: races.wpm,
+        accuracy: races.accuracy,
+        place: races.place,
+        riders: races.riders,
+        finishedAt: sql<string>`to_char(${races.finishedAt}, 'YYYY-MM-DD HH24:MI')`,
+      })
+      .from(races)
+      .where(eq(races.userId, user.id))
+      .orderBy(desc(races.id))
+      .limit(10);
     console.log(`Last ${rows.length} races for ${user.username}:`);
-    for (const r of rows as { room_code: string; wpm: number; accuracy: number | null; place: number; riders: number; finished_at: string }[]) {
-      console.log(`  ${r.finished_at}  room ${r.room_code}  ${r.wpm} wpm  ` +
+    for (const r of rows) {
+      console.log(`  ${r.finishedAt}  room ${r.roomCode}  ${r.wpm} wpm  ` +
                   `${r.accuracy ?? "—"}%  #${r.place}/${r.riders}`);
     }
     break;
   }
   case "texts": {
     const language = username; // optional filter
-    const rows: { id: number; language: string; body: string }[] = language
-      ? await sql`SELECT id, language, body FROM passages WHERE language = ${language} ORDER BY id`
-      : await sql`SELECT id, language, body FROM passages ORDER BY language, id`;
+    const rows = await db
+      .select({ id: passages.id, language: passages.language, body: passages.body })
+      .from(passages)
+      .where(isLanguage(language) ? eq(passages.language, language) : undefined)
+      .orderBy(asc(passages.language), asc(passages.id));
     for (const r of rows) console.log(`${String(r.id).padStart(4)}  ${r.language}  ${r.body.slice(0, 90)}${r.body.length > 90 ? "…" : ""}`);
-    const counts: { language: string; passages: number; words: number }[] = await sql`
-      SELECT l.language,
-             (SELECT COUNT(*)::int FROM passages p WHERE p.language = l.language) AS passages,
-             (SELECT COUNT(*)::int FROM words w WHERE w.language = l.language) AS words
-        FROM (VALUES ('en'), ('fr')) AS l(language)`;
-    for (const c of counts) console.log(`${c.language}: ${c.passages} passages, ${c.words} dictionary words`);
+    for (const lang of ["en", "fr"] as const) {
+      const p = await db.$count(passages, eq(passages.language, lang));
+      const w = await db.$count(words, eq(words.language, lang));
+      console.log(`${lang}: ${p} passages, ${w} dictionary words`);
+    }
     break;
   }
   case "add-text": {
     const language = username;
     const body = String(process.argv.slice(4).join(" ")).replace(/\s+/g, " ").trim();
-    if (language !== "en" && language !== "fr") {
+    if (!isLanguage(language)) {
       console.error('The language is "en" or "fr".');
       process.exit(1);
     }
@@ -136,14 +155,13 @@ switch (command) {
       console.error("A passage needs at least 40 characters.");
       process.exit(1);
     }
-    const [row]: { id: number }[] = await sql`
-      INSERT INTO passages (language, body) VALUES (${language}, ${body}) RETURNING id`;
+    const [row] = await db.insert(passages).values({ language, body }).returning({ id: passages.id });
     console.log(`Added passage ${row.id} (${language}, ${body.length} characters).`);
     break;
   }
   case "delete-text": {
     const id = Number(username);
-    const deleted = await sql`DELETE FROM passages WHERE id = ${id} RETURNING id`;
+    const deleted = await db.delete(passages).where(eq(passages.id, id)).returning({ id: passages.id });
     console.log(deleted.length ? `Deleted passage ${id}.` : `No passage with id ${username}.`);
     break;
   }
@@ -151,4 +169,4 @@ switch (command) {
     console.log(`Usage:\n  bun scripts/admin.ts list\n  bun scripts/admin.ts create <username> [rider name] [password]\n  bun scripts/admin.ts delete <username>\n  bun scripts/admin.ts make-admin <username>\n  bun scripts/admin.ts grant <username> <mount>\n  bun scripts/admin.ts revoke <username> <mount>\n  bun scripts/admin.ts stats <username>\n  bun scripts/admin.ts texts [en|fr]\n  bun scripts/admin.ts add-text <en|fr> "<passage>"\n  bun scripts/admin.ts delete-text <id>`);
 }
 
-await sql.end();
+await connection.end();

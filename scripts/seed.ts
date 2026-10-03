@@ -5,8 +5,8 @@
 // Safe to run twice: existing accounts are left alone, and history is only
 // added to an account that has none. Without SEED_PASSWORD, a random password
 // is made and printed once.
-import { count, eq, sql as raw } from "drizzle-orm";
-import { db, migrate, sql } from "../server/db";
+import { count, eq, sql } from "drizzle-orm";
+import { db, migrate, sql as connection } from "../server/db";
 import { races, users } from "../server/schema";
 
 const RIDERS = [
@@ -33,7 +33,7 @@ for (const rider of RIDERS) {
   const [existing] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(raw`lower(${users.username})`, rider.username));
+    .where(sql`lower(${users.username}) = ${rider.username}`);
 
   const id =
     existing?.id ??
@@ -73,4 +73,4 @@ for (const rider of RIDERS) {
 if (created > 0 && !process.env.SEED_PASSWORD) {
   console.log(`password for new demo accounts: ${password}`);
 }
-await sql.end();
+await connection.end();

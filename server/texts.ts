@@ -1,6 +1,8 @@
 // Where race texts come from (TXT-3): the passage bank and the word
 // dictionary in PostgreSQL. Nothing to type is written in the code.
-import { sql } from "./db";
+import { eq, sql } from "drizzle-orm";
+import { db } from "./db";
+import { passages, words } from "./schema";
 import type { TextKind, TextLanguage } from "../lib/types";
 
 const WORDS_PER_RACE = 30;
@@ -19,14 +21,22 @@ export function isKind(value: unknown): value is TextKind {
 }
 
 async function randomPassage(language: TextLanguage): Promise<string | null> {
-  const [row]: { body: string }[] = await sql`
-    SELECT body FROM passages WHERE language = ${language} ORDER BY random() LIMIT 1`;
+  const [row] = await db
+    .select({ body: passages.body })
+    .from(passages)
+    .where(eq(passages.language, language))
+    .orderBy(sql`random()`)
+    .limit(1);
   return row?.body ?? null;
 }
 
 async function randomWords(language: TextLanguage): Promise<string | null> {
-  const rows: { word: string }[] = await sql`
-    SELECT word FROM words WHERE language = ${language} ORDER BY random() LIMIT ${WORDS_PER_RACE}`;
+  const rows = await db
+    .select({ word: words.word })
+    .from(words)
+    .where(eq(words.language, language))
+    .orderBy(sql`random()`)
+    .limit(WORDS_PER_RACE);
   return rows.length ? rows.map((r) => r.word).join(" ") : null;
 }
 

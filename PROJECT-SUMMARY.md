@@ -33,7 +33,11 @@ publishes its own Postgres on 5432. Use `psql -p 5433 -d chocobo_race`. The sche
 migration by hand**: change `schema.ts`, run `bun run db:generate`, commit
 the new file. Databases from before Drizzle are adopted at the baseline
 (`adoptLegacyDatabase`). `bun run db:seed` adds 3 demo accounts + history.
-App queries still use `sql` (Bun.SQL); `db` (Drizzle) shares the connection.
+All queries go through `db` (Drizzle); `sql` is the raw Bun.SQL client under
+it, used only by `adoptLegacyDatabase`, `.end()` and test cleanup. Drizzle
+leaves column names unqualified in single-table selects, so a raw subquery
+that compares two tables' columns silently compares the wrong ones: use a
+join instead.
 
 ## Layout
 

@@ -6,11 +6,13 @@
 // they can't be read as SQL. Drizzle (`db`) shares the same connection; the
 // schema lives in server/schema.ts and its history in drizzle/ (TECH-04).
 import { SQL } from "bun";
+import { count, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sql";
 import { migrate as runMigrations } from "drizzle-orm/bun-sql/migrator";
 import { readMigrationFiles } from "drizzle-orm/migrator";
 import { fileURLToPath } from "node:url";
 import * as schema from "./schema";
+import { passages, words } from "./schema";
 
 const url =
   process.env.DATABASE_URL ?? "postgres://localhost:5432/chocobo_race";
@@ -65,23 +67,18 @@ export async function seedTexts(): Promise<void> {
   const seed: Record<string, string[]> = await Bun.file(new URL("./seed/passages.json", import.meta.url)).json();
 
   for (const language of LANGUAGES) {
-    const [{ count: passages }]: { count: number }[] = await sql`
-      SELECT COUNT(*)::int AS count FROM passages WHERE language = ${language}`;
-    if (passages === 0) {
-      for (const body of seed[language] ?? []) {
-        await sql`INSERT INTO passages (language, body) VALUES (${language}, ${body})`;
-      }
+    const [{ n: passageCount }] = await db.select({ n: count() }).from(passages).where(eq(passages.language, language));
+    const bodies = seed[language] ?? [];
+    if (passageCount === 0 && bodies.length) {
+      await db.insert(passages).values(bodies.map((body) => ({ language, body })));
     }
 
-    const [{ count: words }]: { count: number }[] = await sql`
-      SELECT COUNT(*)::int AS count FROM words WHERE language = ${language}`;
-    if (words === 0) {
+    const [{ n: wordCount }] = await db.select({ n: count() }).from(words).where(eq(words.language, language));
+    if (wordCount === 0) {
       const list = (await Bun.file(new URL(`./seed/words-${language}.txt`, import.meta.url)).text())
         .split(/\s+/)
         .filter(Boolean);
-      for (const word of list) {
-        await sql`INSERT INTO words (language, word) VALUES (${language}, ${word}) ON CONFLICT DO NOTHING`;
-      }
+      await db.insert(words).values(list.map((word) => ({ language, word }))).onConflictDoNothing();
     }
   }
 }

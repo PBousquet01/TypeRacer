@@ -116,15 +116,14 @@ that could record a practice run.
 ### Accounts, stats and the database
 
 Everything that has to survive a restart lives in **PostgreSQL**. Bun talks
-to Postgres natively (`Bun.SQL`), so there's still no database driver to
-install. The connection string is `DATABASE_URL` in `.env` (git-ignored).
+to Postgres natively (`Bun.SQL`), and Drizzle ORM runs on top of it. The connection string is `DATABASE_URL` in `.env` (git-ignored).
 The schema is in `server/schema.ts` (Drizzle ORM) and its migrations in
 `drizzle/`; the server applies new ones at boot. After changing the schema,
 run `bun run db:generate` and commit the new migration. `bun run db:seed`
 adds demo accounts with a race history.
 
-Queries are tagged templates — `` sql`... ${value}` `` sends the value as a
-parameter, so user input can never be read as SQL.
+Queries go through Drizzle (`db` from `server/db.ts`), which sends every
+value as a parameter, so user input can never be read as SQL.
 
 | Table | Holds |
 | --- | --- |

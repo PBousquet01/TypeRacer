@@ -76,20 +76,27 @@ flowchart LR
 | Environnement d'exécution | Bun 1.4 | Exécute TypeScript directement (pas de compilation du serveur), inclut le pilote PostgreSQL, le hachage de mots de passe et le lanceur de tests. |
 | Style (TECH-03) | Tailwind CSS v4 | Exigé. Les couleurs restent des variables CSS, ce qui permet de changer de thème en direct (DES-05). |
 | Base de données (TECH-04) | PostgreSQL 17 | Exigée. |
-| Accès aux données (TECH-04) | Drizzle ORM (schéma, migrations, seed) sur `Bun.SQL` | Voir ci-dessous. |
+| Accès aux données (TECH-04) | Drizzle ORM sur le pilote `Bun.SQL` | Voir ci-dessous. |
 | Temps réel (TECH-06) | Socket.IO 4 | Voir [ADR-001](#adr-001--technologie-temps-réel). |
 | Hébergement (TECH-05) | Render (service web) + Neon (PostgreSQL), forfaits gratuits | Justification dans [deploiement.md](deploiement.md). |
 | Tests (TECH-09) | `bun test` + GitHub Actions | Intégré à Bun, aucune dépendance de plus. |
 
 ### Accès aux données (TECH-04)
 
-Les requêtes sont aujourd'hui écrites en SQL avec les *tagged templates* de
-`Bun.SQL`; chaque `${...}` est envoyé comme paramètre, jamais collé dans la
-requête :
+Toutes les requêtes passent par Drizzle (`db`, dans `server/db.ts`). Les
+valeurs sont envoyées comme paramètres, jamais collées dans la requête, et
+le résultat est typé à partir du schéma :
 
 ```ts
-const [row] = await sql`SELECT id FROM users WHERE lower(username) = lower(${username})`;
+const [row] = await db
+  .select({ id: users.id, passwordHash: users.passwordHash })
+  .from(users)
+  .where(usernameIs(username));
 ```
+
+Quand Drizzle n'a pas de fonction pour une expression (`lower()`,
+`random()`, `count(*) filter (...)`), on l'écrit avec le gabarit `sql` de
+Drizzle, qui paramètre aussi les valeurs.
 
 Le schéma est décrit en TypeScript avec **Drizzle ORM** dans
 `server/schema.ts`. Drizzle a été choisi parce qu'il reste proche du SQL déjà
@@ -111,10 +118,9 @@ et qu'il n'ajoute pas de langage de schéma à part, contrairement à Prisma.
   textes, crée trois comptes de démonstration et leur historique de courses.
   Il peut être relancé sans rien dupliquer. Le mot de passe vient de
   `SEED_PASSWORD`.
-- **Requêtes** : celles de l'application sont encore écrites en SQL avec
-  `Bun.SQL`, sur la même connexion que Drizzle (`db` et `sql` dans
-  `server/db.ts`). Le seed utilise déjà Drizzle; les autres requêtes y
-  passeront au fil des fonctionnalités.
+- **Exception** : `adoptLegacyDatabase()` écrit directement dans la table
+  de suivi de Drizzle avec `Bun.SQL`, puisqu'elle s'exécute avant le
+  migrateur. Les tests nettoient aussi leurs données en SQL.
 
 ## Modèle de données
 

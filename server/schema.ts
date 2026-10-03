@@ -19,6 +19,7 @@ import {
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import type { Provider, TextLanguage } from "../lib/types";
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
@@ -41,7 +42,7 @@ export const users = pgTable(
 export const identities = pgTable(
   "identities",
   {
-    provider: text("provider").notNull(),
+    provider: text("provider").$type<Provider>().notNull(),
     providerId: text("provider_id").notNull(),
     userId: integer("user_id").notNull(),
     createdAt: createdAt(),
@@ -108,7 +109,7 @@ export const passages = pgTable(
   "passages",
   {
     id: serial("id").primaryKey(),
-    language: text("language").notNull(),
+    language: text("language").$type<TextLanguage>().notNull(),
     body: text("body").notNull(),
     createdAt: createdAt(),
   },
@@ -122,7 +123,7 @@ export const passages = pgTable(
 export const words = pgTable(
   "words",
   {
-    language: text("language").notNull(),
+    language: text("language").$type<TextLanguage>().notNull(),
     word: text("word").notNull(),
   },
   (t) => [

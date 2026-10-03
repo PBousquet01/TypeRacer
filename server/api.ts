@@ -2,7 +2,9 @@
 // sees the request. Keeping it here (instead of in a Next route handler)
 // means the database code never goes through the bundler.
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { sql } from "./db";
+import { count, desc, eq, isNotNull, max, sql } from "drizzle-orm";
+import { db } from "./db";
+import { races, users } from "./schema";
 import { isKind, isLanguage, pickText } from "./texts";
 import { authorizeUrl, configuredProviders, fetchProfile, isProvider, newState, stateCookie, stateMatches } from "./oauth";
 import {
@@ -81,21 +83,36 @@ function publicUser(user: User | null): User | null {
   };
 }
 
-async function statsFor(userId: number): Promise<{ summary: StatsSummary; recent: RecentRace[] }> {
-  const [summary]: StatsSummary[] = await sql`
-    SELECT COUNT(*)::int                       AS races,
-           MAX(wpm)::int                       AS "bestWpm",
-           MAX(score)::int                     AS "bestScore",
-           ROUND(AVG(wpm))::int                AS "avgWpm",
-           ROUND(AVG(accuracy))::int           AS "avgAccuracy",
-           COUNT(*) FILTER (WHERE place = 1)::int AS wins
-      FROM races WHERE user_id = ${userId}`;
+const winsOf = sql<number>`count(*) filter (where ${races.place} = 1)::int`;
 
-  const recent: RecentRace[] = await sql`
-    SELECT room_code AS "roomCode", wpm, accuracy, score, time_ms AS "timeMs",
-           place, riders, to_char(finished_at, 'YYYY-MM-DD HH24:MI') AS "finishedAt"
-      FROM races WHERE user_id = ${userId}
-      ORDER BY finished_at DESC, id DESC LIMIT 10`;
+async function statsFor(userId: number): Promise<{ summary: StatsSummary; recent: RecentRace[] }> {
+  const [summary]: StatsSummary[] = await db
+    .select({
+      races: count(),
+      bestWpm: max(races.wpm),
+      bestScore: max(races.score),
+      avgWpm: sql<number | null>`round(avg(${races.wpm}))::int`,
+      avgAccuracy: sql<number | null>`round(avg(${races.accuracy}))::int`,
+      wins: winsOf,
+    })
+    .from(races)
+    .where(eq(races.userId, userId));
+
+  const recent: RecentRace[] = await db
+    .select({
+      roomCode: races.roomCode,
+      wpm: races.wpm,
+      accuracy: races.accuracy,
+      score: races.score,
+      timeMs: races.timeMs,
+      place: races.place,
+      riders: races.riders,
+      finishedAt: sql<string>`to_char(${races.finishedAt}, 'YYYY-MM-DD HH24:MI')`,
+    })
+    .from(races)
+    .where(eq(races.userId, userId))
+    .orderBy(desc(races.finishedAt), desc(races.id))
+    .limit(10);
 
   return { summary, recent };
 }
@@ -217,15 +234,21 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   }
 
   if (path === "/api/stats/leaderboard" && method === "GET") {
-    const rows: LeaderboardRow[] = await sql`
-      SELECT users.display_name AS name, MAX(races.score)::int AS score,
-             MAX(races.wpm)::int AS wpm,
-             COUNT(races.id)::int AS races,
-             COUNT(*) FILTER (WHERE races.place = 1)::int AS wins
-        FROM races JOIN users ON users.id = races.user_id
-       WHERE races.score IS NOT NULL
-       GROUP BY users.id, users.display_name
-       ORDER BY score DESC LIMIT 10`;
+    const best = sql<number>`max(${races.score})::int`;
+    const rows: LeaderboardRow[] = await db
+      .select({
+        name: users.displayName,
+        score: best,
+        wpm: sql<number>`max(${races.wpm})::int`,
+        races: count(races.id),
+        wins: winsOf,
+      })
+      .from(races)
+      .innerJoin(users, eq(users.id, races.userId))
+      .where(isNotNull(races.score))
+      .groupBy(users.id, users.displayName)
+      .orderBy(desc(best))
+      .limit(10);
     send(res, 200, { leaderboard: rows });
     return true;
   }
