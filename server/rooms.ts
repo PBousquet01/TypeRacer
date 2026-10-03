@@ -13,7 +13,7 @@ import { randomInt } from "node:crypto";
 import type { Server, Socket } from "socket.io";
 import { pickText } from "./texts";
 import { recordRace } from "./stats";
-import { ackOf, joinPayload, parse, setWatchingArgs, settingsChange, typedArgs } from "./schemas";
+import { ackOf, botLevel, joinPayload, parse, playerId, setWatchingArgs, settingsChange, typedArgs } from "./schemas";
 import {
   FINISH_GRACE_MS,
   MAX_RIDERS,
@@ -24,6 +24,7 @@ import {
   scoreOf,
 } from "../lib/rules";
 import { accuracyOf, correctPrefixLength, EMPTY_STATE, replayKeys, type TypingState } from "../lib/typing";
+import { planBot, seedOf, type BotKey, type BotLevel } from "../lib/bots";
 import type {
   ActionReply,
   ClientToServerEvents,
@@ -66,6 +67,9 @@ export interface Player {
   timeMs: number | null;
   score: number | null; // wpm × accuracy, set on finishing; decides the final places
   away: boolean; // dropped mid-race; the lane is held for RECONNECT_MS
+  bot: BotLevel | null; // a bot (BOT-01), and its level; null for a person
+  botPlan: BotKey[]; // the keys this bot will press in the current race (lib/bots.ts)
+  botNext: number; // index of the next key in botPlan to play
 }
 
 export interface Room {
@@ -155,8 +159,32 @@ function newPlayer(
     timeMs: null,
     score: null,
     away: false,
+    bot: null,
+    botPlan: [],
+    botNext: 0,
   };
 }
+
+// Bots (BOT-01 to BOT-05; ADR-002 in docs/ARCHITECTURE.md). A bot is a rider
+// with no socket, always ready, that the host adds in the lobby. Its keys are
+// planned from a seed when the race starts (lib/bots.ts) and played back by
+// the race ticker through the same rules as a person's keys.
+const BOT_NAMES = ["Boko", "Kweh", "Gysahl", "Pecky", "Wark", "Choco", "Feathers", "Sprout", "Mimic", "Biggs", "Wedge", "Dash"];
+const BOT_COLORS = ["yellow", "red", "blue", "green", "black", "gold"];
+let botCounter = 0;
+
+function addBot(room: Room, level: BotLevel): string {
+  const taken = new Set([...room.players.values()].map((p) => p.name));
+  const name = BOT_NAMES.find((n) => !taken.has(n)) ?? `Bot ${botCounter + 1}`;
+  const id = `bot-${++botCounter}`;
+  const bot = newPlayer(name, BOT_COLORS[botCounter % BOT_COLORS.length], "rider", null, null);
+  bot.bot = level;
+  bot.ready = true;
+  room.players.set(id, bot);
+  return id;
+}
+
+const isHuman = (p: Player) => p.bot === null;
 
 function resetPlayer(player: Player) {
   Object.assign(player, {
@@ -193,7 +221,7 @@ const raceInProgress = (room: Room) => room.status === "countdown" || room.statu
 function playerList(room: Room): PublicPlayer[] {
   return [...room.players.entries()].map(([id, p]) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars -- pulled out so they stay on the server
-    const { clientId, userId, typing, ...shared } = p;
+    const { clientId, userId, typing, botPlan, botNext, ...shared } = p;
     return { id, ...shared, progress: room.text ? p.charIndex / room.text.length : 0 };
   });
 }
@@ -231,14 +259,63 @@ function startCountdown(io: IO, room: Room, starters: Player[], text: string) {
   starters.forEach((p) => {
     p.racing = true;
   });
+  // BOT-05: the seed comes from the room, the race and the bot, so a race can
+  // be replayed exactly, and two bots of the same level don't type in step.
+  for (const [id, p] of room.players) {
+    if (p.bot && p.racing) {
+      p.botPlan = planBot({ seed: seedOf(`${room.code}:${room.raceId}:${id}`), text, level: p.bot });
+      p.botNext = 0;
+    }
+  }
   broadcastRoom(io, room);
   room.timeouts.push(setTimeout(() => startRace(io, room), COUNTDOWN_MS));
+}
+
+/** Plays every bot's keys that are due by now. */
+function driveBots(io: IO, room: Room) {
+  const now = Date.now();
+  const elapsed = now - room.startAt;
+  for (const player of room.players.values()) {
+    if (!player.bot || !player.racing || player.finished) continue;
+    let keys = "";
+    while (player.botNext < player.botPlan.length && player.botPlan[player.botNext].atMs <= elapsed) {
+      keys += player.botPlan[player.botNext++].key;
+    }
+    if (keys) advance(io, room, player, replayKeys(player.typing, keys, room.text, now), now);
+    if (room.status !== "racing") return; // that key ended the race
+  }
+}
+
+/**
+ * Takes a rider's new typing state, judged by the server, and moves them on:
+ * progress, and if they reached the end, their result. Humans (the `typed`
+ * event) and bots (driveBots) both come through here.
+ */
+function advance(io: IO, room: Room, player: Player, typing: TypingState, now: number) {
+  const n = correctPrefixLength(typing.input, room.text);
+  const elapsedSec = (now - room.startAt) / 1000;
+  if (n > elapsedSec * MAX_CHARS_PER_SEC + 10) return; // impossibly fast: ignore
+
+  player.typing = typing;
+  player.charIndex = n;
+
+  if (n === room.text.length) {
+    player.finished = true;
+    player.wpm = Math.round(room.text.length / 5 / (elapsedSec / 60));
+    player.timeMs = Math.round(elapsedSec * 1000);
+    player.accuracy = accuracyOf(typing.keystrokes, typing.mistakes);
+    player.score = scoreOf(player.wpm, player.accuracy);
+    startFinishClock(io, room);
+    broadcastRoom(io, room);
+    endIfEveryoneFinished(io, room);
+  }
 }
 
 function startRace(io: IO, room: Room) {
   room.status = "racing";
   broadcastRoom(io, room);
   room.ticker = setInterval(() => {
+    driveBots(io, room);
     const positions = playerList(room)
       .filter((p) => p.racing)
       .map(({ id, progress }) => ({ id, progress }));
@@ -299,7 +376,7 @@ function backToLobby(io: IO, room: Room) {
   }
   room.players.forEach((p) => {
     resetPlayer(p);
-    p.ready = false;
+    p.ready = p.bot !== null; // bots are always ready
   });
   broadcastRoom(io, room);
 }
@@ -309,7 +386,8 @@ function promoteHost(io: IO, room: Room) {
   room.hostTimeout = null;
   if (room.hostId !== null || room.players.size === 0) return;
 
-  const next = [...room.players.entries()].find(([, p]) => !p.away);
+  // SALLE-08: the seat goes to a person, never to a bot.
+  const next = [...room.players.entries()].find(([, p]) => !p.away && isHuman(p));
   if (!next) return;
   const [nextId, nextPlayer] = next;
   // The old host may still be in the room, away mid-race with their lane
@@ -336,7 +414,8 @@ function removePlayer(io: IO, room: Room, id: string, { broadcast = true } = {})
     room.awayTimers.delete(player.clientId);
   }
 
-  if (room.players.size === 0) {
+  // Bots don't keep a room open on their own.
+  if (![...room.players.values()].some(isHuman)) {
     clearTimers(room);
     if (room.hostTimeout) clearTimeout(room.hostTimeout);
     room.awayTimers.forEach(clearTimeout);
@@ -546,6 +625,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       if (!room || !isHost(room, socket)) return "host-only";
       if (room.status !== "lobby") return "already-started";
       if (starters(room).length < MIN_RIDERS) return "need-riders";
+      if (!starters(room).some(isHuman)) return "need-human"; // COURSE-02: bots count, but not alone
       return null;
     };
     const problem = check();
@@ -592,7 +672,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     if (!room || !isHost(room, socket) || room.status !== "lobby" || !parsed.ok) return;
     const [playerId, watching] = parsed.data;
     const target = room.players.get(playerId);
-    if (!target || target.role !== "rider") return;
+    if (!target || target.role !== "rider" || target.bot) return;
     target.watching = watching;
     target.ready = false;
     broadcastRoom(io, room);
@@ -616,25 +696,27 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     // A report starts after the last correct character: anything wrong typed
     // beyond it by an earlier report is dropped (its mistakes stay counted).
     const from = { ...player.typing, input: room.text.slice(0, player.charIndex) };
-    const typing = replayKeys(from, keys, room.text, now);
-    const n = correctPrefixLength(typing.input, room.text);
+    advance(io, room, player, replayKeys(from, keys, room.text, now), now);
+  });
 
-    const elapsedSec = (now - room.startAt) / 1000;
-    if (n > elapsedSec * MAX_CHARS_PER_SEC + 10) return; // impossibly fast: ignore
+  // CONF-10: the host adds and removes bots in the lobby. They count towards
+  // the room's capacity like anyone else.
+  socket.on("addBot", (payload) => {
+    const room = currentRoom(socket);
+    const level = parse(botLevel, payload);
+    if (!room || !isHost(room, socket) || room.status !== "lobby" || !level.ok) return;
+    if (riders(room).length >= MAX_RIDERS) return;
+    addBot(room, level.data);
+    broadcastRoom(io, room);
+  });
 
-    player.typing = typing;
-    player.charIndex = n;
-
-    if (n === room.text.length) {
-      player.finished = true;
-      player.wpm = Math.round(room.text.length / 5 / (elapsedSec / 60));
-      player.timeMs = Math.round(elapsedSec * 1000);
-      player.accuracy = accuracyOf(typing.keystrokes, typing.mistakes);
-      player.score = scoreOf(player.wpm, player.accuracy);
-      startFinishClock(io, room);
-      broadcastRoom(io, room);
-      endIfEveryoneFinished(io, room);
-    }
+  socket.on("removeBot", (payload) => {
+    const room = currentRoom(socket);
+    const id = parse(playerId, payload);
+    if (!room || !isHost(room, socket) || room.status !== "lobby" || !id.ok) return;
+    if (!room.players.get(id.data)?.bot) return;
+    room.players.delete(id.data);
+    broadcastRoom(io, room);
   });
 
   socket.on("playAgain", () => {

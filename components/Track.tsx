@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Chocobo from "./Chocobo";
+import { BotTag } from "./ui";
 import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
+import type { BotLevel } from "@/lib/bots";
 
 const START = 14;
 const RUN = 86;
@@ -22,6 +24,7 @@ export interface TrackRider {
   score?: number | null;
   liveWpm?: number;
   away?: boolean;
+  bot?: BotLevel | null;
 }
 
 interface TrackProps {
@@ -90,6 +93,7 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
                     )}
                   >
                     {p.name}
+                    {p.bot && <BotTag>{t.bot.tag}</BotTag>}
                     {isMe && <span className="text-muted max-wide:hidden"> · {t.common.you}</span>}
                     {p.away && <span className="text-amber"> · {t.race.reconnecting}</span>}
                   </span>

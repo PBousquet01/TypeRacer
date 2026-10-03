@@ -1,6 +1,7 @@
 import { CHOCOBO_COLORS, isCustomColor } from "../chocobos";
 import { RIDER_NAME_MAX, RIDER_NAME_MIN } from "../names";
 import { MIN_RIDERS } from "../rules";
+import type { BotLevel } from "../bots";
 import type { ErrorCode, NoticeCode, TextSettings, TextKind, TextLanguage } from "../types";
 
 const LANGUAGES: Record<TextLanguage, string> = { en: "English", fr: "French" };
@@ -24,6 +25,7 @@ const errors: Record<ErrorCode, string> = {
   "host-only": "Only the host can start the race.",
   "already-started": "The race has already started.",
   "need-riders": `A race needs at least ${MIN_RIDERS} ready riders.`,
+  "need-human": "A race needs at least one person: bots can't race on their own.",
   "text-failed": "Couldn't load a passage. Try again.",
   "bad-request": "Bad request.",
   "username-format": "Usernames are 3–16 characters: letters, numbers, - and _ only.",
@@ -54,6 +56,16 @@ export const en = {
   meta: {
     title: "Chocobo Race",
     description: "A multiplayer typing race. Your bird runs exactly as fast as you type.",
+  },
+  bot: {
+    tag: "BOT",
+    levels: {
+      noob: "Noob",
+      beginner: "Beginner",
+      intermediate: "Intermediate",
+      expert: "Expert",
+      impossible: "Impossible",
+    } satisfies Record<BotLevel, string>,
   },
   common: {
     you: "you",
@@ -166,6 +178,11 @@ export const en = {
     watching: "IN THE STANDS",
     toStands: "To the stands",
     letRide: "Let ride",
+    bots: "Bots",
+    botLevel: "Level",
+    addBot: "Add a bot",
+    removeBot: "Remove",
+    botsHint: "Bots race like people: same text, same rules, and they're always ready. A race still needs one person.",
     youWatch: "The host has put you in the stands. You'll watch the races until they let you ride.",
     rules: "Rules",
     backspace: "Backspace",

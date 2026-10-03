@@ -1,7 +1,7 @@
 "use client";
 
 import Chocobo from "./Chocobo";
-import { FinePrint, Panel, PanelTitle, Spec, SpecRow, Table, Td, Th } from "./ui";
+import { BotTag, FinePrint, Panel, PanelTitle, Spec, SpecRow, Table, Td, Th } from "./ui";
 import { formatTime } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import type { Dictionary } from "@/lib/i18n/en";
@@ -81,6 +81,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                 </span>
                 <span className="font-body text-[15px]/[1.3] font-medium text-strong">
                   {p.name}
+                  {p.bot && <BotTag>{t.bot.tag}</BotTag>}
                   {p.id === myId && <span className="text-accent"> · {t.common.you}</span>}
                 </span>
                 {p.score != null && (
@@ -126,6 +127,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                     <Td className={tone}>{p.place ?? i + 1}</Td>
                     <Td className={cn("font-medium", tone)}>
                       {p.name}
+                      {p.bot && <BotTag>{t.bot.levels[p.bot]}</BotTag>}
                       {isMe && ` · ${t.common.you}`}
                     </Td>
                     <Td num className={cn("font-medium", tone)}>{p.score ?? "—"}</Td>

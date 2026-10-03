@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 68 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 89 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -49,6 +49,7 @@ join instead.
 | `server/auth.ts` `server/db.ts` `server/stats.ts` `server/texts.ts` | Accounts/sessions, Postgres schema, race recording, text bank (`pickText` queries PostgreSQL) |
 | `lib/types.ts` | Shared types: room/player shapes and the typed Socket.IO events, imported by server and client |
 | `lib/typing.ts` | The typing engine's rules as pure functions (`applyInput`, `shouldReport`, accuracy, WPM); unit-tested |
+| `lib/bots.ts` | The bots' typing: `planBot` turns a seed, a text and a level into timed keys; pure and unit-tested (`tests/bots.test.ts`) |
 | `hooks/useTypingEngine.ts` | The typing engine: correct/wrong chars, WPM, accuracy, progress reports |
 | `hooks/useRoom.ts` `lib/socket.ts` | Socket events → React state |
 | `app/page.tsx` | Title screen: name, mount, host or join, practice |
@@ -77,6 +78,13 @@ join instead.
   The join field cleans what's typed (`normalizeRoomCode`) and caps the
   *cleaned* length: a `maxLength` on the raw input would cut off a pasted
   `ABC-DEF`.
+- **Bots are riders without a socket** (`bot: BotLevel`, ids `bot-N`; ADR-002
+  in `docs/ARCHITECTURE.md`). The host adds/removes them in the lobby. At the
+  start each bot gets a plan from `planBot` (`lib/bots.ts`, pure, seeded from
+  room code + race + bot id), and the race ticker (`driveBots`) feeds the
+  due keys through `replayKeys` + `advance`, the same path as a person's
+  `typed` keys. A race needs one person (`need-human`); the host seat never
+  goes to a bot; a room with only bots left closes. Bots aren't recorded.
 - **Every input goes through a Zod schema** (`server/schemas.ts`, TECH-07):
   socket payloads, JSON bodies, query strings. A schema's error messages are
   `ErrorCode`s (registered with `code()`), so `parse()` returns the precise

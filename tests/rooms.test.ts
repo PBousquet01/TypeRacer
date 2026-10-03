@@ -332,3 +332,75 @@ describe("a full race", () => {
     expect(r.players.map((p) => p.name).sort()).toEqual(["Alice", "Bob", "Host", "Late"]);
   });
 });
+
+describe("bots", () => {
+  /** A room with a host who watches, and one rider. */
+  async function hostAndRider() {
+    const code = freshCode();
+    const host = await open(code, "Host", "host");
+    await host.join();
+    const a = await open(code, "Alice", "rider");
+    await a.join();
+    return { code, host, a };
+  }
+
+  test("CONF-10: the host adds and removes bots; riders can't, and a made-up level is ignored", async () => {
+    const { host, a } = await hostAndRider();
+    host.socket.emit("addBot", "expert");
+    raw(a).emit("addBot", "expert");
+    raw(host).emit("addBot", "godlike");
+    const r = await host.until((x) => x.players.some((p) => p.bot));
+    await sleep(150);
+    const bots = host.room!.players.filter((p) => p.bot);
+    expect(bots).toHaveLength(1);
+    expect(bots[0]).toMatchObject({ bot: "expert", ready: true, role: "rider" });
+    expect(r.players.find((p) => p.name === "Alice")?.bot).toBeNull();
+
+    raw(a).emit("removeBot", bots[0].id);
+    raw(host).emit("removeBot", r.players.find((p) => p.name === "Alice")!.id); // not a bot: stays
+    await sleep(150);
+    expect(host.room!.players).toHaveLength(3);
+    host.socket.emit("removeBot", bots[0].id);
+    const after = await host.until((x) => !x.players.some((p) => p.bot));
+    expect(after.players.map((p) => p.name).sort()).toEqual(["Alice", "Host"]);
+  });
+
+  test("COURSE-02: bots count towards the minimum, but a race needs a person", async () => {
+    const { host } = await hostAndRider(); // Alice isn't ready
+    host.socket.emit("addBot", "noob");
+    host.socket.emit("addBot", "noob");
+    await host.until((x) => x.players.filter((p) => p.bot).length === 2);
+    expect(await host.startRace()).toEqual({ error: "need-human" });
+  });
+
+  test("a room with only bots left closes", async () => {
+    const { code, host, a } = await hostAndRider();
+    host.socket.emit("addBot", "expert");
+    await host.until((x) => x.players.some((p) => p.bot));
+    a.socket.emit("leaveRoom");
+    host.socket.emit("leaveRoom");
+    await sleep(150);
+    const late = await open(code, "Late", "rider");
+    expect(await late.join()).toEqual({ error: "no-room" });
+  });
+
+  test("BOT-01, BOT-04: a bot races through the same referee, finishes in its speed range and gets a place", async () => {
+    const { host, a } = await hostAndRider();
+    host.socket.emit("addBot", "impossible");
+    a.socket.emit("toggleReady");
+    await host.until((x) => x.players.some((p) => p.bot) && x.players.some((p) => p.ready && !p.bot));
+    expect(await host.startRace()).toEqual({ ok: true });
+    const racing = await a.until((x) => x.status === "racing");
+
+    const withBot = await a.until((x) => x.players.some((p) => p.bot && p.finished), 20_000);
+    const bot = withBot.players.find((p) => p.bot)!;
+    expect(bot.wpm).toBeGreaterThanOrEqual(135); // 140–170, give or take the 100 ms ticks
+    expect(bot.wpm).toBeLessThanOrEqual(175);
+    expect(bot.accuracy).toBeGreaterThan(90);
+
+    a.socket.emit("typed", 0, racing.text); // Alice finishes after the bot
+    const done = await a.until((x) => x.status === "finished");
+    expect(done.players.find((p) => p.bot)?.place).not.toBeNull();
+    expect(done.players.find((p) => p.name === "Alice")?.place).not.toBeNull();
+  }, 30_000);
+});

@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import Chocobo from "./Chocobo";
-import { Choice, FinePrint, HostTag, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
+import { BotTag, Choice, FinePrint, HostTag, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
 import { cn } from "@/lib/cn";
 import { MAX_RIDERS, MIN_RIDERS } from "@/lib/rules";
 import { useT } from "@/lib/i18n";
 import type { PublicRoom, RoomSettings } from "@/lib/types";
+import type { BotLevel } from "@/lib/bots";
 
 const RIDER_ROW = "flex items-center gap-3 border-b border-edge/14 py-3 last:border-b-0 light:border-ink/14";
 const CURSOR = "w-4 flex-none font-display text-xs/none text-accent";
@@ -21,6 +22,8 @@ interface LobbyProps {
   onStartRace: () => void;
   onChangeSettings: (settings: Partial<RoomSettings>) => void;
   onSetWatching: (playerId: string, watching: boolean) => void;
+  onAddBot: (level: BotLevel) => void;
+  onRemoveBot: (playerId: string) => void;
 }
 
 export default function Lobby({
@@ -31,9 +34,12 @@ export default function Lobby({
   onStartRace,
   onChangeSettings,
   onSetWatching,
+  onAddBot,
+  onRemoveBot,
 }: LobbyProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
+  const [botLevel, setBotLevel] = useState<BotLevel>("intermediate");
   const me = room.players.find((p) => p.id === myId);
   const host = room.players.find((p) => p.id === room.hostId);
   const hostRides = room.settings.hostRides;
@@ -77,8 +83,9 @@ export default function Lobby({
                     {p.name}
                     {isMe && <MonoNote> · {t.common.you}</MonoNote>}
                     {isHostRow && <> <HostTag>{t.common.host}</HostTag></>}
+                    {p.bot && <BotTag>{t.bot.tag}</BotTag>}
                   </span>
-                  <span className={SUB}>{t.mount.label(p.color)}</span>
+                  <span className={SUB}>{p.bot ? t.bot.levels[p.bot] : t.mount.label(p.color)}</span>
                 </span>
                 <span className="grid justify-items-end gap-1.5">
                   <span
@@ -89,7 +96,12 @@ export default function Lobby({
                   >
                     {p.watching ? t.lobby.watching : p.ready || isHostRow ? t.lobby.ready : t.lobby.eating}
                   </span>
-                  {isHost && !isHostRow && (
+                  {isHost && p.bot && (
+                    <button className="btn-link" onClick={() => onRemoveBot(p.id)}>
+                      {t.lobby.removeBot}
+                    </button>
+                  )}
+                  {isHost && !isHostRow && !p.bot && (
                     <button className="btn-link" onClick={() => onSetWatching(p.id, !p.watching)}>
                       {p.watching ? t.lobby.letRide : t.lobby.toStands}
                     </button>
@@ -134,6 +146,14 @@ export default function Lobby({
                 onChange={(choice) => onChangeSettings({ hostRides: choice === "ride" })}
               />
               <FinePrint>{t.lobby.settingsHint}</FinePrint>
+            </Panel>
+            <Panel>
+              <PanelTitle>{t.lobby.bots}</PanelTitle>
+              <Choice label={t.lobby.botLevel} value={botLevel} options={t.bot.levels} onChange={setBotLevel} />
+              <button className="btn btn-block" onClick={() => onAddBot(botLevel)} disabled={freeStalls <= 0}>
+                {t.lobby.addBot}
+              </button>
+              <FinePrint>{t.lobby.botsHint}</FinePrint>
             </Panel>
             <Panel>
               <PanelTitle>{t.lobby.control}</PanelTitle>

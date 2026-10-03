@@ -42,6 +42,7 @@ const errors: Record<ErrorCode, string> = {
   "host-only": "Seul l'hôte peut lancer la course.",
   "already-started": "La course est déjà commencée.",
   "need-riders": `Une course demande au moins ${MIN_RIDERS} cavaliers prêts.`,
+  "need-human": "Une course demande au moins une personne : les bots ne courent pas seuls.",
   "text-failed": "Impossible de charger un texte. Réessaie.",
   "bad-request": "Requête invalide.",
   "username-format": "Le nom d'utilisateur fait de 3 à 16 caractères : lettres, chiffres, - et _ seulement.",
@@ -72,6 +73,16 @@ export const fr: Dictionary = {
   meta: {
     title: "Chocobo Race",
     description: "Une course de frappe multijoueur. Ton oiseau court exactement aussi vite que tu tapes.",
+  },
+  bot: {
+    tag: "BOT",
+    levels: {
+      noob: "Noob",
+      beginner: "Débutant",
+      intermediate: "Intermédiaire",
+      expert: "Expert",
+      impossible: "Impossible",
+    },
   },
   common: {
     you: "toi",
@@ -183,6 +194,11 @@ export const fr: Dictionary = {
     watching: "AUX ESTRADES",
     toStands: "Aux estrades",
     letRide: "Laisser courir",
+    bots: "Bots",
+    botLevel: "Niveau",
+    addBot: "Ajouter un bot",
+    removeBot: "Retirer",
+    botsHint: "Les bots courent comme tout le monde : même texte, mêmes règles, et ils sont toujours prêts. Il faut quand même une personne.",
     youWatch: "L'hôte t'a mis aux estrades. Tu regardes les courses jusqu'à ce que l'hôte te laisse courir.",
     rules: "Règles",
     backspace: "Retour arrière",

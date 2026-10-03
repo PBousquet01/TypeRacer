@@ -19,9 +19,9 @@ que tout changement qui fait avancer une exigence.
 | Comptes et profil (AUTH) | 1 | 3 | 2 | 6 |
 | Salles et visibilité (SALLE) | 2 | 3 | 5 | 10 |
 | Rejoindre une course (JOIN) | 1 | 0 | 2 | 3 |
-| Configuration (CONF) | 3 | 1 | 8 | 12 |
-| Déroulement d'une course (COURSE) | 6 | 4 | 1 | 11 |
-| Bots (BOT) | 0 | 0 | 5 | 5 |
+| Configuration (CONF) | 4 | 1 | 7 | 12 |
+| Déroulement d'une course (COURSE) | 7 | 3 | 1 | 11 |
+| Bots (BOT) | 4 | 1 | 0 | 5 |
 | Bonus de remontée (BONUS) | 0 | 0 | 4 | 4 |
 | Résultats (RES) | 1 | 2 | 2 | 5 |
 | Historique (HIST) | 0 | 1 | 1 | 2 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 2 | 0 | 1 | 3 |
-| **Total** | **34** | **21** | **35** | **90** |
+| **Total** | **40** | **21** | **29** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -44,7 +44,7 @@ que tout changement qui fait avancer une exigence.
 | TECH-06 | ✅ | `server/rooms.ts`, `components/Track.tsx` | Tous les tests de `rooms.test.ts` | Socket.IO. Voir [ADR-001](ARCHITECTURE.md#adr-001--technologie-temps-réel). |
 | TECH-07 | ✅ | `server/schemas.ts`, `server/rooms.ts`, `server/api.ts` | « TECH-07: a join of the wrong shape is refused, and a bad acknowledgement can't crash the server », « TECH-07: setWatching with the wrong types is ignored », « invalid settings are ignored », « the server judges the keys: wrong ones don't move the bird », « a body that isn't the expected shape gets the matching error code », « a body that isn't JSON is a bad request », « a text in a language the site doesn't have is refused » | Zod : chaque message Socket.IO qui porte des données (`joinRoom`, `updateSettings`, `setWatching`, `typed`), chaque corps JSON (`signup`, `login`, `admin/mount`) et chaque paramètre d'URL (`/api/text`, retour OAuth). Les messages d'erreur des schémas sont les codes d'erreur de l'API. Le projet n'utilise pas d'actions serveur Next.js. |
 | TECH-08 | ✅ | `render.yaml` | — | Render et Neon en forfaits gratuits; GitHub et Discord OAuth gratuits. Rien à payer pour corriger. |
-| TECH-09 | ✅ | `.github/workflows/ci.yml` | 68 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
+| TECH-09 | ✅ | `.github/workflows/ci.yml` | 89 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
 | TECH-10 | ✅ | `.env.example`, `.gitignore` | — | Toutes les variables lues par le serveur et les scripts y sont documentées. Aucun secret commité. |
 
 ## Identité visuelle et design (DES)
@@ -105,7 +105,7 @@ que tout changement qui fait avancer une exigence.
 | CONF-07 | ❌ | — | — | Caractères à inclure ou exclure. |
 | CONF-08 | 🟡 | `lib/typing.ts` (`MAX_CHARS_PAST_MISTAKE`) | « can't type more than 5 characters past a mistake », « fixed mistakes still count against accuracy » | Correction obligatoire seulement. **Reste** : mode libre. |
 | CONF-09 | ❌ | — | — | Dépend des bonus (BONUS). |
-| CONF-10 | ❌ | — | — | Dépend des bots (BOT). |
+| CONF-10 | ✅ | `addBot`, `removeBot` dans `server/rooms.ts`, panneau « Bots » de `components/Lobby.tsx` | « CONF-10: the host adds and removes bots; riders can't, and a made-up level is ignored » | L'hôte ajoute un bot du niveau choisi ou le retire, dans la salle d'attente. Les bots comptent dans la capacité. |
 | CONF-11 | ❌ | — | — | Dépend de SALLE-03 et SALLE-05. |
 | CONF-12 | ✅ | `updateSettings`, `components/Lobby.tsx` | « COURSE-11: the host's settings reach riders; riders can't change them », « invalid settings are ignored » | Diffusée à toute la salle en direct. |
 
@@ -114,7 +114,7 @@ que tout changement qui fait avancer une exigence.
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
 | COURSE-01 | ✅ | `server/rooms.ts` | Tous les tests de `rooms.test.ts` | Documentée dans [ARCHITECTURE.md](ARCHITECTURE.md#machine-à-états-dune-course-course-01). FERMÉE : la salle est retirée quand la dernière personne part. |
-| COURSE-02 | 🟡 | `lib/rules.ts`, `starters()` | « COURSE-3: a race needs two ready riders », « COURSE-5: a host who rides counts towards the minimum and races » | 2 participants prêts au minimum; les spectateurs ne comptent pas. **Reste** : les bots, et la règle « au moins 1 humain ». |
+| COURSE-02 | ✅ | `lib/rules.ts`, `starters()` et `startRace` dans `server/rooms.ts` | « COURSE-3: a race needs two ready riders », « COURSE-5: a host who rides counts towards the minimum and races », « COURSE-02: bots count towards the minimum, but a race needs a person » | 2 participants au minimum, bots compris; au moins une personne (`need-human`); les spectateurs ne comptent pas. |
 | COURSE-03 | ✅ | `startRace`, `startCountdown` | « the race starts after a countdown », « a double click on Start starts one race » | Texte tiré et envoyé au début du décompte de 3 s; heure de départ fixée par le serveur. |
 | COURSE-04 | ✅ | `components/TypingBox.tsx`, `hooks/useTypingEngine.ts` | « pasting text past the end is ignored » | Caractère correct, incorrect, curseur; MPM et précision en direct; coller bloqué. |
 | COURSE-05 | ✅ | `components/Track.tsx` | Démonstration avec 12 participants | Monture, nom, position et MPM courant; positions toutes les 100 ms avec transition fluide; joueur local mis en évidence; les spectateurs voient la piste. |
@@ -127,15 +127,15 @@ que tout changement qui fait avancer une exigence.
 
 ## Bots (BOT)
 
-Approche prévue : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
+Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| BOT-01 | ❌ | — | — | Cinq niveaux. |
-| BOT-02 | ❌ | — | — | Vitesse variable. |
-| BOT-03 | ❌ | — | — | Erreurs et correction, selon le mode d'erreur. |
-| BOT-04 | ❌ | — | — | Identifiés dans l'interface; soumis aux bonus. |
-| BOT-05 | ❌ | — | — | Moteur déterministe à graine. |
+| BOT-01 | ✅ | `lib/bots.ts` (`BOT_LEVELS`) | « BOT-01: every level finishes the text at a speed in its range », « BOT-01, BOT-03: slower levels make more mistakes », « BOT-01, BOT-04: a bot races through the same referee, finishes in its speed range and gets a place » | Valeurs retenues : Noob 10–20 MPM, ~12 % d'erreurs; Débutant 20–35, ~8 %; Intermédiaire 35–60, ~5 %; Expert 70–100, ~2 %; Impossible 140–170, ~0,5 % (plafonné à 170 pour rester loin de la limite anti-triche de ~300 MPM). Le MPM final est tiré dans la plage au début de chaque course. |
+| BOT-02 | ✅ | `planBot` dans `lib/bots.ts` | « BOT-02: the speed varies; no metronome », « BOT-02: bots hesitate before hard words » | Bruit sur chaque touche, rythme qui dérive d'un mot à l'autre (rafales et ralentissements), pauses avant les mots difficiles (`wordDifficulty` : longueur, majuscules, chiffres, ponctuation, accents). |
+| BOT-03 | ✅ | `planBot` dans `lib/bots.ts` | « BOT-03: in correct mode a bot fixes every slip; in free mode it never backspaces », « BOT-01, BOT-03: slower levels make more mistakes » | Une erreur tombe sur une touche voisine (QWERTY). En correction obligatoire, le bot continue 0 à 2 caractères, s'arrête, efface et retape : le temps perdu le ralentit. Le mode libre est prêt dans le moteur; il servira quand CONF-08 sera fait. |
+| BOT-04 | 🟡 | `BotTag` dans `components/ui.tsx`, `Lobby.tsx`, `Track.tsx`, `Results.tsx` | « BOT-01, BOT-04: a bot races through the same referee, finishes in its speed range and gets a place » | Étiquette « BOT » dans la salle, sur la piste et sur le podium; niveau affiché dans la salle et le tableau des résultats. Les touches des bots passent par le même arbitre que celles des personnes. **Reste** : les bonus (BONUS), qui n'existent pas encore. |
+| BOT-05 | ✅ | `lib/bots.ts` (`seededRandom`, `seedOf`, `planBot`) | « BOT-05: the same seed plays the same race; another seed plays a different one », et tous les tests de `tests/bots.test.ts` | Fonction pure, sans `Math.random` ni horloge. La graine vient du code de la salle, du numéro de la course et du bot. |
 
 ## Bonus de remontée (BONUS)
 
@@ -175,7 +175,7 @@ Approche prévue : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| TEST-01 | ✅ | `tests/` | 68 tests | Moteur de frappe, règles, arbitre avec de vrais clients Socket.IO, API. |
+| TEST-01 | ✅ | `tests/` | 89 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
 | TEST-02 | ❌ | — | — | Playwright. |
 | TEST-03 | ❌ | — | — | La connexion par nom d'utilisateur et mot de passe existe déjà; les tests Playwright l'utiliseront. |
 

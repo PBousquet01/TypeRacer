@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getSocket } from "@/lib/socket";
 import { clientId } from "@/lib/profile";
 import { useI18n } from "@/lib/i18n";
+import type { BotLevel } from "@/lib/bots";
 import type { ErrorCode, NoticeCode, Position, Profile, PublicRoom, RoomSettings } from "@/lib/types";
 
 export function useRoom(code: string, profile: Profile | null) {
@@ -78,6 +79,8 @@ export function useRoom(code: string, profile: Profile | null) {
     (playerId: string, watching: boolean) => getSocket().emit("setWatching", playerId, watching),
     [],
   );
+  const addBot = useCallback((level: BotLevel) => getSocket().emit("addBot", level), []);
+  const removeBot = useCallback((playerId: string) => getSocket().emit("removeBot", playerId), []);
   const playAgain = useCallback(() => getSocket().emit("playAgain"), []);
   const updateSettings = useCallback(
     (settings: Partial<RoomSettings>) => getSocket().emit("updateSettings", settings),
@@ -97,5 +100,7 @@ export function useRoom(code: string, profile: Profile | null) {
     playAgain,
     updateSettings,
     setWatching,
+    addBot,
+    removeBot,
   };
 }

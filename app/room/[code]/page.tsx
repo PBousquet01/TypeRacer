@@ -34,6 +34,8 @@ export default function RoomPage() {
     playAgain,
     updateSettings,
     setWatching,
+    addBot,
+    removeBot,
   } = useRoom(code, profile);
 
   if (saved === undefined && !chosen) return <Loading>{t.common.saddlingUp}</Loading>;
@@ -91,6 +93,8 @@ export default function RoomPage() {
           onStartRace={startRace}
           onChangeSettings={updateSettings}
           onSetWatching={setWatching}
+          onAddBot={addBot}
+          onRemoveBot={removeBot}
         />
       )}
 

@@ -86,6 +86,15 @@ export function HostTag({ children }: { children: ReactNode }) {
   );
 }
 
+/** BOT-04: marks a bot wherever a rider's name is shown. */
+export function BotTag({ children }: { children: ReactNode }) {
+  return (
+    <span className="ml-1.5 border-2 border-sky px-1.5 py-[3px] align-middle font-display text-tiny/[1.4] whitespace-nowrap text-sky light:border-ink/50 light:text-ink">
+      {children}
+    </span>
+  );
+}
+
 export function Loading({ children }: { children: ReactNode }) {
   return (
     <main className="mx-auto max-w-[560px] px-[18px] pt-6 pb-[60px]">

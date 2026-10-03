@@ -218,7 +218,7 @@ stateDiagram-v2
     state "RÉSULTATS" as RESULTATS
     state "FERMÉE" as FERMEE
     [*] --> ATTENTE : l'hôte crée la salle
-    ATTENTE --> DECOMPTE : l'hôte lance (≥ 2 participants prêts)
+    ATTENTE --> DECOMPTE : l'hôte lance (≥ 2 participants prêts, dont 1 personne)
     DECOMPTE --> COURSE : 3 s plus tard
     COURSE --> RESULTATS : tous les participants ont fini
     COURSE --> RESULTATS : dernier appel écoulé (30 s après le 1er arrivé)
@@ -236,7 +236,7 @@ stateDiagram-v2
 | De → vers | Déclencheur | Condition vérifiée par le serveur | Ce qui se passe | Code |
 | --- | --- | --- | --- | --- |
 | *(rien)* → EN_ATTENTE | Un hôte rejoint un code qui n'existe pas | Rôle demandé = hôte, et code émis par le serveur (`POST /api/rooms`) depuis moins de 5 min (SALLE-02) | Salle créée; la langue du texte part de la langue d'interface de l'hôte | `createRoom` |
-| EN_ATTENTE → DÉCOMPTE | L'hôte clique « Lancer la course » (`startRace`) | C'est bien l'hôte; salle en attente; au moins 2 participants prêts. Revérifié après le chargement du texte (un double clic ne lance qu'une course) | Un texte est tiré de la banque selon la configuration; seuls les participants **prêts** deviennent partants; départ fixé à maintenant + 3 s | `startRace`, `startCountdown` |
+| EN_ATTENTE → DÉCOMPTE | L'hôte clique « Lancer la course » (`startRace`) | C'est bien l'hôte; salle en attente; au moins 2 participants prêts, bots compris, dont au moins une personne (COURSE-02). Revérifié après le chargement du texte (un double clic ne lance qu'une course) | Un texte est tiré de la banque selon la configuration; seuls les participants **prêts** deviennent partants; départ fixé à maintenant + 3 s | `startRace`, `startCountdown` |
 | DÉCOMPTE → EN_COURSE | Minuterie de 3 s (`COUNTDOWN_MS`) | — | Les positions sont diffusées toutes les 100 ms; la minuterie de 3 min démarre | `startRace` |
 | EN_COURSE → RÉSULTATS | Le dernier partant franchit la ligne | Tous les partants ont fini (vérifié aussi quand quelqu'un part) | Classement, résultats enregistrés pour les comptes connectés | `endIfEveryoneFinished`, `endRace`, `rankFinishers` |
 | EN_COURSE → RÉSULTATS | Dernier appel écoulé | Le premier arrivé a lancé le compte de `FINISH_GRACE_MS` = 30 s | Ceux qui n'ont pas fini n'ont pas de place | `startFinishClock`, `endRace` |
@@ -333,6 +333,8 @@ sequenceDiagram
 | `toggleReady` | navigateur → serveur | — (participant, en attente) |
 | `updateSettings` | navigateur → serveur | `{ language?, kind?, hostRides? }` (hôte, en attente) |
 | `setWatching` | navigateur → serveur | `(playerId, watching)` : envoie un participant aux estrades ou l'en fait revenir (hôte, en attente) |
+| `addBot` | navigateur → serveur | `level` : ajoute un bot de ce niveau (hôte, en attente; CONF-10) |
+| `removeBot` | navigateur → serveur | `playerId` : retire ce bot (hôte, en attente) |
 | `startRace` | navigateur → serveur | — (hôte). Réponse : `ok` ou code d'erreur |
 | `typed` | navigateur → serveur | les touches tapées depuis le dernier envoi (`\b` pour un retour arrière) et le nombre de caractères corrects avant elles; c'est le serveur qui les juge |
 | `playAgain` | navigateur → serveur | — (hôte, sur les résultats) |
@@ -410,8 +412,9 @@ le seul à le modifier.
 
 ## ADR-002 : gestion des bots
 
-**Statut** : proposé; rien n'est encore implanté. Cette section décrit
-l'approche prévue (BOT-01 à BOT-05).
+**Statut** : accepté et implanté (octobre 2026; BOT-01 à BOT-05, CONF-10).
+Code : `lib/bots.ts` (le moteur) et `server/rooms.ts` (`addBot`,
+`driveBots`, `advance`).
 
 ### Contexte
 
@@ -426,22 +429,28 @@ partir d'une graine (BOT-05).
 **Les bots tournent sur le serveur, dans l'arbitre, et passent par le même
 chemin que les humains.**
 
-1. **Un bot est un participant** de la salle, avec un indicateur `bot: true`
-   et un niveau. Il n'a pas de socket. Il est affiché comme bot sur la piste
-   et dans les résultats (BOT-04), et il compte dans la capacité.
+1. **Un bot est un participant** de la salle, avec un champ `bot` qui donne
+   son niveau (`null` pour une personne). Il n'a pas de socket et est
+   toujours prêt. L'hôte l'ajoute ou le retire dans la salle d'attente
+   (`addBot`, `removeBot`). Il est étiqueté « BOT » dans la salle, sur la
+   piste et dans les résultats (BOT-04), et il compte dans la capacité.
 2. **Un moteur pur** (`lib/bots.ts`) calcule, à partir d'une graine, du texte,
    du niveau et du mode d'erreur, la liste des touches que le bot va taper et
-   le moment de chacune : `planBot(seed, text, level, errorMode)` →
-   `[{ atMs, key }]`. Aucun `Math.random` : un générateur pseudo-aléatoire à
-   graine (par exemple *mulberry32*), donc le même appel donne toujours le
-   même résultat, ce qui se teste unitairement (BOT-05).
-3. **L'arbitre rejoue ce plan** au fil de la course et fait passer les
-   touches du bot par la même fonction que celles d'un humain
-   (`replayKeys`). Progression, précision, MPM, classement et bonus sont donc
-   calculés exactement de la même façon pour tous.
-4. **Le plan est recalculé quand le texte change** (bonus « +3 mots »,
-   « -3 mots », BONUS-04) à partir de la position actuelle et d'une graine
-   dérivée.
+   le moment de chacune : `planBot({ seed, text, level, errorMode })` →
+   `[{ atMs, key }]`. Aucun `Math.random` : un générateur à graine
+   (*mulberry32*), donc le même appel donne toujours le même résultat, ce qui
+   se teste unitairement (BOT-05). La graine vient du code de la salle, du
+   numéro de la course et de l'identifiant du bot (`seedOf`).
+3. **L'arbitre rejoue ce plan** : à chaque tic de 100 ms, `driveBots` prend
+   les touches dont l'heure est passée et les fait passer par `replayKeys`
+   puis `advance`, exactement comme les touches d'une personne (événement
+   `typed`). Progression, précision, MPM, anti-triche et classement sont donc
+   calculés de la même façon pour tous.
+4. **Personnes d'abord** : une course demande au moins une personne
+   (COURSE-02, erreur `need-human`); la place d'hôte ne passe jamais à un
+   bot (SALLE-08); une salle où il ne reste que des bots est fermée.
+5. **À venir** : quand les bonus existeront (BONUS-04), le plan d'un bot
+   sera recalculé depuis sa position si son texte change.
 
 ### Le modèle de frappe
 
@@ -451,7 +460,7 @@ chemin que les humains.**
 | Débutant | 20–35 | ~8 % |
 | Intermédiaire | 35–60 | ~5 % |
 | Expert | 70–100 | ~2 % |
-| Impossible | 140+ | ~0,5 % |
+| Impossible | 140–170 | ~0,5 % |
 
 - **Vitesse de base** : un MPM tiré dans la plage du niveau au début de la
   course, converti en délai moyen par caractère (60 000 ms ÷ (MPM × 5)).
@@ -463,17 +472,25 @@ chemin que les humains.**
   après 0 à 2 caractères, attend un court temps de réaction, efface avec des
   retours arrière et retape. En **mode libre**, il continue et l'erreur est
   comptée.
-- Les valeurs exactes seront documentées dans [EXIGENCES.md](EXIGENCES.md)
-  une fois ajustées.
+- **Vitesse finale exacte** : chaque erreur et chaque pause coûtent du temps,
+  donc le plan brut finit plus lentement que la vitesse tirée. Il est étiré
+  à la fin pour finir exactement à cette vitesse, sans changer le rythme
+  à l'intérieur (rafales, hésitations, corrections).
+- « Impossible » est plafonné à 170 MPM pour rester loin de la limite
+  anti-triche du serveur (~300 MPM).
 
 ### Conséquences
 
 - Pas de trafic réseau pour les bots, et l'anti-triche du serveur les juge
   comme tout le monde (le niveau « Impossible », à 140+ MPM, reste sous la
   limite de ~300 MPM).
-- Les tests de `lib/bots.ts` vérifient, pour une graine fixe : le MPM obtenu
-  dans la plage du niveau, un taux d'erreur proche de celui visé, des délais
-  qui varient, et le respect du mode d'erreur.
+- Les tests (`tests/bots.test.ts`) rejouent chaque plan dans les règles de
+  frappe, comme le serveur, sur des passages français et anglais et
+  plusieurs graines. Ils vérifient : même graine, même course; le MPM dans la
+  plage du niveau; moins d'erreurs aux niveaux supérieurs; des délais qui
+  varient; des pauses plus longues avant les mots difficiles; le respect du
+  mode d'erreur; et la limite anti-triche. `tests/rooms.test.ts` joue une
+  vraie course contre un bot.
 - Les résultats des bots ne sont pas enregistrés dans la base.
 
 ## Sécurité
@@ -513,8 +530,8 @@ taper** est un réglage séparé de la salle (CONF-02).
 
 ## Tests et intégration continue (TECH-09)
 
-`bun test` lance 68 tests : règles du moteur de frappe, score et
-dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
+`bun test` lance 89 tests : règles du moteur de frappe, moteur des bots,
+score et dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types
 (`tsc --noEmit`), les tests (avec une vraie base PostgreSQL) et le build à
 chaque envoi.

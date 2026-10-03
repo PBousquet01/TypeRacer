@@ -6,6 +6,8 @@ export type Role = "host" | "rider";
 
 export type RoomStatus = "lobby" | "countdown" | "racing" | "finished";
 
+import type { BotLevel } from "./bots";
+
 export type TextLanguage = "en" | "fr";
 /** Language of the interface (UX-5). Same two as the texts, but a separate choice. */
 export type Lang = "en" | "fr";
@@ -20,6 +22,7 @@ export type ErrorCode =
   | "host-only"
   | "already-started"
   | "need-riders"
+  | "need-human"
   | "text-failed"
   | "bad-request"
   | "username-format"
@@ -71,6 +74,7 @@ export interface PublicPlayer {
   timeMs: number | null;
   score: number | null; // wpm × accuracy; decides the final places (TXT-9)
   away: boolean; // dropped mid-race; their lane is held until they reconnect
+  bot: BotLevel | null; // BOT-04: a bot, and how good it is; null for a person
   progress: number; // 0..1
 }
 
@@ -126,6 +130,8 @@ export interface ClientToServerEvents {
   startRace: (payload: null, reply?: (res: ActionReply) => void) => void;
   updateSettings: (settings: Partial<RoomSettings>) => void;
   setWatching: (playerId: string, watching: boolean) => void; // host only, lobby only (COURSE-6)
+  addBot: (level: BotLevel) => void; // host only, lobby only (CONF-10)
+  removeBot: (playerId: string) => void; // host only, lobby only (CONF-10)
   // The keys pressed since the last report ("\b" for a backspace), and how
   // many characters were right before them. No verdict: the server judges.
   typed: (base: number, keys: string) => void;

@@ -9,6 +9,7 @@
 import { z } from "zod";
 import { USERNAME_RE, cleanRiderName } from "../lib/names";
 import { isRoomCode, normalizeRoomCode } from "../lib/rules";
+import { BOT_LEVEL_IDS } from "../lib/bots";
 import type { ErrorCode } from "../lib/types";
 
 const codes = new Set<string>();
@@ -72,6 +73,10 @@ export const settingsChange = z.object({
 });
 
 export const setWatchingArgs = z.tuple([z.string().max(64), z.boolean()]);
+
+export const botLevel = z.enum(BOT_LEVEL_IDS);
+
+export const playerId = z.string().max(64);
 
 export function typedArgs(maxKeys: number) {
   return z.tuple([z.number().int().min(0), z.string().max(maxKeys)]);
