@@ -10,10 +10,12 @@ import { useSession } from "@/lib/session";
 import { formatDateTime, formatTime } from "@/lib/format";
 import { useI18n, useT } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
-import type { HistoryPage, LeaderboardRow, StatsSummary } from "@/lib/types";
+import type { HistoryPage, LeaderboardRow, ProgressPoint, StatsSummary } from "@/lib/types";
+import ProgressChart from "@/components/ProgressChart";
 
 interface MyStats {
   summary: StatsSummary;
+  progress: ProgressPoint[];
 }
 
 export default function StatsPage() {
@@ -97,6 +99,12 @@ export default function StatsPage() {
             />
           </section>
 
+          {(data?.progress.length ?? 0) >= 2 && (
+            <section className="frame mb-[18px] bg-window px-5 py-[18px]">
+              <ProgressChart points={data!.progress} />
+            </section>
+          )}
+
           <div className="grid gap-4 wide:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
             <section>
               <h3 className="text-lg/normal">{t.stats.recent}</h3>
@@ -118,7 +126,7 @@ export default function StatsPage() {
                   <tbody className="text-strong">
                     {history.races.map((r, i) => (
                       <tr key={i}>
-                        <Td>{formatDateTime(r.finishedAt, lang)}</Td>
+                        <Td className="whitespace-nowrap">{formatDateTime(r.finishedAt, lang)}</Td>
                         <Td>{r.roomCode}</Td>
                         <Td num>
                           {t.common.place(r.place)}{" "}

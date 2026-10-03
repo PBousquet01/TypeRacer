@@ -321,6 +321,9 @@ describe("texts and stats", () => {
       const history: HistoryPage = await (await fetch(`${base}/api/history`, { headers: { cookie } })).json();
       const latest: PastRace = await (await fetch(`${base}/api/races/${history.races[0].runId}`, { headers: { cookie } })).json();
       expect(latest.players[0].personalBest).toBe(true); // kept for the history too
+      // AUTH-06: the progress chart's data, oldest race first.
+      const stats = await (await fetch(`${base}/api/stats/me`, { headers: { cookie } })).json();
+      expect(stats.progress.map((p: { wpm: number }) => p.wpm)).toEqual([50, 45, 50, 61]);
     } finally {
       await sql`DELETE FROM users WHERE lower(username) = lower(${name})`;
       await sql`DELETE FROM race_runs WHERE room_code = 'RECRD1'`;

@@ -16,7 +16,7 @@ que tout changement qui fait avancer une exigence.
 | --- | --- | --- | --- | --- |
 | Contraintes techniques (TECH) | 9 | 1 | 0 | 10 |
 | Identité visuelle et design (DES) | 5 | 1 | 0 | 6 |
-| Comptes et profil (AUTH) | 1 | 3 | 2 | 6 |
+| Comptes et profil (AUTH) | 2 | 2 | 2 | 6 |
 | Salles et visibilité (SALLE) | 5 | 2 | 3 | 10 |
 | Rejoindre une course (JOIN) | 2 | 1 | 0 | 3 |
 | Configuration (CONF) | 5 | 2 | 5 | 12 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 2 | 0 | 1 | 3 |
-| **Total** | **56** | **19** | **15** | **90** |
+| **Total** | **57** | **18** | **15** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -67,7 +67,7 @@ que tout changement qui fait avancer une exigence.
 | AUTH-03 | 🟡 | `server/rooms.ts`, `server/stats.ts` | — | Pas d'historique pour les invités. **Reste** : un invité peut encore créer une salle; avatar généré. |
 | AUTH-04 | ❌ | — | — | Photo de profil (JPEG, PNG, WebP, 2 Mo, redimensionnée). |
 | AUTH-05 | ❌ | — | — | Pseudonyme d'affichage modifiable. |
-| AUTH-06 | 🟡 | `app/stats/page.tsx`, `GET /api/stats/me` | « stats need an account » | Meilleur MPM, MPM moyen, précision moyenne, nombre de courses et de victoires. **Reste** : graphique de progression du MPM. |
+| AUTH-06 | ✅ | `app/stats/page.tsx`, `components/ProgressChart.tsx`, `GET /api/stats/me` | « stats need an account », « RES-04: beating your best WPM is a personal record; a first or a slower race isn't » | Meilleur MPM, MPM moyen, précision moyenne, nombre de courses et de victoires, et graphique du MPM de ses 100 dernières courses (la plus ancienne à gauche, info-bulle avec la date). |
 
 ## Salles et visibilité (SALLE)
 

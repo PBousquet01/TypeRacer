@@ -228,6 +228,12 @@ export interface RecentRace {
   finishedAt: string; // ISO date; each browser formats it in its own language
 }
 
+/** AUTH-06: one race on the profile's progress chart. */
+export interface ProgressPoint {
+  at: string; // ISO date
+  wpm: number;
+}
+
 /** HIST-01: a page of the history. */
 export interface HistoryPage {
   races: RecentRace[];

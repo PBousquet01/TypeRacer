@@ -35,7 +35,7 @@ import {
   userForToken,
   verifyLogin,
 } from "./auth";
-import type { ErrorCode, HistoryPage, LeaderboardRow, PastRace, RecentRace, StatsSummary, User } from "../lib/types";
+import type { ErrorCode, HistoryPage, LeaderboardRow, PastRace, ProgressPoint, RecentRace, StatsSummary, User } from "../lib/types";
 
 const MAX_BODY = 4096;
 
@@ -96,7 +96,9 @@ function publicUser(user: User | null): User | null {
 
 const winsOf = sql<number>`count(*) filter (where ${races.place} = 1)::int`;
 
-async function statsFor(userId: number): Promise<{ summary: StatsSummary }> {
+const PROGRESS_RACES = 100;
+
+async function statsFor(userId: number): Promise<{ summary: StatsSummary; progress: ProgressPoint[] }> {
   const [summary]: StatsSummary[] = await db
     .select({
       races: count(),
@@ -109,7 +111,16 @@ async function statsFor(userId: number): Promise<{ summary: StatsSummary }> {
     .from(races)
     .where(eq(races.userId, userId));
 
-  return { summary };
+  // AUTH-06: the WPM of their last races, oldest first, for the progress chart.
+  const recent = await db
+    .select({ at: races.finishedAt, wpm: races.wpm })
+    .from(races)
+    .where(eq(races.userId, userId))
+    .orderBy(desc(races.finishedAt), desc(races.id))
+    .limit(PROGRESS_RACES);
+  const progress = recent.reverse().map((r) => ({ at: r.at.toISOString(), wpm: r.wpm }));
+
+  return { summary, progress };
 }
 
 const HISTORY_PAGE = 10;
