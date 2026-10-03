@@ -403,6 +403,12 @@ describe("bots", () => {
     a.socket.emit("typed", 0, racing.text); // Alice finishes after the bot
     const done = await a.until((x) => x.status === "finished");
     expect(done.players.find((p) => p.bot)?.place).not.toBeNull();
+    // RES-03: once the race is over, the results carry each rider's WPM, second by second.
+    const botAfter = done.players.find((p) => p.bot)!;
+    expect(botAfter.samples.length).toBeGreaterThan(5);
+    expect(botAfter.samples.at(-1)).toBe(botAfter.wpm!);
+    const aliceAfter = done.players.find((p) => p.name === "Alice")!;
+    expect(aliceAfter.samples.at(-1)).toBe(aliceAfter.wpm!);
     expect(done.players.find((p) => p.name === "Alice")?.place).not.toBeNull();
   }, 30_000);
 });

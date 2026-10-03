@@ -108,6 +108,8 @@ export interface Player {
   botNext: number; // index of the next key in botPlan to play
   text: string; // this rider's own copy of the race text; bonuses can lengthen or shorten it
   bonuses: BonusKind[]; // comeback bonuses earned this race
+  samples: number[]; // RES-03: net WPM at each whole second of the race
+  missed: Record<string, number>; // RES-03: character that should have been typed -> times missed
 }
 
 export interface Room {
@@ -221,6 +223,8 @@ function newPlayer(
     botNext: 0,
     text: "",
     bonuses: [],
+    samples: [],
+    missed: {},
   };
 }
 
@@ -258,6 +262,8 @@ function resetPlayer(player: Player) {
     score: null,
     text: "",
     bonuses: [],
+    samples: [],
+    missed: {},
   });
 }
 
@@ -282,8 +288,17 @@ const raceInProgress = (room: Room) => room.status === "countdown" || room.statu
 function playerList(room: Room): PublicPlayer[] {
   return [...room.players.entries()].map(([id, p]) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars -- pulled out so they stay on the server
-    const { clientId, userId, typing, botPlan, botNext, text, ...shared } = p;
-    return { id, ...shared, textLength: text.length, progress: text ? p.charIndex / text.length : 0 };
+    const { clientId, userId, typing, botPlan, botNext, text, samples, missed, ...shared } = p;
+    // The charts' data is only useful on the results screen; keep race-time updates small.
+    const over = room.status === "finished";
+    return {
+      id,
+      ...shared,
+      textLength: text.length,
+      progress: text ? p.charIndex / text.length : 0,
+      samples: over ? samples : [],
+      missed: over ? missed : {},
+    };
   });
 }
 
@@ -384,6 +399,23 @@ function startCountdown(io: IO, room: Room, starters: Player[], text: string) {
   room.timeouts.push(setTimeout(() => startRace(io, room), COUNTDOWN_MS));
 }
 
+/** Counts a missed character for the heatmap (RES-03). */
+const countMiss = (player: Player) => (expected: string) => {
+  player.missed[expected] = (player.missed[expected] ?? 0) + 1;
+};
+
+/** RES-03: each rider's net WPM, once per whole second of the race. */
+function sampleWpm(room: Room, now: number) {
+  const second = Math.floor((now - room.startAt) / 1000);
+  for (const p of room.players.values()) {
+    if (!p.racing || p.finished || second <= p.samples.length) continue;
+    while (p.samples.length < second) {
+      const minutes = (p.samples.length + 1) / 60;
+      p.samples.push(Math.round(p.charIndex / 5 / minutes));
+    }
+  }
+}
+
 /** Plays every bot's keys that are due by now. */
 function driveBots(io: IO, room: Room) {
   const now = Date.now();
@@ -394,7 +426,7 @@ function driveBots(io: IO, room: Room) {
     while (player.botNext < player.botPlan.length && player.botPlan[player.botNext].atMs <= elapsed) {
       keys += player.botPlan[player.botNext++].key;
     }
-    if (keys) advance(io, room, player, replayKeys(player.typing, keys, player.text, now), now);
+    if (keys) advance(io, room, player, replayKeys(player.typing, keys, player.text, now, countMiss(player)), now);
     if (room.status !== "racing") return; // that key ended the race
   }
 }
@@ -413,11 +445,13 @@ function advance(io: IO, room: Room, player: Player, typing: TypingState, now: n
   player.charIndex = n;
 
   if (n === player.text.length) {
-    player.finished = true;
     player.wpm = Math.round(player.text.length / 5 / (elapsedSec / 60));
     player.timeMs = Math.round(elapsedSec * 1000);
     player.accuracy = accuracyOf(typing.keystrokes, typing.mistakes);
     player.score = scoreOf(player.wpm, player.accuracy);
+    sampleWpm(room, now);
+    player.samples.push(player.wpm); // the line ends on their result
+    player.finished = true;
     startFinishClock(io, room);
     broadcastRoom(io, room);
     endIfEveryoneFinished(io, room);
@@ -482,6 +516,7 @@ function startRace(io: IO, room: Room) {
   broadcastRoom(io, room);
   room.ticker = setInterval(() => {
     driveBots(io, room);
+    sampleWpm(room, Date.now());
     const positions = playerList(room)
       .filter((p) => p.racing)
       .map(({ id, progress }) => ({ id, progress }));
@@ -902,7 +937,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     // A report starts after the last correct character: anything wrong typed
     // beyond it by an earlier report is dropped (its mistakes stay counted).
     const from = { ...player.typing, input: player.text.slice(0, player.charIndex) };
-    advance(io, room, player, replayKeys(from, keys, player.text, now), now);
+    advance(io, room, player, replayKeys(from, keys, player.text, now, countMiss(player)), now);
   });
 
   // CONF-10: the host adds and removes bots in the lobby. They count towards

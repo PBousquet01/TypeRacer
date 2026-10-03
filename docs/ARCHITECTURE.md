@@ -165,6 +165,8 @@ erDiagram
         int place
         int riders
         timestamptz finished_at
+        int_array wpm_samples "MPM seconde par seconde (RES-05)"
+        jsonb missed_keys "touche -> fois manquée (RES-03)"
     }
     passages {
         int id PK
@@ -191,7 +193,6 @@ erDiagram
 | --- | --- | --- |
 | `room_members` | SALLE-06 | Une ligne par personne présente dans une salle, avec une contrainte d'unicité sur la personne : la règle « une seule salle à la fois » est garantie par la base. |
 | `bans` | SALLE-07 | Personnes expulsées d'une salle. |
-| `race_samples` | RES-05, HIST-02 | Série temporelle du MPM de chaque participant connecté, pour réafficher les graphiques. |
 | colonnes de `races` | RES-02 | MPM brut, nombre d'erreurs, statut (terminé, temps écoulé, abandon), bonus reçus, touches manquées. |
 
 ## Machine à états d'une course (COURSE-01)
@@ -544,7 +545,7 @@ taper** est un réglage séparé de la salle (CONF-02).
 
 ## Tests et intégration continue (TECH-09)
 
-`bun test` lance 107 tests : règles du moteur de frappe, moteur des bots,
+`bun test` lance 108 tests : règles du moteur de frappe, moteur des bots,
 score et dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types
 (`tsc --noEmit`), les tests (avec une vraie base PostgreSQL) et le build à

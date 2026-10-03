@@ -11,6 +11,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgTable,
   primaryKey,
   serial,
@@ -96,6 +97,9 @@ export const races = pgTable(
     riders: integer("riders").notNull(),
     finishedAt: timestamp("finished_at", { withTimezone: true }).notNull().defaultNow(),
     score: integer("score"),
+    // RES-05: what the results charts need to be drawn again later.
+    wpmSamples: integer("wpm_samples").array(),
+    missedKeys: jsonb("missed_keys").$type<Record<string, number>>(),
   },
   (t) => [
     index("races_by_user").on(t.userId, t.finishedAt.desc().nullsFirst()),

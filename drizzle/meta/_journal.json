@@ -8,6 +8,13 @@
       "when": 1790997067133,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791053207161,
+      "tag": "0001_race_charts",
+      "breakpoints": true
     }
   ]
 }

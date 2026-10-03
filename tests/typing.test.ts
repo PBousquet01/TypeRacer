@@ -133,3 +133,10 @@ describe("what the server is sent, and what it makes of it", () => {
     expect(s.input.length).toBe(MAX_CHARS_PAST_MISTAKE);
   });
 });
+
+test("RES-03: replaying keys reports which characters were missed", () => {
+  const missed: string[] = [];
+  // Two wrong tries at the "e", then a wrong "o" where the "a" belongs.
+  replayKeys(EMPTY_STATE, "thx\bw\be co\bat", "the cat", 0, (c) => missed.push(c));
+  expect(missed).toEqual(["e", "e", "a"]);
+});

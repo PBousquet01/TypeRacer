@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 107 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 108 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -97,6 +97,12 @@ join instead.
   (`room.bannedClients`/`bannedUsers`), never by IP (a class shares one),
   revokes their invite link, removes them at once (no held lane) and emits
   `kicked`. A guest in a new tab gets a new clientId: known limit.
+- **Results charts (RES-03, RES-05).** The referee samples each rider's net
+  WPM once a second (`sampleWpm`, in the race ticker) and counts missed
+  characters (`replayKeys`' `onMiss`). Both go out only once the race is
+  over (`playerList`), and are saved with the race (`wpm_samples`,
+  `missed_keys`). Chart colours are `--series-1..8` / `--heat-1..3` in
+  `globals.css`, validated per theme; keep the fixed order.
 - **Bots are riders without a socket** (`bot: BotLevel`, ids `bot-N`; ADR-002
   in `docs/ARCHITECTURE.md`). The host adds/removes them in the lobby. At the
   start each bot gets a plan from `planBot` (`lib/bots.ts`, pure, seeded from

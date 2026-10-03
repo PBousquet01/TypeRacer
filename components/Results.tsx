@@ -1,6 +1,8 @@
 "use client";
 
 import Chocobo from "./Chocobo";
+import WpmChart from "./WpmChart";
+import KeyHeatmap from "./KeyHeatmap";
 import { BotTag, FinePrint, Panel, PanelTitle, Spec, SpecRow, Table, Td, Th } from "./ui";
 import { formatTime } from "@/lib/format";
 import { useT } from "@/lib/i18n";
@@ -173,6 +175,15 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
             </FinePrint>
           )}
         </aside>
+      </div>
+
+      <div className="grid gap-4 wide:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+        <section className="frame bg-window px-5 py-[18px]">
+          <WpmChart racers={players.filter((p) => p.racing)} myId={myId} />
+        </section>
+        <section className="frame bg-window px-5 py-[18px]">
+          <KeyHeatmap racers={players.filter((p) => p.racing)} myId={myId} />
+        </section>
       </div>
     </div>
   );

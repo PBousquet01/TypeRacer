@@ -108,6 +108,10 @@ export interface PublicPlayer {
   bot: BotLevel | null; // BOT-04: a bot, and how good it is; null for a person
   bonuses: BonusKind[]; // comeback bonuses this rider earned in the race (RES-02)
   textLength: number; // their own text can grow or shrink with bonuses (BONUS-04)
+  // RES-03, sent once the race is over (empty before): WPM at each second, and
+  // how often each character was missed.
+  samples: number[];
+  missed: Record<string, number>;
   progress: number; // 0..1, against their own text
 }
 

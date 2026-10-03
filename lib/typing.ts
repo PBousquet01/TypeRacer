@@ -91,12 +91,25 @@ export function keysBetween(input: string, value: string): string {
   return "";
 }
 
-/** Applies `keys` one at a time, as a keyboard would. A key the rules refuse is skipped. */
-export function replayKeys(state: TypingState, keys: string, text: string, now: number): TypingState {
+/**
+ * Applies `keys` one at a time, as a keyboard would. A key the rules refuse is
+ * skipped. `onMiss` hears about every wrong key that was accepted, with the
+ * character that should have been typed (RES-03: the missed-keys heatmap).
+ */
+export function replayKeys(
+  state: TypingState,
+  keys: string,
+  text: string,
+  now: number,
+  onMiss?: (expected: string) => void,
+): TypingState {
   let current = state;
   for (let i = 0; i < keys.length; i++) {
+    const at = current.input.length;
     const value = keys[i] === BACKSPACE ? current.input.slice(0, -1) : current.input + keys[i];
-    current = applyInput(current, value, text, now) ?? current;
+    const next = applyInput(current, value, text, now);
+    if (next && keys[i] !== BACKSPACE && keys[i] !== text[at]) onMiss?.(text[at]);
+    current = next ?? current;
   }
   return current;
 }

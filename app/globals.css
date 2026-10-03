@@ -37,6 +37,20 @@
   --raised: linear-gradient(180deg, rgba(24, 44, 130, 0.96), rgba(8, 16, 60, 0.96));
   --raised-hover: linear-gradient(180deg, rgba(36, 62, 160, 0.96), rgba(12, 22, 74, 0.96));
   --headline: linear-gradient(180deg, #1b2a63, #0a1230);
+  /* Results charts (RES-03): eight series colours in a fixed order and a
+     three-step heatmap ramp, checked for colour-blind separation and contrast
+     on this theme's window colour. */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --heat-1: #3987e5;
+  --heat-2: #86b6ef;
+  --heat-3: #c6dbf7;
 }
 
 [data-theme="light"] {
@@ -61,6 +75,17 @@
   --raised: linear-gradient(180deg, #d3e0fb, #b9cbf3);
   --raised-hover: linear-gradient(180deg, #c6d6f8, #abbfee);
   --headline: linear-gradient(180deg, #dfe9fa, #c6d6f1);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+  --heat-1: #5598e7;
+  --heat-2: #256abf;
+  --heat-3: #104281;
 }
 
 @theme inline {

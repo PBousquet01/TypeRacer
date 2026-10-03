@@ -16,5 +16,7 @@ export async function recordRace(room: Room, player: Player): Promise<void> {
     timeMs: player.timeMs ?? null,
     place: player.place ?? null,
     riders,
+    wpmSamples: player.samples,
+    missedKeys: player.missed,
   });
 }
