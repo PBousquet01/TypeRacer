@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 105 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 107 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -93,6 +93,10 @@ join instead.
   has their own `player.text` (bonuses only change its end); progress, the
   finish and WPM use it, never `room.text`. Changed texts go privately via
   `yourText`; `bonus` events announce. Bots get re-planned (`replanBot`).
+- **Kicking (SALLE-07).** `kickPlayer` bans by `clientId` and account
+  (`room.bannedClients`/`bannedUsers`), never by IP (a class shares one),
+  revokes their invite link, removes them at once (no held lane) and emits
+  `kicked`. A guest in a new tab gets a new clientId: known limit.
 - **Bots are riders without a socket** (`bot: BotLevel`, ids `bot-N`; ADR-002
   in `docs/ARCHITECTURE.md`). The host adds/removes them in the lobby. At the
   start each bot gets a plan from `planBot` (`lib/bots.ts`, pure, seeded from

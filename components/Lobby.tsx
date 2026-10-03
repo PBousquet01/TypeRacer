@@ -26,6 +26,7 @@ interface LobbyProps {
   onRemoveBot: (playerId: string) => void;
   invites: InviteSummary[];
   onCreateInvite: () => Promise<string | null>;
+  onKick: (playerId: string) => void;
 }
 
 export default function Lobby({
@@ -40,6 +41,7 @@ export default function Lobby({
   onRemoveBot,
   invites,
   onCreateInvite,
+  onKick,
 }: LobbyProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
@@ -125,9 +127,17 @@ export default function Lobby({
                     </button>
                   )}
                   {isHost && !isHostRow && !p.bot && (
-                    <button className="btn-link" onClick={() => onSetWatching(p.id, !p.watching)}>
-                      {p.watching ? t.lobby.letRide : t.lobby.toStands}
-                    </button>
+                    <span className="flex gap-3">
+                      <button className="btn-link" onClick={() => onSetWatching(p.id, !p.watching)}>
+                        {p.watching ? t.lobby.letRide : t.lobby.toStands}
+                      </button>
+                      <button
+                        className="btn-link text-ember"
+                        onClick={() => window.confirm(t.lobby.confirmKick(p.name)) && onKick(p.id)}
+                      >
+                        {t.lobby.kick}
+                      </button>
+                    </span>
                   )}
                 </span>
               </li>

@@ -334,6 +334,8 @@ sequenceDiagram
 | `setWatching` | navigateur → serveur | `(playerId, watching)` : envoie un participant aux estrades ou l'en fait revenir (hôte, en attente) |
 | `addBot` | navigateur → serveur | `level` : ajoute un bot de ce niveau (hôte, en attente; CONF-10) |
 | `removeBot` | navigateur → serveur | `playerId` : retire ce bot (hôte, en attente) |
+| `kickPlayer` | navigateur → serveur | `playerId` : expulse cette personne pour de bon (hôte; SALLE-07) |
+| `kicked` | serveur → la personne expulsée | elle n'est plus dans la salle et ne peut plus y revenir |
 | `startRace` | navigateur → serveur | — (hôte). Réponse : `ok` ou code d'erreur |
 | `typed` | navigateur → serveur | les touches tapées depuis le dernier envoi (`\b` pour un retour arrière) et le nombre de caractères corrects avant elles; c'est le serveur qui les juge |
 | `playAgain` | navigateur → serveur | — (hôte, sur les résultats) |
@@ -542,7 +544,7 @@ taper** est un réglage séparé de la salle (CONF-02).
 
 ## Tests et intégration continue (TECH-09)
 
-`bun test` lance 105 tests : règles du moteur de frappe, moteur des bots,
+`bun test` lance 107 tests : règles du moteur de frappe, moteur des bots,
 score et dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types
 (`tsc --noEmit`), les tests (avec une vraie base PostgreSQL) et le build à

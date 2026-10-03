@@ -73,6 +73,11 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
       setBonusEvents((list) => [...list.filter((e) => at - e.at < 10_000), { ...event, at }]);
     };
     socket.on("yourText", setMyText);
+    const onKicked = () => {
+      setRoom(null);
+      setError("kicked");
+    };
+    socket.on("kicked", onKicked);
     socket.on("bonus", onBonus);
     socket.on("connect", join); // also rejoins after a dropped connection
     if (socket.connected) join();
@@ -84,6 +89,7 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
       socket.off("positions", onPositions);
       socket.off("inviteList", setInvites);
       socket.off("yourText", setMyText);
+      socket.off("kicked", onKicked);
       socket.off("bonus", onBonus);
       socket.off("connect", join);
     };
@@ -109,6 +115,7 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
   );
   const addBot = useCallback((level: BotLevel) => getSocket().emit("addBot", level), []);
   const removeBot = useCallback((playerId: string) => getSocket().emit("removeBot", playerId), []);
+  const kickPlayer = useCallback((playerId: string) => getSocket().emit("kickPlayer", playerId), []);
   const playAgain = useCallback(() => getSocket().emit("playAgain"), []);
   const updateSettings = useCallback(
     (settings: Partial<RoomSettings>) => getSocket().emit("updateSettings", settings),
@@ -134,5 +141,6 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
     createInvite,
     myText,
     bonusEvents,
+    kickPlayer,
   };
 }

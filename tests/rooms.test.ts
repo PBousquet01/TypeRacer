@@ -493,6 +493,51 @@ describe("visibility and joining", () => {
     expect(await aliceAgain.join()).toMatchObject({ ok: true }); // same person, back again
   });
 
+  test("SALLE-07: the host kicks a rider out for good; nobody else can", async () => {
+    const { code, host } = await hostRoom("code");
+    const alice = await open(code, "Alice", "rider");
+    const bob = await open(code, "Bob", "rider");
+    await alice.join();
+    await bob.join();
+    const seen = await host.until((x) => x.players.some((p) => p.name === "Alice") && x.players.some((p) => p.name === "Bob"));
+    const aliceId = seen.players.find((p) => p.name === "Alice")!.id;
+
+    raw(bob).emit("kickPlayer", aliceId); // not the host: nothing happens
+    await sleep(150);
+    expect(host.room!.players.some((p) => p.name === "Alice")).toBe(true);
+
+    let kicked = false;
+    alice.socket.on("kicked", () => (kicked = true));
+    host.socket.emit("kickPlayer", aliceId);
+    const r = await host.until((x) => !x.players.some((p) => p.name === "Alice"));
+    expect(r.players.map((p) => p.name).sort()).toEqual(["Bob", "Host"]);
+    await sleep(100);
+    expect(kicked).toBe(true);
+
+    expect(await alice.join()).toEqual({ error: "kicked" }); // same tab, back again: refused
+    const back = await open(code, "Alice", "rider"); // a new connection from the same tab
+    expect(await back.join()).toEqual({ error: "kicked" });
+  });
+
+  test("SALLE-04, SALLE-07: a kicked rider's invite link is revoked", async () => {
+    const { code, host } = await hostRoom("private");
+    const invites: InviteSummary[][] = [];
+    host.socket.on("inviteList", (list) => invites.push(list));
+    const made = await new Promise<{ ok: true; token: string }>((resolve) =>
+      host.socket.emit("createInvite", null, (res) => resolve(res as { ok: true; token: string })),
+    );
+    const alice = await open(code, "Alice", "rider", { ip: "10.0.0.5", invite: made.token });
+    expect(await alice.join()).toMatchObject({ ok: true });
+
+    const seen = await host.until((x) => x.players.some((p) => p.name === "Alice"));
+    host.socket.emit("kickPlayer", seen.players.find((p) => p.name === "Alice")!.id);
+    await host.until((x) => !x.players.some((p) => p.name === "Alice"));
+    await sleep(100);
+    expect(invites.at(-1)).toEqual([]);
+    const someoneElse = await open(code, "Carol", "rider", { ip: "10.0.0.5", invite: made.token });
+    expect(await someoneElse.join()).toEqual({ error: "invite-invalid" });
+  });
+
   test("SALLE-04: links die with the room", async () => {
     const { code, host } = await hostRoom("private");
     const made = await new Promise<{ ok: true; token: string }>((resolve) =>

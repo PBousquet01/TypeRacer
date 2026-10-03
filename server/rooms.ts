@@ -77,6 +77,7 @@ export function clientIp(handshake: { headers: Record<string, string | string[] 
 interface Invite {
   ip: string | null;
   usedBy: string | null; // the name they joined with
+  clientId: string | null; // the tab that used it, so the link can be revoked with its holder (SALLE-07)
 }
 const MAX_INVITES = 100;
 
@@ -127,6 +128,10 @@ export interface Room {
   createdAt: number; // JOIN-03: quick play prefers the oldest of two equally full rooms
   invites: Map<string, Invite>; // token -> invite (SALLE-04)
   checkpoints: number; // BONUS-01: how many of the leader's checkpoints have been played this race
+  // SALLE-07: who the host put out, so they can't come back. By tab and by
+  // account, never by IP address: a whole class usually shares one.
+  bannedClients: Set<string>;
+  bannedUsers: Set<number>;
 }
 
 const COUNTDOWN_MS = 3000;
@@ -174,6 +179,8 @@ function createRoom(code: string, language: TextLanguage, visibility: Visibility
     createdAt: Date.now(),
     invites: new Map(),
     checkpoints: 0,
+    bannedClients: new Set(),
+    bannedUsers: new Set(),
   };
 }
 
@@ -714,6 +721,11 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       rooms.set(code, room);
     }
 
+    const user = socket.data.user ?? null;
+    if ((clientId && room.bannedClients.has(clientId)) || (user && room.bannedUsers.has(user.id))) {
+      return reply({ error: "kicked" });
+    }
+
     // The same tab coming back mid-race: hand it its lane and progress back.
     const held = clientId
       ? [...room.players.entries()].find(([, p]) => p.away && p.clientId === clientId)
@@ -762,13 +774,13 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     if (invite && invite.ip === null) {
       invite.ip = socket.data.ip;
       invite.usedBy = name;
+      invite.clientId = clientId ?? null;
     }
 
     // COURSE-7: arriving mid-race is allowed. The new rider isn't `racing`,
     // so they watch this one and ready up for the next.
     const lateArrival = finalRole === "rider" && raceInProgress(room);
 
-    const user = socket.data.user ?? null;
     room.players.set(
       socket.id,
       newPlayer(name, safeColor(color, user), finalRole, clientId ?? null, user?.id ?? null),
@@ -796,7 +808,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     if (!room || !isHost(room, socket)) return reply({ error: "host-only" });
     if (room.invites.size >= MAX_INVITES) return reply({ error: "bad-request" });
     const token = randomBytes(16).toString("base64url"); // 128 bits
-    room.invites.set(token, { ip: null, usedBy: null });
+    room.invites.set(token, { ip: null, usedBy: null, clientId: null });
     sendInvites(io, room);
     reply({ ok: true, token });
   });
@@ -911,6 +923,34 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     if (!room.players.get(id.data)?.bot) return;
     room.players.delete(id.data);
     broadcastRoom(io, room);
+  });
+
+  // SALLE-07: the host puts a rider or a spectator out of the room for good.
+  socket.on("kickPlayer", (payload) => {
+    const room = currentRoom(socket);
+    const id = parse(playerId, payload);
+    if (!room || !isHost(room, socket) || !id.ok || id.data === socket.id) return;
+    const target = room.players.get(id.data);
+    if (!target) return;
+    if (target.bot) {
+      room.players.delete(id.data);
+      broadcastRoom(io, room);
+      return;
+    }
+    if (target.clientId) room.bannedClients.add(target.clientId);
+    if (target.userId) room.bannedUsers.add(target.userId);
+    // SALLE-04: their invite link stops working too.
+    for (const [token, invite] of room.invites) {
+      if (invite.clientId && invite.clientId === target.clientId) room.invites.delete(token);
+    }
+    const kickedSocket = io.sockets.sockets.get(id.data);
+    if (kickedSocket) {
+      kickedSocket.leave(room.code);
+      kickedSocket.data.roomCode = null;
+      kickedSocket.emit("kicked");
+    }
+    removePlayer(io, room, id.data);
+    sendInvites(io, room);
   });
 
   socket.on("playAgain", () => {

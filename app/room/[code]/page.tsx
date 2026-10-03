@@ -41,6 +41,7 @@ export default function RoomPage() {
     createInvite,
     myText,
     bonusEvents,
+    kickPlayer,
   } = useRoom(code, profile, invite);
 
   if (saved === undefined && !chosen) return <Loading>{t.common.saddlingUp}</Loading>;
@@ -102,6 +103,7 @@ export default function RoomPage() {
           onRemoveBot={removeBot}
           invites={invites}
           onCreateInvite={createInvite}
+          onKick={kickPlayer}
         />
       )}
 

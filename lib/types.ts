@@ -27,6 +27,7 @@ export type ErrorCode =
   | "invite-needed"
   | "invite-invalid"
   | "invite-used"
+  | "kicked"
   | "text-failed"
   | "bad-request"
   | "username-format"
@@ -173,6 +174,7 @@ export interface ClientToServerEvents {
   setWatching: (playerId: string, watching: boolean) => void; // host only, lobby only (COURSE-6)
   addBot: (level: BotLevel) => void; // host only, lobby only (CONF-10)
   removeBot: (playerId: string) => void; // host only, lobby only (CONF-10)
+  kickPlayer: (playerId: string) => void; // host only (SALLE-07)
   // The keys pressed since the last report ("\b" for a backspace), and how
   // many characters were right before them. No verdict: the server judges.
   typed: (base: number, keys: string) => void;
@@ -188,6 +190,7 @@ export interface ServerToClientEvents {
   roomList: (rooms: RoomSummary[]) => void; // JOIN-02, to sockets watching the explorer
   inviteList: (invites: InviteSummary[]) => void; // SALLE-04, to the host only
   yourText: (text: string) => void; // BONUS-04: this rider's own text, after a bonus changed it
+  kicked: () => void; // SALLE-07: the host put this person out of the room
   bonus: (event: BonusEvent) => void; // BONUS-03
   positions: (positions: Position[]) => void;
 }
