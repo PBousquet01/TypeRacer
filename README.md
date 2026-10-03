@@ -2,6 +2,19 @@
 
 **Play it: <https://chocobo-race.onrender.com>** (free hosting: the first visit after a quiet spell takes about a minute to wake the server).
 
+## Demo account
+
+On the live site, sign in under **Connexion / Sign in** with username and
+password (not GitHub or Discord):
+
+| Username | Password |
+| --- | --- |
+| `BenocxX` | `marsh-meadow-437` |
+
+This account exists only on the live site. A local database starts empty:
+`bun run db:seed` creates the demo riders `demo`, `boko` and `mog`, with a
+race history, using the password in `SEED_PASSWORD`.
+
 A multiplayer typing race (like Monkeytype) where every rider is a chocobo
 running down a track. Type fast, run fast.
 
