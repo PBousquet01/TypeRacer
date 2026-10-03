@@ -184,6 +184,20 @@ describe("GitHub and Discord (AUTH-1, AUTH-2, AUTH-3)", () => {
   });
 });
 
+describe("rooms", () => {
+  test("SALLE-02: the server hands a host a fresh six-character code", async () => {
+    const codes = new Set<string>();
+    for (let i = 0; i < 5; i++) {
+      const res = await fetch(`${base}/api/rooms`, { method: "POST" });
+      expect(res.status).toBe(200);
+      const { code } = await res.json();
+      expect(code).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
+      codes.add(code);
+    }
+    expect(codes.size).toBe(5);
+  });
+});
+
 describe("texts and stats", () => {
   test("TXT-3: texts come from the bank, in the language asked for", async () => {
     const fr = await (await fetch(`${base}/api/text?lang=fr`)).json();

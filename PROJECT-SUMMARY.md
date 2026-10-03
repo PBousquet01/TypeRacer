@@ -70,6 +70,13 @@ join instead.
   so every key counted as right, and the server believed the count.
   What it can't stop: a script that sends the *right* keys (a bot), which
   only the speed limit bounds.
+- **Room codes come from the server (SALLE-02).** A host gets one from
+  `POST /api/rooms` (`reserveRoomCode`, held 5 min), then opens the room by
+  joining it; `joinRoom` refuses to create a room on any other code. Codes are
+  6 characters from `ROOM_CODE_CHARS` in `lib/rules.ts` (no 0/O, 1/I/L).
+  The join field cleans what's typed (`normalizeRoomCode`) and caps the
+  *cleaned* length: a `maxLength` on the raw input would cut off a pasted
+  `ABC-DEF`.
 - **Restricted mounts are enforced server-side** in `safeColor()`. Hiding them
   in the picker is cosmetic; the colour is just a string a client sends.
 - **Ranking is by score (TXT-9)**: score = WPM × accuracy (`scoreOf` in

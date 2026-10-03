@@ -235,7 +235,7 @@ stateDiagram-v2
 
 | De → vers | Déclencheur | Condition vérifiée par le serveur | Ce qui se passe | Code |
 | --- | --- | --- | --- | --- |
-| *(rien)* → EN_ATTENTE | Un hôte rejoint un code qui n'existe pas | Rôle demandé = hôte (un participant ne peut pas créer de salle) | Salle créée; la langue du texte part de la langue d'interface de l'hôte | `createRoom` |
+| *(rien)* → EN_ATTENTE | Un hôte rejoint un code qui n'existe pas | Rôle demandé = hôte, et code émis par le serveur (`POST /api/rooms`) depuis moins de 5 min (SALLE-02) | Salle créée; la langue du texte part de la langue d'interface de l'hôte | `createRoom` |
 | EN_ATTENTE → DÉCOMPTE | L'hôte clique « Lancer la course » (`startRace`) | C'est bien l'hôte; salle en attente; au moins 2 participants prêts. Revérifié après le chargement du texte (un double clic ne lance qu'une course) | Un texte est tiré de la banque selon la configuration; seuls les participants **prêts** deviennent partants; départ fixé à maintenant + 3 s | `startRace`, `startCountdown` |
 | DÉCOMPTE → EN_COURSE | Minuterie de 3 s (`COUNTDOWN_MS`) | — | Les positions sont diffusées toutes les 100 ms; la minuterie de 3 min démarre | `startRace` |
 | EN_COURSE → RÉSULTATS | Le dernier partant franchit la ligne | Tous les partants ont fini (vérifié aussi quand quelqu'un part) | Classement, résultats enregistrés pour les comptes connectés | `endIfEveryoneFinished`, `endRace`, `rankFinishers` |
@@ -352,6 +352,7 @@ course : les résultats le sont une fois, à la fin.
 | `POST /api/auth/signup`, `login`, `logout` | Comptes par nom d'utilisateur et mot de passe; la session est un cookie HttpOnly |
 | `GET /api/auth/me` | L'utilisateur connecté (ou `null`) et les fournisseurs proposés |
 | `GET /api/auth/github/start`, `…/callback` (idem `discord`) | Connexion OAuth (AUTH-01); connecté, cela lie le compte. Détails dans `server/oauth.ts` |
+| `POST /api/rooms` | Un code de salle neuf, de 6 caractères, réservé pour l'hôte (SALLE-02) |
 | `GET /api/text?lang=en\|fr&kind=sentences\|words` | Un texte pour l'entraînement |
 | `GET /api/stats/me` | Résumé et 10 dernières courses (connecté) |
 | `GET /api/stats/leaderboard` | Meilleurs scores du serveur |

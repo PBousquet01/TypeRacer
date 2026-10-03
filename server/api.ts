@@ -6,6 +6,7 @@ import { count, desc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "./db";
 import { races, users } from "./schema";
 import { isKind, isLanguage, pickText } from "./texts";
+import { reserveRoomCode } from "./rooms";
 import { authorizeUrl, configuredProviders, fetchProfile, isProvider, newState, stateCookie, stateMatches } from "./oauth";
 import {
   createOAuthUser,
@@ -230,6 +231,12 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
   if (path === "/api/stats/me" && method === "GET") {
     if (!me) return send(res, 401, { error: "sign-in-for-stats" }), true;
     send(res, 200, await statsFor(me.id));
+    return true;
+  }
+
+  // SALLE-02: a fresh room code for a host about to open a room.
+  if (path === "/api/rooms" && method === "POST") {
+    send(res, 200, { code: reserveRoomCode() });
     return true;
   }
 

@@ -21,6 +21,7 @@
         "drizzle-kit": "0.31.11",
         "eslint": "^9",
         "eslint-config-next": "16.3.5",
+        "jiti": "2.7.0",
         "tailwindcss": "^4.3.3",
         "typescript": "~6.0.0",
       },

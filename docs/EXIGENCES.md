@@ -14,10 +14,10 @@ que tout changement qui fait avancer une exigence.
 
 | Section | ✅ | 🟡 | ❌ | Total |
 | --- | --- | --- | --- | --- |
-| Contraintes techniques (TECH) | 7 | 2 | 1 | 10 |
+| Contraintes techniques (TECH) | 8 | 1 | 1 | 10 |
 | Identité visuelle et design (DES) | 5 | 1 | 0 | 6 |
 | Comptes et profil (AUTH) | 1 | 3 | 2 | 6 |
-| Salles et visibilité (SALLE) | 1 | 4 | 5 | 10 |
+| Salles et visibilité (SALLE) | 2 | 3 | 5 | 10 |
 | Rejoindre une course (JOIN) | 1 | 0 | 2 | 3 |
 | Configuration (CONF) | 3 | 1 | 8 | 12 |
 | Déroulement d'une course (COURSE) | 6 | 4 | 1 | 11 |
@@ -30,14 +30,14 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 2 | 0 | 1 | 3 |
-| **Total** | **31** | **23** | **36** | **90** |
+| **Total** | **33** | **21** | **36** | **90** |
 
 ## Contraintes techniques (TECH)
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
 | TECH-01 | ✅ | `app/`, `server.ts` | CI : étape « Build » | Next.js 16, App Router, React 19. |
-| TECH-02 | 🟡 | `tsconfig.json`, `eslint.config.mjs` | CI : étapes « Lint » et « Type-check » | `strict: true`; `no-explicit-any` est en erreur (règle incluse par `eslint-config-next/typescript`); aucun `any`, `@ts-ignore` ni `@ts-expect-error`. **Reste** : `eslint.config.mjs` et `postcss.config.mjs` à convertir en TypeScript. |
+| TECH-02 | ✅ | `tsconfig.json`, `eslint.config.ts`, `postcss.config.json` | CI : étapes « Lint » et « Type-check » | Aucun fichier `.js`, `.jsx`, `.mjs` ou `.cjs` dans le dépôt; `strict: true`; `no-explicit-any` est en erreur (règle incluse par `eslint-config-next/typescript`); aucun `any`, `@ts-ignore` ni `@ts-expect-error`. |
 | TECH-03 | ✅ | `app/globals.css`, `components/` | CI : étape « Build » | Tailwind CSS v4. |
 | TECH-04 | ✅ | `server/schema.ts`, `drizzle/`, `server/db.ts`, `scripts/seed.ts` | Tests de `api.test.ts` et `rooms.test.ts` sur une vraie base (la CI part d'une base vide et applique les migrations) | PostgreSQL 17 et Drizzle ORM : schéma, requêtes, migrations versionnées appliquées au démarrage, seed (textes, comptes de démonstration, historique). Voir [ARCHITECTURE.md](ARCHITECTURE.md#accès-aux-données-tech-04). |
 | TECH-05 | 🟡 | `render.yaml`, `GET /api/health` | En ligne : <https://chocobo-race.onrender.com> (HTTPS, course complète jouée le 2 octobre 2026) | Fonctionnel en production en HTTPS, mais sur Render (plateforme gratuite), pas sur un VPS. Approbation de l'enseignant demandée. Justification dans [deploiement.md](deploiement.md). |
@@ -74,7 +74,7 @@ que tout changement qui fait avancer une exigence.
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
 | SALLE-01 | 🟡 | `createRoom`, réglage « Toi, l'hôte » (`settings.hostRides`) | « COURSE-5: a host who rides counts towards the minimum and races » | L'hôte choisit de courir ou de regarder. **Reste** : réserver la création aux utilisateurs connectés. |
-| SALLE-02 | 🟡 | `app/page.tsx` (`makeRoomCode`) | « riders need a room that exists » | Alphabet sans 0/O, 1/I/L. **Reste** : 6 caractères au lieu de 5, générés par le serveur. |
+| SALLE-02 | ✅ | `lib/rules.ts`, `reserveRoomCode` dans `server/rooms.ts`, `POST /api/rooms` | « SALLE-02: room codes are six unambiguous characters », « SALLE-02: a malformed code is refused », « SALLE-02: a host can't open a room on a code the server didn't issue », « SALLE-02: the server hands a host a fresh six-character code » | 6 caractères tirés par le serveur (`crypto.randomInt`) parmi 31, sans 0/O, 1/I/L; jamais un code déjà pris. Un hôte ne peut ouvrir une salle que sur un code émis par le serveur (réservé 5 min). Un code tapé avec des minuscules, des espaces ou des tirets est accepté. |
 | SALLE-03 | 🟡 | `server/rooms.ts` | — | Toutes les salles sont « sur code ». **Reste** : publique et privée. |
 | SALLE-04 | ❌ | — | — | Liens d'invitation à usage unique, liés à une adresse IP. |
 | SALLE-05 | 🟡 | `lib/rules.ts` (`MIN_RIDERS`, `MAX_RIDERS`) | « COURSE-3: a race needs two ready riders », « COURSE-4: a room takes 40 riders, not one more » | Minimum 2, maximum fixe de 40; les spectateurs ne comptent pas. **Reste** : capacité réglable par l'hôte, de 2 à 30. |

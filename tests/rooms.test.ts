@@ -87,6 +87,32 @@ describe("lobby rules", () => {
     expect(await a.join()).toEqual({ error: "no-room" });
   });
 
+  test("SALLE-02: room codes are six unambiguous characters", () => {
+    for (let i = 0; i < 200; i++) {
+      expect(freshCode()).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
+    }
+  });
+
+  test("SALLE-02: a malformed code is refused", async () => {
+    for (const code of ["", "ABC", "ABCDEFG", "ABCDE0", "ABCDEL"]) {
+      const host = await open(code, "Host", "host");
+      expect(await host.join()).toEqual({ error: "bad-code" });
+    }
+  });
+
+  test("SALLE-02: a host can't open a room on a code the server didn't issue", async () => {
+    const host = await open("HHHHHH", "Host", "host");
+    expect(await host.join()).toEqual({ error: "no-room" });
+  });
+
+  test("SALLE-02: an issued code opens one room, and a pasted code with dashes still finds it", async () => {
+    const code = freshCode();
+    const host = await open(code, "Host", "host");
+    expect(await host.join()).toMatchObject({ ok: true, role: "host" });
+    const rider = await open(`${code.slice(0, 3)}-${code.slice(3).toLowerCase()}`, "Alice", "rider");
+    expect(await rider.join()).toMatchObject({ ok: true, role: "rider" });
+  });
+
   test("a rider name that breaks the rules is refused", async () => {
     const code = freshCode();
     const host = await open(code, "Host", "host");

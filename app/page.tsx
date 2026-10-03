@@ -14,12 +14,7 @@ import { useSession } from "@/lib/session";
 import { saveProfile, useSavedProfile } from "@/lib/profile";
 import { useT } from "@/lib/i18n";
 import { RIDER_NAME_MAX, cleanRiderName } from "@/lib/names";
-import type { Role } from "@/lib/types";
-
-function makeRoomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-}
+import { ROOM_CODE_LENGTH, isRoomCode, normalizeRoomCode } from "@/lib/rules";
 
 export default function Home() {
   return (
@@ -60,13 +55,32 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
   const [joinCode, setJoinCode] = useState(initialJoinCode);
   const [error, setError] = useState("");
 
-  function goToRoom(code: string, role: Role) {
-    if (!name.trim()) return setError(t.home.pickName);
+  function riderNameOrError(): string | null {
+    if (!name.trim()) return setError(t.home.pickName), null;
     const riderName = cleanRiderName(name);
-    if (!riderName) return setError(t.errors["name-format"]);
+    if (!riderName) return setError(t.errors["name-format"]), null;
+    return riderName;
+  }
+
+  function joinRoom() {
+    const riderName = riderNameOrError();
+    if (!riderName) return;
+    const code = normalizeRoomCode(joinCode);
     if (!code) return setError(t.home.enterCode);
-    saveProfile({ name: riderName, color, role });
+    if (!isRoomCode(code)) return setError(t.errors["bad-code"]);
+    saveProfile({ name: riderName, color, role: "rider" });
     router.push(`/room/${code}`);
+  }
+
+  async function hostRoom() {
+    const riderName = riderNameOrError();
+    if (!riderName) return;
+    const reply = await fetch("/api/rooms", { method: "POST" })
+      .then((res) => (res.ok ? (res.json() as Promise<{ code: string }>) : null))
+      .catch(() => null);
+    if (!reply) return setError(t.errors["server-error"]);
+    saveProfile({ name: riderName, color, role: "host" });
+    router.push(`/room/${reply.code}`);
   }
 
   return (
@@ -111,7 +125,7 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
 
           {error && <ErrorText>{error}</ErrorText>}
 
-          <button className="btn btn-primary btn-block" onClick={() => goToRoom(makeRoomCode(), "host")}>
+          <button className="btn btn-primary btn-block" onClick={hostRoom}>
             {t.home.hostRace}
           </button>
           <FinePrint>{t.home.hostHint}</FinePrint>
@@ -122,15 +136,14 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
             className="flex gap-2"
             onSubmit={(e) => {
               e.preventDefault();
-              goToRoom(joinCode.trim(), "rider");
+              joinRoom();
             }}
           >
             <input
               className="tracking-[0.18em] uppercase"
               value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+              onChange={(e) => setJoinCode(normalizeRoomCode(e.target.value).slice(0, ROOM_CODE_LENGTH))}
               placeholder={t.home.roomCode}
-              maxLength={8}
               aria-label={t.home.roomCodeLabel}
             />
             <button className="btn" type="submit">

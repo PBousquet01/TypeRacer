@@ -9,10 +9,21 @@
 //     ▲                                                        │ everyone finished,
 //     └────────────── playAgain (host) ◀──── finished ◀────────┘ 30 s after the first
 //                                                                finisher, or 3 min
+import { randomInt } from "node:crypto";
 import type { Server, Socket } from "socket.io";
 import { isKind, isLanguage, pickText } from "./texts";
 import { recordRace } from "./stats";
-import { FINISH_GRACE_MS, MAX_RIDERS, MIN_RIDERS, RECONNECT_MS, scoreOf } from "../lib/rules";
+import {
+  FINISH_GRACE_MS,
+  MAX_RIDERS,
+  MIN_RIDERS,
+  RECONNECT_MS,
+  ROOM_CODE_CHARS,
+  ROOM_CODE_LENGTH,
+  isRoomCode,
+  normalizeRoomCode,
+  scoreOf,
+} from "../lib/rules";
 import { cleanRiderName } from "../lib/names";
 import { accuracyOf, correctPrefixLength, EMPTY_STATE, replayKeys, type TypingState } from "../lib/typing";
 import type {
@@ -411,21 +422,49 @@ function leaveCurrentRoom(io: IO, socket: ClientSocket) {
   endIfEveryoneFinished(io, room);
 }
 
+// SALLE-02: codes are made here, never by a browser. A host first asks for
+// one (POST /api/rooms), then opens the room by joining it. The code is held
+// for a few minutes so nobody else can be handed it in between, and a host
+// can't open a room on a code the server didn't issue.
+const RESERVATION_MS = 5 * 60_000;
+const reservedCodes = new Map<string, number>(); // code → expiry time
+
+export function reserveRoomCode(): string {
+  const now = Date.now();
+  for (const [code, expires] of reservedCodes) {
+    if (expires <= now) reservedCodes.delete(code);
+  }
+  for (;;) {
+    const code = Array.from({ length: ROOM_CODE_LENGTH }, () => ROOM_CODE_CHARS[randomInt(ROOM_CODE_CHARS.length)]).join("");
+    if (!rooms.has(code) && !reservedCodes.has(code)) {
+      reservedCodes.set(code, now + RESERVATION_MS);
+      return code;
+    }
+  }
+}
+
+function claimReservedCode(code: string): boolean {
+  const expires = reservedCodes.get(code);
+  reservedCodes.delete(code);
+  return expires !== undefined && expires > Date.now();
+}
+
 export function registerRoomHandlers(io: IO, socket: ClientSocket) {
   socket.on("joinRoom", (payload, reply = () => {}) => {
     const { color, role, clientId } = payload ?? {};
-    const code = String(payload?.code ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+    const code = normalizeRoomCode(payload?.code);
     const name = cleanRiderName(payload?.name);
     const wantsHost = role === "host";
-    if (!code) return reply({ error: "bad-code" });
+    if (!isRoomCode(code)) return reply({ error: "bad-code" });
     if (!name) return reply({ error: "name-format" });
 
     leaveCurrentRoom(io, socket);
 
     let room = rooms.get(code);
     if (!room) {
-      // Only a host opens a room; riders need a room that already exists.
-      if (!wantsHost) {
+      // Only a host opens a room, on a code the server issued; riders need a
+      // room that already exists.
+      if (!wantsHost || !claimReservedCode(code)) {
         return reply({ error: "no-room" });
       }
       room = createRoom(code, isLanguage(payload?.lang) ? payload.lang : "en");

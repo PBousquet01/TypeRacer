@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
-import { registerRoomHandlers, type IO } from "../server/rooms";
+import { registerRoomHandlers, reserveRoomCode, type IO } from "../server/rooms";
 import type { ActionReply, ClientToServerEvents, JoinReply, PublicRoom, ServerToClientEvents } from "../lib/types";
 
 /** The real room referee on a random port, with every socket treated as a guest. */
@@ -67,6 +67,5 @@ export async function client(url: string, code: string, name: string, role: "hos
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-let counter = 0;
-/** A room code no other test uses (the referee keeps rooms in one shared map). */
-export const freshCode = () => `T${Date.now().toString(36).slice(-4).toUpperCase()}${counter++}`;
+/** A room code issued by the referee, as a host gets from POST /api/rooms. */
+export const freshCode = () => reserveRoomCode();
