@@ -110,6 +110,10 @@ export const signupBody = credentials.extend({
   displayName: z.string().max(64).optional(),
 });
 
+export const displayNameBody = z.object({
+  displayName: riderName,
+});
+
 export const loginBody = z.object({
   username: z.string().trim().max(64),
   password: z.string().max(MAX_PASSWORD),

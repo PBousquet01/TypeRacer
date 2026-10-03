@@ -30,6 +30,7 @@ export type ErrorCode =
   | "invite-used"
   | "kicked"
   | "no-race"
+  | "sign-in-needed"
   | "text-failed"
   | "bad-request"
   | "username-format"

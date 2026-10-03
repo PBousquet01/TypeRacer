@@ -165,6 +165,12 @@ export async function revokeMount(userId: number, mount: string): Promise<void> 
   await db.delete(unlocks).where(and(eq(unlocks.userId, userId), eq(unlocks.mount, mount)));
 }
 
+/** AUTH-05: the name shown in races and on the leaderboard. The username used to sign in doesn't change. */
+export async function setDisplayName(userId: number, displayName: string): Promise<User | null> {
+  await db.update(users).set({ displayName }).where(eq(users.id, userId));
+  return findUserById(userId);
+}
+
 export async function findUserByUsername(username: string | undefined): Promise<User | null> {
   const [row] = await db.select({ id: users.id }).from(users).where(usernameIs(username ?? ""));
   return row ? findUserById(row.id) : null;

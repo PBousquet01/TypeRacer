@@ -16,7 +16,7 @@ que tout changement qui fait avancer une exigence.
 | --- | --- | --- | --- | --- |
 | Contraintes techniques (TECH) | 9 | 1 | 0 | 10 |
 | Identité visuelle et design (DES) | 5 | 1 | 0 | 6 |
-| Comptes et profil (AUTH) | 2 | 2 | 2 | 6 |
+| Comptes et profil (AUTH) | 3 | 2 | 1 | 6 |
 | Salles et visibilité (SALLE) | 5 | 2 | 3 | 10 |
 | Rejoindre une course (JOIN) | 2 | 1 | 0 | 3 |
 | Configuration (CONF) | 5 | 2 | 5 | 12 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 2 | 0 | 1 | 3 |
-| **Total** | **57** | **18** | **15** | **90** |
+| **Total** | **58** | **18** | **14** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -44,7 +44,7 @@ que tout changement qui fait avancer une exigence.
 | TECH-06 | ✅ | `server/rooms.ts`, `components/Track.tsx` | Tous les tests de `rooms.test.ts` | Socket.IO. Voir [ADR-001](ARCHITECTURE.md#adr-001--technologie-temps-réel). |
 | TECH-07 | ✅ | `server/schemas.ts`, `server/rooms.ts`, `server/api.ts` | « TECH-07: a join of the wrong shape is refused, and a bad acknowledgement can't crash the server », « TECH-07: setWatching with the wrong types is ignored », « invalid settings are ignored », « the server judges the keys: wrong ones don't move the bird », « a body that isn't the expected shape gets the matching error code », « a body that isn't JSON is a bad request », « a text in a language the site doesn't have is refused » | Zod : chaque message Socket.IO qui porte des données (`joinRoom`, `updateSettings`, `setWatching`, `typed`), chaque corps JSON (`signup`, `login`, `admin/mount`) et chaque paramètre d'URL (`/api/text`, retour OAuth). Les messages d'erreur des schémas sont les codes d'erreur de l'API. Le projet n'utilise pas d'actions serveur Next.js. |
 | TECH-08 | ✅ | `render.yaml` | — | Render et Neon en forfaits gratuits; GitHub et Discord OAuth gratuits. Rien à payer pour corriger. |
-| TECH-09 | ✅ | `.github/workflows/ci.yml` | 111 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
+| TECH-09 | ✅ | `.github/workflows/ci.yml` | 112 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
 | TECH-10 | ✅ | `.env.example`, `.gitignore` | — | Toutes les variables lues par le serveur et les scripts y sont documentées. Aucun secret commité. |
 
 ## Identité visuelle et design (DES)
@@ -66,7 +66,7 @@ que tout changement qui fait avancer une exigence.
 | AUTH-02 | 🟡 | `app/page.tsx`, `lib/profile.ts` | Tous les tests de `rooms.test.ts` jouent en invité | Pseudonyme de 2 à 16 caractères, gardé dans le navigateur. **Reste** : 3 à 20 caractères, session d'invité dans un cookie signé. |
 | AUTH-03 | 🟡 | `server/rooms.ts`, `server/stats.ts` | — | Pas d'historique pour les invités. **Reste** : un invité peut encore créer une salle; avatar généré. |
 | AUTH-04 | ❌ | — | — | Photo de profil (JPEG, PNG, WebP, 2 Mo, redimensionnée). |
-| AUTH-05 | ❌ | — | — | Pseudonyme d'affichage modifiable. |
+| AUTH-05 | ✅ | `POST /api/account/name`, `setDisplayName` dans `server/auth.ts`, formulaire « Nom de cavalier » de `app/account/page.tsx` | « AUTH-05: a signed-in rider changes their display name; the username stays » | Validé comme tout nom de cavalier (2 à 16 caractères : lettres, chiffres, espaces, - et _). Le nom d'utilisateur servant à la connexion ne change pas; les résultats déjà enregistrés gardent le nom de l'époque. |
 | AUTH-06 | ✅ | `app/stats/page.tsx`, `components/ProgressChart.tsx`, `GET /api/stats/me` | « stats need an account », « RES-04: beating your best WPM is a personal record; a first or a slower race isn't » | Meilleur MPM, MPM moyen, précision moyenne, nombre de courses et de victoires, et graphique du MPM de ses 100 dernières courses (la plus ancienne à gauche, info-bulle avec la date). |
 
 ## Salles et visibilité (SALLE)
@@ -175,7 +175,7 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| TEST-01 | ✅ | `tests/` | 111 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
+| TEST-01 | ✅ | `tests/` | 112 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
 | TEST-02 | ❌ | — | — | Playwright. |
 | TEST-03 | ❌ | — | — | La connexion par nom d'utilisateur et mot de passe existe déjà; les tests Playwright l'utiliseront. |
 

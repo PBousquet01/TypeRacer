@@ -330,6 +330,22 @@ describe("texts and stats", () => {
     }
   });
 
+  test("AUTH-05: a signed-in rider changes their display name; the username stays", async () => {
+    expect((await post("/api/account/name", { displayName: "Nobody" })).status).toBe(401);
+    const login = await post("/api/auth/login", { username, password });
+    const cookie = sessionFrom(login);
+    const renamed = await post("/api/account/name", { displayName: "  Éloïse   la Rapide " }, cookie);
+    expect(renamed.status).toBe(200);
+    expect((await renamed.json()).user).toMatchObject({ displayName: "Éloïse la Rapide", username });
+    const me = await (await fetch(`${base}/api/auth/me`, { headers: { cookie } })).json();
+    expect(me.user.displayName).toBe("Éloïse la Rapide");
+    for (const bad of ["x", "<b>bold</b>", "a".repeat(17), 42]) {
+      const res = await post("/api/account/name", { displayName: bad }, cookie);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "name-format" });
+    }
+  });
+
   test("admin routes are closed to everyone else", async () => {
     const res = await post("/api/admin/mount", { username, mount: "fox" });
     expect(res.status).toBe(403);

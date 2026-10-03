@@ -67,6 +67,8 @@ function YourAccount({ user, error, justLinked }: { user: User; error: ErrorCode
       {justLinked && <Notice>{t.account.justLinked(PROVIDER_NAMES[justLinked])}</Notice>}
       {error && <ErrorText>{t.errors[error]}</ErrorText>}
 
+      <RenameForm user={user} />
+
       {shown.length > 0 && (
         <>
           <FieldLabel>{t.account.linkedTitle}</FieldLabel>
@@ -89,6 +91,45 @@ function YourAccount({ user, error, justLinked }: { user: User; error: ErrorCode
         <Link href="/">{t.common.backToStables}</Link>
       </FinePrint>
     </div>
+  );
+}
+
+function RenameForm({ user }: { user: User }) {
+  const t = useT();
+  const { rename } = useSession();
+  const [name, setName] = useState(user.displayName);
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState<string | null>(null);
+  const [error, setError] = useState<ErrorCode | null>(null);
+
+  async function submit(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setSaved(null);
+    setError(null);
+    try {
+      const updated = await rename(name);
+      setSaved(updated.displayName);
+      setName(updated.displayName);
+    } catch (err) {
+      setError((err instanceof Error ? err.message : "unknown") as ErrorCode);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form className="grid gap-2.5" onSubmit={submit}>
+      <Field label={t.account.nameTitle}>
+        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={RIDER_NAME_MAX} required />
+      </Field>
+      <FinePrint>{t.account.nameHint}</FinePrint>
+      {saved && <Notice>{t.account.nameSaved(saved)}</Notice>}
+      {error && <ErrorText>{t.errors[error] ?? t.errors.unknown}</ErrorText>}
+      <button className="btn" type="submit" disabled={busy || name.trim() === user.displayName}>
+        {busy ? t.account.oneMoment : t.account.saveName}
+      </button>
+    </form>
   );
 }
 

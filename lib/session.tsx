@@ -14,6 +14,7 @@ interface Session extends SessionState {
   signIn: (username: string, password: string) => Promise<User>;
   signUp: (username: string, password: string, displayName: string) => Promise<User>;
   signOut: () => Promise<void>;
+  rename: (displayName: string) => Promise<User>;
 }
 
 const signedOut = async () => {
@@ -28,6 +29,7 @@ const SessionContext = createContext<Session>({
   signIn: signedOut,
   signUp: signedOut,
   signOut: signedOut,
+  rename: signedOut,
 });
 
 async function post(path: string, body?: Record<string, string>) {
@@ -79,6 +81,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       signUp: async (username, password, displayName) => {
         const { user } = await post("/api/auth/signup", { username, password, displayName });
         setState((s) => ({ ...s, user, loading: false }));
+        return user;
+      },
+      rename: async (displayName) => {
+        const { user } = await post("/api/account/name", { displayName });
+        setState((s) => ({ ...s, user }));
         return user;
       },
       signOut: async () => {

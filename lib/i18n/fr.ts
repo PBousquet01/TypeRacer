@@ -48,6 +48,7 @@ const errors: Record<ErrorCode, string> = {
   "invite-used": "Quelqu'un d'autre a déjà utilisé ce lien d'invitation. Demande le tien à l'hôte.",
   kicked: "L'hôte t'a expulsé de ce salon. Tu ne peux plus y revenir.",
   "no-race": "Cette course n'est pas dans ton historique.",
+  "sign-in-needed": "Connecte-toi d'abord.",
   "text-failed": "Impossible de charger un texte. Réessaie.",
   "bad-request": "Requête invalide.",
   "username-format": "Le nom d'utilisateur fait de 3 à 16 caractères : lettres, chiffres, - et _ seulement.",
@@ -391,6 +392,10 @@ export const fr: Dictionary = {
     link: (provider) => `Lier ${provider}`,
     isLinked: (provider) => `${provider} : lié`,
     justLinked: (provider) => `${provider} est maintenant lié à ton compte.`,
+    nameTitle: "Nom de cavalier",
+    nameHint: "Ce que tout le monde voit en course et dans le classement. Ton nom d'utilisateur ne change pas.",
+    saveName: "Enregistrer le nom",
+    nameSaved: (name) => `Tu cours maintenant sous le nom ${name}.`,
   },
   stats: {
     back: "RETOUR À L'ÉCURIE",

@@ -33,6 +33,7 @@ const errors: Record<ErrorCode, string> = {
   "invite-used": "Someone else already used that invite link. Ask the host for your own.",
   kicked: "The host put you out of this room. You can't come back into it.",
   "no-race": "That race isn't in your history.",
+  "sign-in-needed": "Sign in first.",
   "text-failed": "Couldn't load a passage. Try again.",
   "bad-request": "Bad request.",
   "username-format": "Usernames are 3–16 characters: letters, numbers, - and _ only.",
@@ -378,6 +379,10 @@ export const en = {
     link: (provider: string) => `Link ${provider}`,
     isLinked: (provider: string) => `${provider}: linked`,
     justLinked: (provider: string) => `${provider} is now linked to this account.`,
+    nameTitle: "Rider name",
+    nameHint: "What everyone sees in races and on the leaderboard. Your username stays the same.",
+    saveName: "Save name",
+    nameSaved: (name: string) => `You now ride as ${name}.`,
   },
   stats: {
     back: "BACK TO THE STABLES",

@@ -371,6 +371,7 @@ course : les résultats le sont une fois, à la fin.
 | --- | --- |
 | `POST /api/auth/signup`, `login`, `logout` | Comptes par nom d'utilisateur et mot de passe; la session est un cookie HttpOnly |
 | `GET /api/auth/me` | L'utilisateur connecté (ou `null`) et les fournisseurs proposés |
+| `POST /api/account/name` | Change le nom de cavalier de l'utilisateur connecté (AUTH-05) |
 | `GET /api/auth/github/start`, `…/callback` (idem `discord`) | Connexion OAuth (AUTH-01); connecté, cela lie le compte. Détails dans `server/oauth.ts` |
 | `POST /api/rooms` | Un code de salle neuf, de 6 caractères, réservé pour l'hôte (SALLE-02), avec la visibilité de départ demandée (`{ visibility }`, sur code par défaut) |
 | `POST /api/rooms/quick` | La salle publique où envoyer un cavalier (« Faire une course », JOIN-03), ou `null` |
@@ -557,7 +558,7 @@ taper** est un réglage séparé de la salle (CONF-02).
 
 ## Tests et intégration continue (TECH-09)
 
-`bun test` lance 111 tests : règles du moteur de frappe, moteur des bots,
+`bun test` lance 112 tests : règles du moteur de frappe, moteur des bots,
 score et dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types
 (`tsc --noEmit`), les tests (avec une vraie base PostgreSQL) et le build à

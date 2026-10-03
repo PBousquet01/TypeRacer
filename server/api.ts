@@ -8,6 +8,7 @@ import { raceRuns, races, users } from "./schema";
 import { pickText } from "./texts";
 import { quickRaceRoom, reserveRoomCode } from "./rooms";
 import {
+  displayNameBody,
   historyQuery,
   loginBody,
   mountBody,
@@ -34,6 +35,7 @@ import {
   tokenFromCookies,
   userForToken,
   verifyLogin,
+  setDisplayName,
 } from "./auth";
 import type { ErrorCode, HistoryPage, LeaderboardRow, PastRace, ProgressPoint, RecentRace, StatsSummary, User } from "../lib/types";
 
@@ -252,6 +254,15 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
 
     const token = await createSession(user.id);
     send(res, 200, { user: publicUser(user) }, { "Set-Cookie": sessionCookie(token) });
+    return true;
+  }
+
+  // AUTH-05: change the name shown in races; checked like any rider name.
+  if (path === "/api/account/name" && method === "POST") {
+    if (!me) return send(res, 401, { error: "sign-in-needed" }), true;
+    const body = parse(displayNameBody, await readJson(req));
+    if (!body.ok) return send(res, 400, { error: body.error }), true;
+    send(res, 200, { user: publicUser(await setDisplayName(me.id, body.data.displayName)) });
     return true;
   }
 
