@@ -6,7 +6,7 @@ import { BotTag, Choice, FinePrint, HostTag, MonoNote, Panel, PanelTitle, Spec, 
 import { cn } from "@/lib/cn";
 import { MAX_RIDERS, MIN_RIDERS } from "@/lib/rules";
 import { useT } from "@/lib/i18n";
-import type { PublicRoom, RoomSettings } from "@/lib/types";
+import type { InviteSummary, PublicRoom, RoomSettings } from "@/lib/types";
 import type { BotLevel } from "@/lib/bots";
 
 const RIDER_ROW = "flex items-center gap-3 border-b border-edge/14 py-3 last:border-b-0 light:border-ink/14";
@@ -24,6 +24,8 @@ interface LobbyProps {
   onSetWatching: (playerId: string, watching: boolean) => void;
   onAddBot: (level: BotLevel) => void;
   onRemoveBot: (playerId: string) => void;
+  invites: InviteSummary[];
+  onCreateInvite: () => Promise<string | null>;
 }
 
 export default function Lobby({
@@ -36,6 +38,8 @@ export default function Lobby({
   onSetWatching,
   onAddBot,
   onRemoveBot,
+  invites,
+  onCreateInvite,
 }: LobbyProps) {
   const t = useT();
   const [copied, setCopied] = useState(false);
@@ -49,12 +53,31 @@ export default function Lobby({
   const freeStalls = MAX_RIDERS - riders.length;
   const canStart = readyCount >= MIN_RIDERS;
 
+  const isPrivate = room.settings.visibility === "private";
+  const [copiedInvite, setCopiedInvite] = useState<string | null>(null);
+  const inviteUrl = (token: string) => `${window.location.origin}/room/${room.code}?invite=${encodeURIComponent(token)}`;
+
   function copyLink() {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
+    navigator.clipboard
+      .writeText(`${window.location.origin}/room/${room.code}`)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {}); // clipboard refused: the room code is on screen anyway
   }
+
+  function copyInvite(token: string) {
+    navigator.clipboard
+      .writeText(inviteUrl(token))
+      .then(() => {
+        setCopiedInvite(token);
+        setTimeout(() => setCopiedInvite((current) => (current === token ? null : current)), 1500);
+      })
+      .catch(() => {});
+  }
+
+
 
   return (
     <div className="grid gap-4 wide:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
@@ -145,7 +168,40 @@ export default function Lobby({
                 options={t.lobby.hostOptions}
                 onChange={(choice) => onChangeSettings({ hostRides: choice === "ride" })}
               />
+              <Choice
+                label={t.lobby.visibilityLabel}
+                value={room.settings.visibility}
+                options={t.lobby.visibilityOptions}
+                onChange={(visibility) => onChangeSettings({ visibility })}
+              />
+              <FinePrint>{t.lobby.visibilityHint[room.settings.visibility]}</FinePrint>
               <FinePrint>{t.lobby.settingsHint}</FinePrint>
+            </Panel>
+            <Panel>
+              <PanelTitle>{t.lobby.invites}</PanelTitle>
+              {invites.length === 0 ? (
+                <MonoNote>{t.lobby.noInvites}</MonoNote>
+              ) : (
+                <ul className="m-0 grid list-none gap-2 p-0">
+                  {invites.map((invite, i) => (
+                    <li key={invite.token} className="flex items-center justify-between gap-3 font-body text-[13px]/[1.3]">
+                      <span className="min-w-0">
+                        <span className="text-strong">#{i + 1}</span>{" "}
+                        <span className={invite.usedBy ? "text-green" : "text-muted"}>
+                          {invite.usedBy ? t.lobby.inviteUsedBy(invite.usedBy) : t.lobby.inviteUnused}
+                        </span>
+                      </span>
+                      <button className="btn-link" onClick={() => copyInvite(invite.token)}>
+                        {copiedInvite === invite.token ? t.lobby.copied : t.lobby.copy}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <button className="btn btn-block" onClick={onCreateInvite}>
+                {t.lobby.newInvite}
+              </button>
+              <FinePrint>{t.lobby.invitesHint}</FinePrint>
             </Panel>
             <Panel>
               <PanelTitle>{t.lobby.bots}</PanelTitle>
@@ -207,9 +263,11 @@ export default function Lobby({
                 {isHost ? t.lobby.runningShow : ` · ${t.mount.label(me?.color).toLowerCase()}`}
               </span>
             </span>
-            <button className="btn-link" onClick={copyLink}>
-              {copied ? t.lobby.copied : t.lobby.copyInvite}
-            </button>
+            {!isPrivate && (
+              <button className="btn-link" onClick={copyLink}>
+                {copied ? t.lobby.copied : t.lobby.copyInvite}
+              </button>
+            )}
           </div>
         </Panel>
       </aside>

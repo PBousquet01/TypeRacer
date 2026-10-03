@@ -5,9 +5,9 @@ import { getSocket } from "@/lib/socket";
 import { clientId } from "@/lib/profile";
 import { useI18n } from "@/lib/i18n";
 import type { BotLevel } from "@/lib/bots";
-import type { ErrorCode, NoticeCode, Position, Profile, PublicRoom, RoomSettings } from "@/lib/types";
+import type { ErrorCode, InviteSummary, NoticeCode, Position, Profile, PublicRoom, RoomSettings } from "@/lib/types";
 
-export function useRoom(code: string, profile: Profile | null) {
+export function useRoom(code: string, profile: Profile | null, invite: string | null = null) {
   const { lang } = useI18n();
   const langRef = useRef(lang);
   useEffect(() => {
@@ -19,6 +19,7 @@ export function useRoom(code: string, profile: Profile | null) {
   const [notice, setNotice] = useState<NoticeCode | null>(null);
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
   const [finishDeadline, setFinishDeadline] = useState<number | null>(null);
+  const [invites, setInvites] = useState<InviteSummary[]>([]);
   const lastStatus = useRef<PublicRoom["status"] | null>(null);
 
   useEffect(() => {
@@ -27,7 +28,8 @@ export function useRoom(code: string, profile: Profile | null) {
 
     const join = () => {
       setMyId(socket.id ?? null);
-      socket.emit("joinRoom", { code, clientId: clientId(), lang: langRef.current, ...profile }, (res) => {
+      const payload = { code, clientId: clientId(), lang: langRef.current, ...profile, ...(invite ? { invite } : {}) };
+      socket.emit("joinRoom", payload, (res) => {
         if ("error" in res) return setError(res.error);
         setError(null);
         if (res.note) setNotice(res.note);
@@ -57,6 +59,7 @@ export function useRoom(code: string, profile: Profile | null) {
 
     socket.on("roomUpdate", onRoom);
     socket.on("positions", onPositions);
+    socket.on("inviteList", setInvites);
     socket.on("connect", join); // also rejoins after a dropped connection
     if (socket.connected) join();
 
@@ -65,9 +68,10 @@ export function useRoom(code: string, profile: Profile | null) {
       socket.emit("leaveRoom");
       socket.off("roomUpdate", onRoom);
       socket.off("positions", onPositions);
+      socket.off("inviteList", setInvites);
       socket.off("connect", join);
     };
-  }, [code, profile]);
+  }, [code, profile, invite]);
 
   const toggleReady = useCallback(() => getSocket().emit("toggleReady"), []);
   const startRace = useCallback(
@@ -77,6 +81,14 @@ export function useRoom(code: string, profile: Profile | null) {
   const sendKeys = useCallback((base: number, keys: string) => getSocket().emit("typed", base, keys), []);
   const setWatching = useCallback(
     (playerId: string, watching: boolean) => getSocket().emit("setWatching", playerId, watching),
+    [],
+  );
+  /** SALLE-04: a fresh invite link's token, or null if the server refused. */
+  const createInvite = useCallback(
+    () =>
+      new Promise<string | null>((resolve) =>
+        getSocket().emit("createInvite", null, (res) => resolve("token" in res ? res.token : null)),
+      ),
     [],
   );
   const addBot = useCallback((level: BotLevel) => getSocket().emit("addBot", level), []);
@@ -102,5 +114,7 @@ export function useRoom(code: string, profile: Profile | null) {
     setWatching,
     addBot,
     removeBot,
+    invites,
+    createInvite,
   };
 }

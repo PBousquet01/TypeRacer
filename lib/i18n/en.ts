@@ -2,7 +2,7 @@ import { CHOCOBO_COLORS, isCustomColor } from "../chocobos";
 import { RIDER_NAME_MAX, RIDER_NAME_MIN } from "../names";
 import { MIN_RIDERS } from "../rules";
 import type { BotLevel } from "../bots";
-import type { ErrorCode, NoticeCode, TextSettings, TextKind, TextLanguage } from "../types";
+import type { ErrorCode, NoticeCode, RoomStatus, TextSettings, TextKind, TextLanguage, Visibility } from "../types";
 
 const LANGUAGES: Record<TextLanguage, string> = { en: "English", fr: "French" };
 const KINDS: Record<TextKind, string> = { sentences: "Sentences", words: "Random words" };
@@ -26,6 +26,9 @@ const errors: Record<ErrorCode, string> = {
   "already-started": "The race has already started.",
   "need-riders": `A race needs at least ${MIN_RIDERS} ready riders.`,
   "need-human": "A race needs at least one person: bots can't race on their own.",
+  "invite-needed": "This room is private: you need an invite link from the host.",
+  "invite-invalid": "That invite link doesn't work (any more). Ask the host for a new one.",
+  "invite-used": "Someone else already used that invite link. Ask the host for your own.",
   "text-failed": "Couldn't load a passage. Try again.",
   "bad-request": "Bad request.",
   "username-format": "Usernames are 3–16 characters: letters, numbers, - and _ only.",
@@ -115,6 +118,12 @@ export const en = {
     onYourOwn: "on your own",
     practice: "Practice alone",
     practiceHint: "Just you and a passage. Practice runs aren't recorded.",
+    quickRace: "Quick race",
+    quickHint: "Drops you into the public room that's closest to starting.",
+    browseRooms: "Browse public rooms",
+    noQuickRoom: "No public room has a free place right now.",
+    noQuickRoomGuest: "No public room has a free place right now. Try again in a moment, or sign in to open one.",
+    openPublic: "Open a public room",
     pickName: "Pick a name first.",
     enterCode: "Enter a room code to join.",
     features: [
@@ -122,6 +131,24 @@ export const en = {
       ["Accuracy is the brake", "A wrong letter stalls your bird until you backspace over it. She's stubborn."],
       ["A host runs the show", "One person opens the room, starts the race and watches. Everyone else rides."],
     ] as [string, string][],
+  },
+  rooms: {
+    title: "Public rooms",
+    intro: "Rooms their hosts have opened to everyone. The list updates by itself.",
+    back: "Back to the stables",
+    languageFilter: "Text language",
+    kindFilter: "Text type",
+    any: "Any",
+    room: "Room",
+    host: "Host",
+    riders: "Riders",
+    text: "Text",
+    status: "Status",
+    join: "Join",
+    full: "Full",
+    empty: "No public rooms right now.",
+    emptyHint: "Host a race and set it to public in the lobby, and it shows up here.",
+    statuses: { lobby: "Waiting", countdown: "Starting", racing: "Racing", finished: "Results" } satisfies Record<RoomStatus, string>,
   },
   mount: {
     yourChocobo: "Your chocobo",
@@ -183,6 +210,20 @@ export const en = {
     addBot: "Add a bot",
     removeBot: "Remove",
     botsHint: "Bots race like people: same text, same rules, and they're always ready. A race still needs one person.",
+    visibilityLabel: "Who can join",
+    visibilityOptions: { public: "Public", code: "With code", private: "Private" } satisfies Record<Visibility, string>,
+    visibilityHint: {
+      public: "Listed in the room explorer and offered by quick race.",
+      code: "Not listed. Riders need the room code or an invite link.",
+      private: "Not listed. Each rider needs their own invite link: the code alone won't get them in.",
+    } satisfies Record<Visibility, string>,
+    invites: "Invite links",
+    newInvite: "New invite link",
+    inviteUnused: "Not used yet",
+    inviteUsedBy: (name: string) => `Used by ${name}`,
+    copy: "Copy",
+    noInvites: "No links yet.",
+    invitesHint: "One link per guest. A link works for the first person who opens it, and then only for them.",
     youWatch: "The host has put you in the stands. You'll watch the races until they let you ride.",
     rules: "Rules",
     backspace: "Backspace",

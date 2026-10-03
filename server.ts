@@ -3,7 +3,7 @@
 import { createServer } from "node:http";
 import next from "next";
 import { Server } from "socket.io";
-import { registerRoomHandlers, type IO } from "./server/rooms";
+import { clientIp, registerRoomHandlers, type IO } from "./server/rooms";
 import { handleApi } from "./server/api";
 import { tokenFromCookies, userForToken } from "./server/auth";
 import { migrate } from "./server/db";
@@ -39,6 +39,7 @@ const io: IO = new Server(httpServer, { destroyUpgrade: false });
 io.use(async (socket, next) => {
   try {
     socket.data.roomCode = null;
+    socket.data.ip = clientIp(socket.handshake);
     socket.data.user = await userForToken(tokenFromCookies(socket.handshake.headers.cookie));
   } catch (err) {
     console.error("could not look up the session for a socket", err);

@@ -12,6 +12,9 @@ export async function startGameServer() {
   io.use((socket, next) => {
     socket.data.user = null;
     socket.data.roomCode = null;
+    // A test can say which address a client comes from (invite links are tied to one).
+    const ip: unknown = socket.handshake.auth.ip;
+    socket.data.ip = typeof ip === "string" ? ip : socket.handshake.address;
     next();
   });
   io.on("connection", (socket) => registerRoomHandlers(io, socket));
@@ -34,8 +37,19 @@ export interface TestClient {
   close: () => void;
 }
 
-export async function client(url: string, code: string, name: string, role: "host" | "rider"): Promise<TestClient> {
-  const socket: TestClient["socket"] = connect(url, { transports: ["websocket"], forceNew: true });
+export interface ClientOptions {
+  ip?: string; // the address the server should see
+  invite?: string; // an invite link's token
+}
+
+export async function client(
+  url: string,
+  code: string,
+  name: string,
+  role: "host" | "rider",
+  { ip, invite }: ClientOptions = {},
+): Promise<TestClient> {
+  const socket: TestClient["socket"] = connect(url, { transports: ["websocket"], forceNew: true, auth: ip ? { ip } : {} });
   await new Promise<void>((resolve) => socket.on("connect", () => resolve()));
 
   const c: TestClient = {
@@ -43,7 +57,7 @@ export async function client(url: string, code: string, name: string, role: "hos
     room: null,
     join: (extra = {}) =>
       new Promise((resolve) =>
-        socket.emit("joinRoom", { code, name, role, clientId: `${code}-${name}`, ...extra }, resolve),
+        socket.emit("joinRoom", { code, name, role, clientId: `${code}-${name}`, ...(invite ? { invite } : {}), ...extra }, resolve),
       ),
     startRace: () => new Promise((resolve) => socket.emit("startRace", null, resolve)),
     me: () => c.room?.players.find((p) => p.name === name),

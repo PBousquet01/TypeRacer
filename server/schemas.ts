@@ -64,12 +64,16 @@ export const joinPayload = z.object({
   role: z.enum(["host", "rider"]).optional(),
   clientId: z.string().max(64).nullish(),
   lang: language.optional(),
+  invite: z.string().max(64).optional(),
 });
+
+const visibility = z.enum(["public", "code", "private"]);
 
 export const settingsChange = z.object({
   language: language.optional(),
   kind: textKind.optional(),
   hostRides: z.boolean().optional(),
+  visibility: visibility.optional(),
 });
 
 export const setWatchingArgs = z.tuple([z.string().max(64), z.boolean()]);
@@ -114,6 +118,10 @@ export const mountBody = z.object({
   username: z.string().trim().max(64),
   mount: z.string({ error: code("which-mount") }).trim().min(1, code("which-mount")).max(32),
   revoke: z.boolean().optional(),
+});
+
+export const newRoomBody = z.object({
+  visibility: visibility.optional(),
 });
 
 export const textQuery = z.object({

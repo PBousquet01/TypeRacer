@@ -23,6 +23,9 @@ export type ErrorCode =
   | "already-started"
   | "need-riders"
   | "need-human"
+  | "invite-needed"
+  | "invite-invalid"
+  | "invite-used"
   | "text-failed"
   | "bad-request"
   | "username-format"
@@ -52,9 +55,34 @@ export interface TextSettings {
   kind: TextKind;
 }
 
+/**
+ * SALLE-03: public rooms are listed in the explorer and offered by quick
+ * play; code rooms need the code (or an invite link); private rooms need an
+ * invite link, and the code alone isn't enough.
+ */
+export type Visibility = "public" | "code" | "private";
+
 /** What the host chooses in the lobby. */
 export interface RoomSettings extends TextSettings {
   hostRides: boolean; // COURSE-5: the host races too, instead of only watching
+  visibility: Visibility;
+}
+
+/** SALLE-04: one of the host's invite links, as the host sees it. */
+export interface InviteSummary {
+  token: string;
+  usedBy: string | null; // the name of whoever used it first; null while unused
+}
+
+/** JOIN-02: a public room as the explorer lists it. */
+export interface RoomSummary {
+  code: string;
+  host: string | null;
+  riders: number; // participants: riders and bots, plus the host when they ride
+  capacity: number;
+  language: TextLanguage;
+  kind: TextKind;
+  status: RoomStatus;
 }
 
 /** A rider as everyone in the room sees them. */
@@ -117,6 +145,7 @@ export interface JoinPayload extends Partial<Profile> {
   code: string;
   clientId: string | null;
   lang?: Lang; // the joiner's interface language; a new room's texts start in it
+  invite?: string; // SALLE-04: the token from an invite link, if they came through one
 }
 
 export type JoinReply = { ok: true; role: Role; note: NoticeCode | null } | { error: ErrorCode };
@@ -137,10 +166,15 @@ export interface ClientToServerEvents {
   typed: (base: number, keys: string) => void;
   playAgain: () => void;
   leaveRoom: () => void;
+  createInvite: (payload: null, reply?: (res: { ok: true; token: string } | { error: ErrorCode }) => void) => void; // host only
+  watchRooms: () => void; // JOIN-02: start receiving roomList
+  unwatchRooms: () => void;
 }
 
 export interface ServerToClientEvents {
   roomUpdate: (room: PublicRoom) => void;
+  roomList: (rooms: RoomSummary[]) => void; // JOIN-02, to sockets watching the explorer
+  inviteList: (invites: InviteSummary[]) => void; // SALLE-04, to the host only
   positions: (positions: Position[]) => void;
 }
 

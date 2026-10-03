@@ -190,7 +190,6 @@ erDiagram
 | Table | Pour | Contenu |
 | --- | --- | --- |
 | `room_members` | SALLE-06 | Une ligne par personne présente dans une salle, avec une contrainte d'unicité sur la personne : la règle « une seule salle à la fois » est garantie par la base. |
-| `invites` | SALLE-04 | Jeton aléatoire (≥ 128 bits), salle, statut, personne et adresse IP liées à la première utilisation, révocation. |
 | `bans` | SALLE-07 | Personnes expulsées d'une salle. |
 | `race_samples` | RES-05, HIST-02 | Série temporelle du MPM de chaque participant connecté, pour réafficher les graphiques. |
 | colonnes de `races` | RES-02 | MPM brut, nombre d'erreurs, statut (terminé, temps écoulé, abandon), bonus reçus, touches manquées. |
@@ -339,8 +338,12 @@ sequenceDiagram
 | `typed` | navigateur → serveur | les touches tapées depuis le dernier envoi (`\b` pour un retour arrière) et le nombre de caractères corrects avant elles; c'est le serveur qui les juge |
 | `playAgain` | navigateur → serveur | — (hôte, sur les résultats) |
 | `leaveRoom` | navigateur → serveur | — |
+| `createInvite` | navigateur → serveur | — (hôte). Réponse : le jeton d'un nouveau lien d'invitation (SALLE-04) |
+| `watchRooms`, `unwatchRooms` | navigateur → serveur | — : commence ou arrête de recevoir `roomList` (page `/rooms`, JOIN-02) |
 | `roomUpdate` | serveur → salle | l'état public complet de la salle |
 | `positions` | serveur → salle | toutes les 100 ms pendant la course : `{ id, progress }` par partant |
+| `roomList` | serveur → explorateur | les salles publiques (code, hôte, participants, capacité, texte, état), dès qu'une salle change, au plus deux fois par seconde |
+| `inviteList` | serveur → hôte seulement | ses liens d'invitation et qui les a utilisés |
 
 Charge réseau (PERF-02) : un participant envoie au plus un message par mot
 fini, pas un par touche; le serveur regroupe toutes les positions dans un
@@ -354,7 +357,8 @@ course : les résultats le sont une fois, à la fin.
 | `POST /api/auth/signup`, `login`, `logout` | Comptes par nom d'utilisateur et mot de passe; la session est un cookie HttpOnly |
 | `GET /api/auth/me` | L'utilisateur connecté (ou `null`) et les fournisseurs proposés |
 | `GET /api/auth/github/start`, `…/callback` (idem `discord`) | Connexion OAuth (AUTH-01); connecté, cela lie le compte. Détails dans `server/oauth.ts` |
-| `POST /api/rooms` | Un code de salle neuf, de 6 caractères, réservé pour l'hôte (SALLE-02) |
+| `POST /api/rooms` | Un code de salle neuf, de 6 caractères, réservé pour l'hôte (SALLE-02), avec la visibilité de départ demandée (`{ visibility }`, sur code par défaut) |
+| `POST /api/rooms/quick` | La salle publique où envoyer un cavalier (« Faire une course », JOIN-03), ou `null` |
 | `GET /api/text?lang=en\|fr&kind=sentences\|words` | Un texte pour l'entraînement |
 | `GET /api/stats/me` | Résumé et 10 dernières courses (connecté) |
 | `GET /api/stats/leaderboard` | Meilleurs scores du serveur |
@@ -504,6 +508,12 @@ chemin que les humains.**
   vérifié au retour; les comptes sont liés par l'identifiant du fournisseur,
   jamais par le nom affiché.
 - **SQL** toujours paramétré.
+- **Liens d'invitation** (SALLE-04) : jeton de 128 bits tiré par
+  `crypto.randomBytes`, lié à l'adresse IP de la première personne qui
+  l'utilise. En ligne, l'adresse vient de l'en-tête `CF-Connecting-IP` posé
+  par Cloudflare devant Render; partout ailleurs, cet en-tête pourrait être
+  forgé, donc on prend l'adresse de la connexion (`clientIp`). Les liens
+  vivent en mémoire avec la salle : la fermer les annule tous.
 - **Entrées validées par un schéma** (TECH-07, `server/schemas.ts`, Zod) :
   messages Socket.IO, corps JSON et paramètres d'URL. Une entrée qui ne
   respecte pas son schéma est refusée avec un code d'erreur
@@ -530,7 +540,7 @@ taper** est un réglage séparé de la salle (CONF-02).
 
 ## Tests et intégration continue (TECH-09)
 
-`bun test` lance 89 tests : règles du moteur de frappe, moteur des bots,
+`bun test` lance 95 tests : règles du moteur de frappe, moteur des bots,
 score et dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types
 (`tsc --noEmit`), les tests (avec une vraie base PostgreSQL) et le build à

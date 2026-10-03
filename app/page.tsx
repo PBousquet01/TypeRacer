@@ -15,6 +15,7 @@ import { saveProfile, useSavedProfile } from "@/lib/profile";
 import { useT } from "@/lib/i18n";
 import { RIDER_NAME_MAX, cleanRiderName } from "@/lib/names";
 import { ROOM_CODE_LENGTH, isRoomCode, normalizeRoomCode } from "@/lib/rules";
+import type { Visibility } from "@/lib/types";
 
 export default function Home() {
   return (
@@ -36,6 +37,7 @@ function HomeContent() {
       initialColor={saved?.color ?? "yellow"}
       initialJoinCode={joinCode}
       unlocks={user?.unlocks ?? []}
+      signedIn={Boolean(user)}
     />
   );
 }
@@ -45,15 +47,17 @@ interface RiderFormProps {
   initialColor: string;
   initialJoinCode: string;
   unlocks: string[];
+  signedIn: boolean;
 }
 
-function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: RiderFormProps) {
+function RiderForm({ initialName, initialColor, initialJoinCode, unlocks, signedIn }: RiderFormProps) {
   const t = useT();
   const router = useRouter();
   const [name, setName] = useState(initialName);
   const [color, setColor] = useState(initialColor);
   const [joinCode, setJoinCode] = useState(initialJoinCode);
   const [error, setError] = useState("");
+  const [noQuickRoom, setNoQuickRoom] = useState(false);
 
   function riderNameOrError(): string | null {
     if (!name.trim()) return setError(t.home.pickName), null;
@@ -72,14 +76,27 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
     router.push(`/room/${code}`);
   }
 
-  async function hostRoom() {
+  async function hostRoom(visibility?: Visibility) {
     const riderName = riderNameOrError();
     if (!riderName) return;
-    const reply = await fetch("/api/rooms", { method: "POST" })
+    const reply = await fetch("/api/rooms", { method: "POST", body: JSON.stringify({ visibility }) })
       .then((res) => (res.ok ? (res.json() as Promise<{ code: string }>) : null))
       .catch(() => null);
     if (!reply) return setError(t.errors["server-error"]);
     saveProfile({ name: riderName, color, role: "host" });
+    router.push(`/room/${reply.code}`);
+  }
+
+  // JOIN-03: the server picks the public room closest to starting.
+  async function quickRace() {
+    const riderName = riderNameOrError();
+    if (!riderName) return;
+    const reply = await fetch("/api/rooms/quick", { method: "POST" })
+      .then((res) => (res.ok ? (res.json() as Promise<{ code: string | null }>) : null))
+      .catch(() => null);
+    if (!reply) return setError(t.errors["server-error"]);
+    if (!reply.code) return setNoQuickRoom(true);
+    saveProfile({ name: riderName, color, role: "rider" });
     router.push(`/room/${reply.code}`);
   }
 
@@ -125,7 +142,7 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
 
           {error && <ErrorText>{error}</ErrorText>}
 
-          <button className="btn btn-primary btn-block" onClick={hostRoom}>
+          <button className="btn btn-primary btn-block" onClick={() => hostRoom()}>
             {t.home.hostRace}
           </button>
           <FinePrint>{t.home.hostHint}</FinePrint>
@@ -151,6 +168,25 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks }: Ride
             </button>
           </form>
           <FinePrint>{t.home.joinHint}</FinePrint>
+
+          <button className="btn btn-block" onClick={quickRace}>
+            {t.home.quickRace}
+          </button>
+          {noQuickRoom ? (
+            <>
+              <FinePrint>{signedIn ? t.home.noQuickRoom : t.home.noQuickRoomGuest}</FinePrint>
+              {signedIn && (
+                <button className="btn btn-block" onClick={() => hostRoom("public")}>
+                  {t.home.openPublic}
+                </button>
+              )}
+            </>
+          ) : (
+            <FinePrint>{t.home.quickHint}</FinePrint>
+          )}
+          <Link className="btn-link justify-self-center" href="/rooms">
+            {t.home.browseRooms}
+          </Link>
 
           <OrRule>{t.home.onYourOwn}</OrRule>
           <Link className="btn btn-block" href="/practice">

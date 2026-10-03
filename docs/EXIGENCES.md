@@ -17,9 +17,9 @@ que tout changement qui fait avancer une exigence.
 | Contraintes techniques (TECH) | 9 | 1 | 0 | 10 |
 | Identité visuelle et design (DES) | 5 | 1 | 0 | 6 |
 | Comptes et profil (AUTH) | 1 | 3 | 2 | 6 |
-| Salles et visibilité (SALLE) | 2 | 3 | 5 | 10 |
-| Rejoindre une course (JOIN) | 1 | 0 | 2 | 3 |
-| Configuration (CONF) | 4 | 1 | 7 | 12 |
+| Salles et visibilité (SALLE) | 3 | 3 | 4 | 10 |
+| Rejoindre une course (JOIN) | 2 | 1 | 0 | 3 |
+| Configuration (CONF) | 4 | 2 | 6 | 12 |
 | Déroulement d'une course (COURSE) | 7 | 3 | 1 | 11 |
 | Bots (BOT) | 4 | 1 | 0 | 5 |
 | Bonus de remontée (BONUS) | 0 | 0 | 4 | 4 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 2 | 0 | 1 | 3 |
-| **Total** | **40** | **21** | **29** | **90** |
+| **Total** | **42** | **23** | **25** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -44,7 +44,7 @@ que tout changement qui fait avancer une exigence.
 | TECH-06 | ✅ | `server/rooms.ts`, `components/Track.tsx` | Tous les tests de `rooms.test.ts` | Socket.IO. Voir [ADR-001](ARCHITECTURE.md#adr-001--technologie-temps-réel). |
 | TECH-07 | ✅ | `server/schemas.ts`, `server/rooms.ts`, `server/api.ts` | « TECH-07: a join of the wrong shape is refused, and a bad acknowledgement can't crash the server », « TECH-07: setWatching with the wrong types is ignored », « invalid settings are ignored », « the server judges the keys: wrong ones don't move the bird », « a body that isn't the expected shape gets the matching error code », « a body that isn't JSON is a bad request », « a text in a language the site doesn't have is refused » | Zod : chaque message Socket.IO qui porte des données (`joinRoom`, `updateSettings`, `setWatching`, `typed`), chaque corps JSON (`signup`, `login`, `admin/mount`) et chaque paramètre d'URL (`/api/text`, retour OAuth). Les messages d'erreur des schémas sont les codes d'erreur de l'API. Le projet n'utilise pas d'actions serveur Next.js. |
 | TECH-08 | ✅ | `render.yaml` | — | Render et Neon en forfaits gratuits; GitHub et Discord OAuth gratuits. Rien à payer pour corriger. |
-| TECH-09 | ✅ | `.github/workflows/ci.yml` | 89 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
+| TECH-09 | ✅ | `.github/workflows/ci.yml` | 95 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
 | TECH-10 | ✅ | `.env.example`, `.gitignore` | — | Toutes les variables lues par le serveur et les scripts y sont documentées. Aucun secret commité. |
 
 ## Identité visuelle et design (DES)
@@ -75,8 +75,8 @@ que tout changement qui fait avancer une exigence.
 | --- | --- | --- | --- | --- |
 | SALLE-01 | 🟡 | `createRoom`, réglage « Toi, l'hôte » (`settings.hostRides`) | « COURSE-5: a host who rides counts towards the minimum and races » | L'hôte choisit de courir ou de regarder. **Reste** : réserver la création aux utilisateurs connectés. |
 | SALLE-02 | ✅ | `lib/rules.ts`, `reserveRoomCode` dans `server/rooms.ts`, `POST /api/rooms` | « SALLE-02: room codes are six unambiguous characters », « SALLE-02: a malformed code is refused », « SALLE-02: a host can't open a room on a code the server didn't issue », « SALLE-02: the server hands a host a fresh six-character code » | 6 caractères tirés par le serveur (`crypto.randomInt`) parmi 31, sans 0/O, 1/I/L; jamais un code déjà pris. Un hôte ne peut ouvrir une salle que sur un code émis par le serveur (réservé 5 min). Un code tapé avec des minuscules, des espaces ou des tirets est accepté. |
-| SALLE-03 | 🟡 | `server/rooms.ts` | — | Toutes les salles sont « sur code ». **Reste** : publique et privée. |
-| SALLE-04 | ❌ | — | — | Liens d'invitation à usage unique, liés à une adresse IP. |
+| SALLE-03 | ✅ | `settings.visibility`, `publicRooms` et `joinRoom` dans `server/rooms.ts`, réglage « Qui peut entrer » de `components/Lobby.tsx` | « SALLE-03: only public rooms are listed, and the list follows changes live », « SALLE-03, SALLE-04: a private room takes an invite link, never the code alone », « SALLE-03: a new room can ask for a visibility, but only a real one » | Publique : dans l'explorateur et « Faire une course ». Sur code (par défaut) : code ou lien. Privée : lien seulement. L'hôte change la visibilité dans la salle d'attente. |
+| SALLE-04 | 🟡 | `createInvite`, `sendInvites`, `clientIp` dans `server/rooms.ts`, panneau « Liens d'invitation » de `components/Lobby.tsx` | « SALLE-03, SALLE-04: a private room takes an invite link, never the code alone », « SALLE-04: links die with the room » | L'hôte crée autant de liens qu'il veut, les copie et voit leur statut (non utilisé, ou utilisé par qui). Jeton de 128 bits (`randomBytes(16)`). Le premier usage lie le lien à l'adresse IP; une autre IP est refusée, la même peut revenir. Les liens vivent en mémoire avec la salle et disparaissent à sa fermeture. IP : en ligne, l'en-tête `CF-Connecting-IP` de Cloudflare (Render est derrière Cloudflare); ailleurs, l'adresse de la connexion. **Reste** : révoquer le lien d'un participant expulsé, quand SALLE-07 existera. |
 | SALLE-05 | 🟡 | `lib/rules.ts` (`MIN_RIDERS`, `MAX_RIDERS`) | « COURSE-3: a race needs two ready riders », « COURSE-4: a room takes 40 riders, not one more » | Minimum 2, maximum fixe de 40; les spectateurs ne comptent pas. **Reste** : capacité réglable par l'hôte, de 2 à 30. |
 | SALLE-06 | ❌ | `leaveCurrentRoom` | — | Un même onglet quitte sa salle avant d'en rejoindre une autre, mais rien n'est garanti par la base et deux onglets créent deux joueurs. |
 | SALLE-07 | ❌ | — | — | L'hôte peut envoyer un participant aux estrades, pas l'expulser. |
@@ -89,8 +89,8 @@ que tout changement qui fait avancer une exigence.
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
 | JOIN-01 | ✅ | `components/JoinCard.tsx`, `app/page.tsx` | « riders need a room that exists » | Champ de code sur la page d'accueil; bouton « Copier l'invitation ». |
-| JOIN-02 | ❌ | — | — | Explorateur des salles publiques, avec filtres. |
-| JOIN-03 | ❌ | — | — | Bouton « Faire une course ». |
+| JOIN-02 | 🟡 | `app/rooms/page.tsx`, `publicRooms` et `announceRoomList` dans `server/rooms.ts` | « SALLE-03: only public rooms are listed, and the list follows changes live » | Page `/rooms` : code, hôte, participants et capacité, langue et type de texte, état. Mise à jour en direct par Socket.IO (au plus deux fois par seconde), sans recharger. Filtres : langue et type de texte. **Reste** : la complexité et son filtre, quand CONF-05 existera. |
+| JOIN-03 | ✅ | `quickRaceRoom` dans `server/rooms.ts`, `POST /api/rooms/quick`, bouton de `app/page.tsx` | « JOIN-03: quick play picks the fullest public room with a free place, the oldest on a tie », « JOIN-03: quick play answers with a room code, or null when no public room is free » | Parmi les salles publiques en attente ou sur les résultats et pas pleines : la plus remplie, puis la plus ancienne. Si aucune : un utilisateur connecté peut ouvrir une salle publique (configuration par défaut) dont il devient l'hôte; un invité voit un message. |
 
 ## Configuration de la course (CONF)
 
@@ -106,7 +106,7 @@ que tout changement qui fait avancer une exigence.
 | CONF-08 | 🟡 | `lib/typing.ts` (`MAX_CHARS_PAST_MISTAKE`) | « can't type more than 5 characters past a mistake », « fixed mistakes still count against accuracy » | Correction obligatoire seulement. **Reste** : mode libre. |
 | CONF-09 | ❌ | — | — | Dépend des bonus (BONUS). |
 | CONF-10 | ✅ | `addBot`, `removeBot` dans `server/rooms.ts`, panneau « Bots » de `components/Lobby.tsx` | « CONF-10: the host adds and removes bots; riders can't, and a made-up level is ignored » | L'hôte ajoute un bot du niveau choisi ou le retire, dans la salle d'attente. Les bots comptent dans la capacité. |
-| CONF-11 | ❌ | — | — | Dépend de SALLE-03 et SALLE-05. |
+| CONF-11 | 🟡 | réglage « Qui peut entrer » de `components/Lobby.tsx` | « SALLE-03: only public rooms are listed, and the list follows changes live » | La visibilité se règle dans la salle d'attente. **Reste** : la capacité (SALLE-05). |
 | CONF-12 | ✅ | `updateSettings`, `components/Lobby.tsx` | « COURSE-11: the host's settings reach riders; riders can't change them », « invalid settings are ignored » | Diffusée à toute la salle en direct. |
 
 ## Déroulement d'une course (COURSE)
@@ -175,7 +175,7 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| TEST-01 | ✅ | `tests/` | 89 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
+| TEST-01 | ✅ | `tests/` | 95 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
 | TEST-02 | ❌ | — | — | Playwright. |
 | TEST-03 | ❌ | — | — | La connexion par nom d'utilisateur et mot de passe existe déjà; les tests Playwright l'utiliseront. |
 

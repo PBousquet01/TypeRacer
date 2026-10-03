@@ -9,7 +9,7 @@
 //     ▲                                                        │ everyone finished,
 //     └────────────── playAgain (host) ◀──── finished ◀────────┘ 30 s after the first
 //                                                                finisher, or 3 min
-import { randomInt } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import type { Server, Socket } from "socket.io";
 import { pickText } from "./texts";
 import { recordRace } from "./stats";
@@ -27,6 +27,7 @@ import { accuracyOf, correctPrefixLength, EMPTY_STATE, replayKeys, type TypingSt
 import { planBot, seedOf, type BotKey, type BotLevel } from "../lib/bots";
 import type {
   ActionReply,
+  InviteSummary,
   ClientToServerEvents,
   ErrorCode,
   JoinReply,
@@ -36,14 +37,38 @@ import type {
   RoomSettings,
   RoomStatus,
   ServerToClientEvents,
+  RoomSummary,
   TextLanguage,
   User,
+  Visibility,
 } from "../lib/types";
 
 export interface SocketData {
   user: User | null;
   roomCode: string | null;
+  ip: string; // where the connection comes from; binds invite links (SALLE-04)
 }
+
+/**
+ * The visitor's IP address. On Render every request comes through
+ * Cloudflare, which sets CF-Connecting-IP to the visitor's address (the
+ * connection itself comes from Render's proxy). Anywhere else that header
+ * could be forged by the client, so the connection's own address is used.
+ */
+export function clientIp(handshake: { headers: Record<string, string | string[] | undefined>; address: string }): string {
+  const forwarded = handshake.headers["cf-connecting-ip"];
+  if (process.env.RENDER && typeof forwarded === "string" && forwarded) return forwarded;
+  return handshake.address;
+}
+
+// SALLE-04: an invite link is a random token kept on the room. The first
+// person to use it ties it to their IP address; nobody else can use it after
+// that, but they can, to come back. Tokens live and die with the room.
+interface Invite {
+  ip: string | null;
+  usedBy: string | null; // the name they joined with
+}
+const MAX_INVITES = 100;
 
 export type IO = Server<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
 type ClientSocket = Socket<ClientToServerEvents, ServerToClientEvents, Record<string, never>, SocketData>;
@@ -87,6 +112,8 @@ export interface Room {
   awayTimers: Map<string, Timer>; // clientId -> removal timer for a rider who dropped mid-race
   timeouts: Timer[];
   ticker: ReturnType<typeof setInterval> | null;
+  createdAt: number; // JOIN-03: quick play prefers the oldest of two equally full rooms
+  invites: Map<string, Invite>; // token -> invite (SALLE-04)
 }
 
 const COUNTDOWN_MS = 3000;
@@ -115,7 +142,7 @@ function safeColor(color: unknown, user: User | null): string {
 
 const rooms = new Map<string, Room>();
 
-function createRoom(code: string, language: TextLanguage): Room {
+function createRoom(code: string, language: TextLanguage, visibility: Visibility): Room {
   return {
     code,
     status: "lobby",
@@ -123,7 +150,7 @@ function createRoom(code: string, language: TextLanguage): Room {
     text: "",
     startAt: 0,
     finishAt: null,
-    settings: { language, kind: "sentences", hostRides: false },
+    settings: { language, kind: "sentences", hostRides: false, visibility },
     players: new Map(),
     hostId: null,
     hostClientId: null,
@@ -131,7 +158,16 @@ function createRoom(code: string, language: TextLanguage): Room {
     awayTimers: new Map(),
     timeouts: [],
     ticker: null,
+    createdAt: Date.now(),
+    invites: new Map(),
   };
+}
+
+/** The host's invite links and who used them. Only the host's socket gets this. */
+function sendInvites(io: IO, room: Room) {
+  if (!room.hostId) return;
+  const list: InviteSummary[] = [...room.invites].map(([token, { usedBy }]) => ({ token, usedBy }));
+  io.to(room.hostId).emit("inviteList", list);
 }
 
 function newPlayer(
@@ -247,6 +283,56 @@ function publicRoom(room: Room): PublicRoom {
 
 function broadcastRoom(io: IO, room: Room) {
   io.to(room.code).emit("roomUpdate", publicRoom(room));
+  announceRoomList(io);
+}
+
+// JOIN-02: the explorer's list of public rooms, pushed to every socket
+// watching it whenever a room changes. Room updates can come in bursts (a
+// whole class readying up), so the list goes out at most twice a second.
+const EXPLORER = "explorer"; // the Socket.IO room the explorer pages join
+const ROOM_LIST_MS = 500;
+let roomListTimer: Timer | null = null;
+
+/** Participants: riders and bots, plus the host when they ride. */
+const participantCount = (room: Room) => riders(room).length + (room.settings.hostRides ? 1 : 0);
+
+export function publicRooms(): RoomSummary[] {
+  return [...rooms.values()]
+    .filter((room) => room.settings.visibility === "public")
+    .sort((a, b) => a.createdAt - b.createdAt)
+    .map((room) => ({
+      code: room.code,
+      host: (room.hostId && room.players.get(room.hostId)?.name) || null,
+      riders: participantCount(room),
+      capacity: MAX_RIDERS,
+      language: room.settings.language,
+      kind: room.settings.kind,
+      status: room.status,
+    }));
+}
+
+function announceRoomList(io: IO) {
+  if (roomListTimer) return;
+  roomListTimer = setTimeout(() => {
+    roomListTimer = null;
+    io.to(EXPLORER).emit("roomList", publicRooms());
+  }, ROOM_LIST_MS);
+}
+
+/**
+ * JOIN-03: the public room a quick-play rider should join. Only rooms
+ * waiting or showing results, with a free place; the fullest wins, and
+ * between two equally full rooms, the oldest.
+ */
+export function quickRaceRoom(): string | null {
+  const open = [...rooms.values()].filter(
+    (room) =>
+      room.settings.visibility === "public" &&
+      (room.status === "lobby" || room.status === "finished") &&
+      riders(room).length < MAX_RIDERS,
+  );
+  open.sort((a, b) => participantCount(b) - participantCount(a) || a.createdAt - b.createdAt);
+  return open[0]?.code ?? null;
 }
 
 function startCountdown(io: IO, room: Room, starters: Player[], text: string) {
@@ -402,6 +488,7 @@ function promoteHost(io: IO, room: Room) {
   room.hostId = nextId;
   room.hostClientId = nextPlayer.clientId ?? null;
   broadcastRoom(io, room);
+  sendInvites(io, room);
 }
 
 /** Takes a player out for good, and closes the room if they were the last one. */
@@ -420,6 +507,7 @@ function removePlayer(io: IO, room: Room, id: string, { broadcast = true } = {})
     if (room.hostTimeout) clearTimeout(room.hostTimeout);
     room.awayTimers.forEach(clearTimeout);
     rooms.delete(room.code);
+    announceRoomList(io);
     return;
   }
   if (broadcast) {
@@ -507,26 +595,29 @@ function leaveCurrentRoom(io: IO, socket: ClientSocket) {
 // for a few minutes so nobody else can be handed it in between, and a host
 // can't open a room on a code the server didn't issue.
 const RESERVATION_MS = 5 * 60_000;
-const reservedCodes = new Map<string, number>(); // code → expiry time
+// The visibility asked for comes with the code, so a room created from quick
+// play ("no room free, open a public one") starts out public.
+const reservedCodes = new Map<string, { expires: number; visibility: Visibility }>();
 
-export function reserveRoomCode(): string {
+export function reserveRoomCode(visibility: Visibility = "code"): string {
   const now = Date.now();
-  for (const [code, expires] of reservedCodes) {
+  for (const [code, { expires }] of reservedCodes) {
     if (expires <= now) reservedCodes.delete(code);
   }
   for (;;) {
     const code = Array.from({ length: ROOM_CODE_LENGTH }, () => ROOM_CODE_CHARS[randomInt(ROOM_CODE_CHARS.length)]).join("");
     if (!rooms.has(code) && !reservedCodes.has(code)) {
-      reservedCodes.set(code, now + RESERVATION_MS);
+      reservedCodes.set(code, { expires: now + RESERVATION_MS, visibility });
       return code;
     }
   }
 }
 
-function claimReservedCode(code: string): boolean {
-  const expires = reservedCodes.get(code);
+/** The visibility the code was reserved with, or null if the server never issued it (or it expired). */
+function claimReservedCode(code: string): Visibility | null {
+  const reservation = reservedCodes.get(code);
   reservedCodes.delete(code);
-  return expires !== undefined && expires > Date.now();
+  return reservation && reservation.expires > Date.now() ? reservation.visibility : null;
 }
 
 export function registerRoomHandlers(io: IO, socket: ClientSocket) {
@@ -534,19 +625,19 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const reply = ackOf<JoinReply>(ack);
     const parsed = parse(joinPayload, payload);
     if (!parsed.ok) return reply({ error: parsed.error });
-    const { code, name, color, role, clientId, lang } = parsed.data;
+    const { code, name, color, role, clientId, lang, invite: inviteToken } = parsed.data;
     const wantsHost = role === "host";
 
     leaveCurrentRoom(io, socket);
 
     let room = rooms.get(code);
+    const created = !room;
     if (!room) {
       // Only a host opens a room, on a code the server issued; riders need a
       // room that already exists.
-      if (!wantsHost || !claimReservedCode(code)) {
-        return reply({ error: "no-room" });
-      }
-      room = createRoom(code, lang ?? "en");
+      const reserved = wantsHost ? claimReservedCode(code) : null;
+      if (!reserved) return reply({ error: "no-room" });
+      room = createRoom(code, lang ?? "en", reserved);
       rooms.set(code, room);
     }
 
@@ -567,6 +658,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       socket.data.roomCode = code;
       reply({ ok: true, role: player.role, note: null });
       broadcastRoom(io, room);
+      sendInvites(io, room);
       return;
     }
 
@@ -580,8 +672,21 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       return reply({ error: "host-reconnecting" });
     }
 
+    // SALLE-03, SALLE-04: a private room takes an invite link, never the code
+    // alone. The host who opened it, or who reloads, doesn't need one.
+    let invite: Invite | undefined;
+    if (room.settings.visibility === "private" && !created && !returningHost) {
+      invite = inviteToken ? room.invites.get(inviteToken) : undefined;
+      if (!invite) return reply({ error: inviteToken ? "invite-invalid" : "invite-needed" });
+      if (invite.ip !== null && invite.ip !== socket.data.ip) return reply({ error: "invite-used" });
+    }
+
     if (finalRole === "rider" && riders(room).length >= MAX_RIDERS) {
       return reply({ error: "room-full" });
+    }
+    if (invite && invite.ip === null) {
+      invite.ip = socket.data.ip;
+      invite.usedBy = name;
     }
 
     // COURSE-7: arriving mid-race is allowed. The new rider isn't `racing`,
@@ -607,6 +712,18 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       note: takenHost ? "host-taken" : lateArrival ? "late-arrival" : null,
     });
     broadcastRoom(io, room);
+    if (finalRole === "host" || invite) sendInvites(io, room);
+  });
+
+  socket.on("createInvite", (_payload, ack) => {
+    const reply = ackOf<{ ok: true; token: string } | { error: ErrorCode }>(ack);
+    const room = currentRoom(socket);
+    if (!room || !isHost(room, socket)) return reply({ error: "host-only" });
+    if (room.invites.size >= MAX_INVITES) return reply({ error: "bad-request" });
+    const token = randomBytes(16).toString("base64url"); // 128 bits
+    room.invites.set(token, { ip: null, usedBy: null });
+    sendInvites(io, room);
+    reply({ ok: true, token });
   });
 
   socket.on("toggleReady", () => {
@@ -655,11 +772,12 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const changes = parse(settingsChange, payload);
     if (!room || !isHost(room, socket) || room.status !== "lobby" || !changes.ok) return;
 
-    const { language, kind, hostRides } = changes.data;
+    const { language, kind, hostRides, visibility } = changes.data;
     room.settings = {
       language: language ?? room.settings.language,
       kind: kind ?? room.settings.kind,
       hostRides: hostRides ?? room.settings.hostRides,
+      visibility: visibility ?? room.settings.visibility,
     };
     broadcastRoom(io, room);
   });
@@ -727,4 +845,10 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
 
   socket.on("leaveRoom", () => leaveCurrentRoom(io, socket));
   socket.on("disconnect", () => leaveCurrentRoom(io, socket));
+
+  socket.on("watchRooms", () => {
+    socket.join(EXPLORER);
+    socket.emit("roomList", publicRooms());
+  });
+  socket.on("unwatchRooms", () => socket.leave(EXPLORER));
 }

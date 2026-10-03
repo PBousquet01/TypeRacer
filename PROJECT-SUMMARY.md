@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 89 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 95 tests: typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -78,6 +78,16 @@ join instead.
   The join field cleans what's typed (`normalizeRoomCode`) and caps the
   *cleaned* length: a `maxLength` on the raw input would cut off a pasted
   `ABC-DEF`.
+- **Visibility and invites (SALLE-03/04, JOIN-02/03).** `settings.visibility`
+  is public / code (default) / private. Public rooms go to the explorer
+  (`/rooms`, Socket.IO room `explorer`, `roomList` throttled to 2/s) and to
+  quick play (`quickRaceRoom`: lobby or results, not full, fullest then
+  oldest). Private rooms need an invite token (`?invite=` on the room URL):
+  128-bit, kept in `room.invites`, bound on first use to `socket.data.ip`
+  (set in `server.ts` by `clientIp`: `CF-Connecting-IP` only when
+  `RENDER` is set). The host gets `inviteList`; nobody else sees tokens.
+  Clipboard writes must happen right on a click (Safari), so a new link is
+  created first and copied with its own button.
 - **Bots are riders without a socket** (`bot: BotLevel`, ids `bot-N`; ADR-002
   in `docs/ARCHITECTURE.md`). The host adds/removes them in the lobby. At the
   start each bot gets a plan from `planBot` (`lib/bots.ts`, pure, seeded from

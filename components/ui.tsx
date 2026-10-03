@@ -5,7 +5,7 @@ export function Panel({ children, className }: { children: ReactNode; className?
   return <div className={cn("frame grid gap-3.5 bg-window px-5 py-[18px]", className)}>{children}</div>;
 }
 
-export function PanelTitle({ children, as: Tag = "h3" }: { children: ReactNode; as?: "h2" | "h3" }) {
+export function PanelTitle({ children, as: Tag = "h3" }: { children: ReactNode; as?: "h1" | "h2" | "h3" }) {
   return (
     <Tag className="text-xs/normal text-accent uppercase after:mt-3 after:block after:h-0.5 after:bg-edge/25 after:content-['']">
       {children}

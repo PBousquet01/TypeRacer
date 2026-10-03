@@ -224,6 +224,20 @@ describe("rooms", () => {
     }
     expect(codes.size).toBe(5);
   });
+
+  test("SALLE-03: a new room can ask for a visibility, but only a real one", async () => {
+    expect((await post("/api/rooms", { visibility: "public" })).status).toBe(200);
+    const bad = await post("/api/rooms", { visibility: "secret" });
+    expect(bad.status).toBe(400);
+    expect(await bad.json()).toEqual({ error: "bad-request" });
+  });
+
+  test("JOIN-03: quick play answers with a room code, or null when no public room is free", async () => {
+    const res = await post("/api/rooms/quick", {});
+    expect(res.status).toBe(200);
+    const { code } = await res.json();
+    expect(code === null || /^[A-HJKMNP-Z2-9]{6}$/.test(code)).toBe(true);
+  });
 });
 
 describe("texts and stats", () => {

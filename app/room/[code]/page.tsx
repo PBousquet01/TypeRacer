@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useRoom } from "@/hooks/useRoom";
 import { saveProfile, useSavedProfile } from "@/lib/profile";
 import type { Profile } from "@/lib/types";
@@ -17,6 +17,7 @@ import { useT } from "@/lib/i18n";
 export default function RoomPage() {
   const t = useT();
   const { code } = useParams<{ code: string }>();
+  const invite = useSearchParams().get("invite"); // SALLE-04: set when they came through an invite link
   const saved = useSavedProfile();
   const [chosen, setChosen] = useState<Profile | null>(null);
   const profile = chosen ?? saved ?? null;
@@ -36,7 +37,9 @@ export default function RoomPage() {
     setWatching,
     addBot,
     removeBot,
-  } = useRoom(code, profile);
+    invites,
+    createInvite,
+  } = useRoom(code, profile, invite);
 
   if (saved === undefined && !chosen) return <Loading>{t.common.saddlingUp}</Loading>;
 
@@ -95,6 +98,8 @@ export default function RoomPage() {
           onSetWatching={setWatching}
           onAddBot={addBot}
           onRemoveBot={removeBot}
+          invites={invites}
+          onCreateInvite={createInvite}
         />
       )}
 

@@ -6,8 +6,8 @@ import { count, desc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "./db";
 import { races, users } from "./schema";
 import { pickText } from "./texts";
-import { reserveRoomCode } from "./rooms";
-import { loginBody, mountBody, oauthCallbackQuery, parse, queryOf, signupBody, textQuery } from "./schemas";
+import { quickRaceRoom, reserveRoomCode } from "./rooms";
+import { loginBody, mountBody, newRoomBody, oauthCallbackQuery, parse, queryOf, signupBody, textQuery } from "./schemas";
 import { authorizeUrl, configuredProviders, fetchProfile, isProvider, newState, stateCookie, stateMatches } from "./oauth";
 import {
   createOAuthUser,
@@ -225,9 +225,18 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
     return true;
   }
 
-  // SALLE-02: a fresh room code for a host about to open a room.
+  // SALLE-02: a fresh room code for a host about to open a room, with the
+  // visibility it should start with (SALLE-03; code-only by default).
   if (path === "/api/rooms" && method === "POST") {
-    send(res, 200, { code: reserveRoomCode() });
+    const body = parse(newRoomBody, await readJson(req));
+    if (!body.ok) return send(res, 400, { error: body.error }), true;
+    send(res, 200, { code: reserveRoomCode(body.data.visibility) });
+    return true;
+  }
+
+  // JOIN-03: the public room a quick-play rider should join, or null.
+  if (path === "/api/rooms/quick" && method === "POST") {
+    send(res, 200, { code: quickRaceRoom() });
     return true;
   }
 

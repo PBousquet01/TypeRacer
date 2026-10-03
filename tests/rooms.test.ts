@@ -1,5 +1,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { client, freshCode, sleep, startGameServer, type TestClient } from "./helpers";
+import { client, freshCode, sleep, startGameServer, type ClientOptions, type TestClient } from "./helpers";
+import { publicRooms, quickRaceRoom, reserveRoomCode } from "../server/rooms";
+import type { InviteSummary, RoomSummary } from "../lib/types";
 import { migrate } from "../server/db";
 import { FINISH_GRACE_MS, MAX_RIDERS } from "../lib/rules";
 import { MAX_CHARS_PAST_MISTAKE } from "../lib/typing";
@@ -7,8 +9,8 @@ import { MAX_CHARS_PAST_MISTAKE } from "../lib/typing";
 let server: Awaited<ReturnType<typeof startGameServer>>;
 const opened: TestClient[] = [];
 
-async function open(code: string, name: string, role: "host" | "rider") {
-  const c = await client(server.url, code, name, role);
+async function open(code: string, name: string, role: "host" | "rider", options: ClientOptions = {}) {
+  const c = await client(server.url, code, name, role, options);
   opened.push(c);
   return c;
 }
@@ -169,7 +171,7 @@ describe("lobby rules", () => {
     raw(host).emit("updateSettings", { language: "fr", hostRides: "yes" }); // one bad value spoils the message
     raw(host).emit("updateSettings", "fr");
     await sleep(150);
-    expect(host.room?.settings).toEqual({ language: "en", kind: "sentences", hostRides: false });
+    expect(host.room?.settings).toEqual({ language: "en", kind: "sentences", hostRides: false, visibility: "code" });
   });
 
   test("TECH-07: setWatching with the wrong types is ignored", async () => {
@@ -403,4 +405,102 @@ describe("bots", () => {
     expect(done.players.find((p) => p.bot)?.place).not.toBeNull();
     expect(done.players.find((p) => p.name === "Alice")?.place).not.toBeNull();
   }, 30_000);
+});
+
+describe("visibility and joining", () => {
+  /** A host's room with the given visibility, and the host's client. */
+  async function hostRoom(visibility: "public" | "code" | "private", name = "Host") {
+    const code = reserveRoomCode(visibility);
+    const host = await open(code, name, "host");
+    await host.join();
+    return { code, host };
+  }
+
+  test("SALLE-03: only public rooms are listed, and the list follows changes live", async () => {
+    const watcher = await open("", "Watcher", "rider");
+    const lists: RoomSummary[][] = [];
+    watcher.socket.on("roomList", (list) => lists.push(list));
+    watcher.socket.emit("watchRooms");
+
+    const pub = await hostRoom("public", "Pat");
+    const coded = await hostRoom("code");
+    const priv = await hostRoom("private");
+    await sleep(700); // the list goes out at most twice a second
+    const listed = lists.at(-1)!.map((r) => r.code);
+    expect(listed).toContain(pub.code);
+    expect(listed).not.toContain(coded.code);
+    expect(listed).not.toContain(priv.code);
+    expect(lists.at(-1)!.find((r) => r.code === pub.code)).toMatchObject({ host: "Pat", riders: 0, status: "lobby" });
+
+    coded.host.socket.emit("updateSettings", { visibility: "public" });
+    raw(priv.host).emit("updateSettings", { visibility: "secret" }); // not a visibility: ignored
+    await sleep(700);
+    expect(lists.at(-1)!.map((r) => r.code)).toContain(coded.code);
+    expect(lists.at(-1)!.map((r) => r.code)).not.toContain(priv.code);
+
+    [pub.host, coded.host, priv.host, watcher].forEach((c) => c.close());
+    await sleep(150);
+    expect(publicRooms().map((r) => r.code)).not.toContain(pub.code); // closed rooms leave the list
+  });
+
+  test("JOIN-03: quick play picks the fullest public room with a free place, the oldest on a tie", async () => {
+    const older = await hostRoom("public");
+    const newer = await hostRoom("public");
+    const fuller = await hostRoom("public");
+    const coded = await hostRoom("code");
+    for (const [room, n] of [[older, 1], [newer, 1], [fuller, 2], [coded, 3]] as const) {
+      for (let i = 0; i < n; i++) await (await open(room.code, `R${i}`, "rider")).join();
+    }
+    expect(quickRaceRoom()).toBe(fuller.code);
+
+    fuller.host.close(); // the fuller room's host leaves; its riders stay, but it's still waiting
+    const extra = await open(older.code, "Extra", "rider");
+    await extra.join(); // now `older` has 2 riders and is older than `fuller`
+    expect(quickRaceRoom()).toBe(older.code);
+  });
+
+  test("SALLE-03, SALLE-04: a private room takes an invite link, never the code alone", async () => {
+    const { code, host } = await hostRoom("private");
+    const invites: InviteSummary[][] = [];
+    host.socket.on("inviteList", (list) => invites.push(list));
+
+    const noLink = await open(code, "Alice", "rider");
+    expect(await noLink.join()).toEqual({ error: "invite-needed" });
+    const forged = await open(code, "Alice", "rider", { invite: "made-up-token" });
+    expect(await forged.join()).toEqual({ error: "invite-invalid" });
+
+    const rider = await open(code, "Rider", "rider");
+    const notHost = await new Promise((resolve) => rider.socket.emit("createInvite", null, resolve));
+    expect(notHost).toEqual({ error: "host-only" });
+
+    const made = await new Promise<{ ok: true; token: string }>((resolve) =>
+      host.socket.emit("createInvite", null, (res) => resolve(res as { ok: true; token: string })),
+    );
+    expect(made.token).toMatch(/^[A-Za-z0-9_-]{22}$/); // 16 random bytes: 128 bits
+    expect(invites.at(-1)).toEqual([{ token: made.token, usedBy: null }]);
+
+    const alice = await open(code, "Alice", "rider", { ip: "10.0.0.1", invite: made.token });
+    expect(await alice.join()).toMatchObject({ ok: true });
+    await sleep(100);
+    expect(invites.at(-1)).toEqual([{ token: made.token, usedBy: "Alice" }]);
+
+    const bob = await open(code, "Bob", "rider", { ip: "10.0.0.2", invite: made.token });
+    expect(await bob.join()).toEqual({ error: "invite-used" });
+
+    alice.close();
+    await sleep(100);
+    const aliceAgain = await open(code, "Alice", "rider", { ip: "10.0.0.1", invite: made.token });
+    expect(await aliceAgain.join()).toMatchObject({ ok: true }); // same person, back again
+  });
+
+  test("SALLE-04: links die with the room", async () => {
+    const { code, host } = await hostRoom("private");
+    const made = await new Promise<{ ok: true; token: string }>((resolve) =>
+      host.socket.emit("createInvite", null, (res) => resolve(res as { ok: true; token: string })),
+    );
+    host.close();
+    await sleep(150);
+    const late = await open(code, "Late", "rider", { invite: made.token });
+    expect(await late.join()).toEqual({ error: "no-room" });
+  });
 });
