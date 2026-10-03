@@ -3,7 +3,7 @@
 import Chocobo from "./Chocobo";
 import WpmChart from "./WpmChart";
 import KeyHeatmap from "./KeyHeatmap";
-import { BotTag, FinePrint, Panel, PanelTitle, Spec, SpecRow, Table, Td, Th } from "./ui";
+import { BotTag, FinePrint, Notice, Panel, PanelTitle, RecordTag, Spec, SpecRow, Table, Td, Th } from "./ui";
 import { formatTime } from "@/lib/format";
 import { useT } from "@/lib/i18n";
 import type { Dictionary } from "@/lib/i18n/en";
@@ -87,6 +87,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                 <span className="font-body text-[15px]/[1.3] font-medium text-strong">
                   {p.name}
                   {p.bot && <BotTag>{t.bot.tag}</BotTag>}
+                  {p.personalBest && <RecordTag>{t.results.recordTag}</RecordTag>}
                   {p.id === myId && <span className="text-accent"> · {t.common.you}</span>}
                 </span>
                 {p.score != null && (
@@ -134,6 +135,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                     <Td className={cn("font-medium", tone)}>
                       {p.name}
                       {p.bot && <BotTag>{t.bot.levels[p.bot]}</BotTag>}
+                      {p.personalBest && <RecordTag>{t.results.recordTag}</RecordTag>}
                       {isMe && ` · ${t.common.you}`}
                     </Td>
                     <Td num className={cn("font-medium", tone)}>{p.score ?? "—"}</Td>
@@ -154,6 +156,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
           {me && (
             <Panel>
               <PanelTitle>{t.results.yourRace}</PanelTitle>
+              {me.personalBest && <Notice>{t.results.newRecord}</Notice>}
               <Spec>
                 <SpecRow label={t.results.placeRow}>{me?.place ? t.common.place(me.place) : t.common.didntFinish}</SpecRow>
                 <SpecRow label={t.results.scoreRow}>{me?.score != null ? t.common.pts(me.score) : "—"}</SpecRow>

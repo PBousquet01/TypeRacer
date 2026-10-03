@@ -113,6 +113,7 @@ export interface PublicPlayer {
   // how often each character was missed.
   samples: number[];
   missed: Record<string, number>;
+  personalBest: boolean; // RES-04: a signed-in rider who beat their best WPM in this race
   progress: number; // 0..1, against their own text
 }
 

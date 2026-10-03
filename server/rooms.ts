@@ -110,6 +110,7 @@ export interface Player {
   bonuses: BonusKind[]; // comeback bonuses earned this race
   samples: number[]; // RES-03: net WPM at each whole second of the race
   missed: Record<string, number>; // RES-03: character that should have been typed -> times missed
+  personalBest: boolean; // RES-04: beat their best WPM; known once the result is saved
 }
 
 export interface Room {
@@ -225,6 +226,7 @@ function newPlayer(
     bonuses: [],
     samples: [],
     missed: {},
+    personalBest: false,
   };
 }
 
@@ -264,6 +266,7 @@ function resetPlayer(player: Player) {
     bonuses: [],
     samples: [],
     missed: {},
+    personalBest: false,
   });
 }
 
@@ -546,7 +549,19 @@ function endRace(io: IO, room: Room) {
   rankFinishers(room);
   const field = playerList(room).filter((p) => p.racing);
   const entries = [...room.players.entries()].filter(([, p]) => p.racing);
-  recordRace(room, field, entries).catch((err) => console.error("could not save a race result", err));
+  const raceId = room.raceId;
+  recordRace(room, field, entries)
+    .then((records) => {
+      // The database answers after the results went out: show the records
+      // then, if everyone is still looking at this race's results.
+      if (records.length === 0 || room.raceId !== raceId || room.status !== "finished") return;
+      for (const id of records) {
+        const player = room.players.get(id);
+        if (player) player.personalBest = true;
+      }
+      broadcastRoom(io, room);
+    })
+    .catch((err) => console.error("could not save a race result", err));
   broadcastRoom(io, room);
 }
 

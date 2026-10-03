@@ -23,14 +23,14 @@ que tout changement qui fait avancer une exigence.
 | Déroulement d'une course (COURSE) | 7 | 3 | 1 | 11 |
 | Bots (BOT) | 5 | 0 | 0 | 5 |
 | Bonus de remontée (BONUS) | 4 | 0 | 0 | 4 |
-| Résultats (RES) | 3 | 1 | 1 | 5 |
+| Résultats (RES) | 4 | 1 | 0 | 5 |
 | Historique (HIST) | 2 | 0 | 0 | 2 |
 | Internationalisation (I18N) | 2 | 1 | 0 | 3 |
 | Tests (TEST) | 1 | 0 | 2 | 3 |
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 2 | 0 | 1 | 3 |
-| **Total** | **54** | **20** | **16** | **90** |
+| **Total** | **55** | **20** | **15** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -44,7 +44,7 @@ que tout changement qui fait avancer une exigence.
 | TECH-06 | ✅ | `server/rooms.ts`, `components/Track.tsx` | Tous les tests de `rooms.test.ts` | Socket.IO. Voir [ADR-001](ARCHITECTURE.md#adr-001--technologie-temps-réel). |
 | TECH-07 | ✅ | `server/schemas.ts`, `server/rooms.ts`, `server/api.ts` | « TECH-07: a join of the wrong shape is refused, and a bad acknowledgement can't crash the server », « TECH-07: setWatching with the wrong types is ignored », « invalid settings are ignored », « the server judges the keys: wrong ones don't move the bird », « a body that isn't the expected shape gets the matching error code », « a body that isn't JSON is a bad request », « a text in a language the site doesn't have is refused » | Zod : chaque message Socket.IO qui porte des données (`joinRoom`, `updateSettings`, `setWatching`, `typed`), chaque corps JSON (`signup`, `login`, `admin/mount`) et chaque paramètre d'URL (`/api/text`, retour OAuth). Les messages d'erreur des schémas sont les codes d'erreur de l'API. Le projet n'utilise pas d'actions serveur Next.js. |
 | TECH-08 | ✅ | `render.yaml` | — | Render et Neon en forfaits gratuits; GitHub et Discord OAuth gratuits. Rien à payer pour corriger. |
-| TECH-09 | ✅ | `.github/workflows/ci.yml` | 109 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
+| TECH-09 | ✅ | `.github/workflows/ci.yml` | 110 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
 | TECH-10 | ✅ | `.env.example`, `.gitignore` | — | Toutes les variables lues par le serveur et les scripts y sont documentées. Aucun secret commité. |
 
 ## Identité visuelle et design (DES)
@@ -153,7 +153,7 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 | RES-01 | ✅ | `components/Results.tsx` | — | |
 | RES-02 | 🟡 | `components/Results.tsx` | — | Rang, participant, score, MPM, précision, temps. **Reste** : MPM brut, nombre d'erreurs, statut, bonus reçus. |
 | RES-03 | ✅ | `components/WpmChart.tsx`, `components/KeyHeatmap.tsx`, `sampleWpm` et `countMiss` dans `server/rooms.ts` | « RES-03: replaying keys reports which characters were missed », « BOT-01, BOT-04: a bot races through the same referee, finishes in its speed range and gets a place » | Deux graphiques sous le tableau des résultats. 1) MPM net de chaque participant seconde par seconde, sur un même graphique (8 courbes au plus : toi et les mieux classés; légende, noms en bout de courbe, info-bulle au survol). 2) Clavier en carte de chaleur des touches manquées, pour toi par défaut ou pour le cavalier choisi; les caractères hors clavier (accents, guillemets…) sont listés dessous. Couleurs vérifiées (daltonisme, contraste) sur les deux thèmes. |
-| RES-04 | ❌ | — | — | Indicateur de record personnel. |
+| RES-04 | ✅ | `recordRace` dans `server/stats.ts`, `RecordTag` dans `components/ui.tsx`, `components/Results.tsx` | « RES-04: beating your best WPM is a personal record; a first or a slower race isn't » | Pour un cavalier connecté qui finit : MPM plus élevé que son meilleur MPM des courses précédentes. Une première course n'a rien à battre. Étiquette « RECORD » sur le podium et dans le tableau, message dans « Ta course »; gardé aussi pour l'historique. |
 | RES-05 | ✅ | `recordRace` dans `server/stats.ts`, colonnes `wpm_samples` et `missed_keys` (migration `drizzle/0001_race_charts.sql`) | Tests de `api.test.ts` et `rooms.test.ts` sur une vraie base | Les résultats de chaque participant connecté sont enregistrés à la fin de la course, avec la série du MPM et les touches manquées, pour réafficher les graphiques (HIST-02). |
 
 ## Historique (HIST)
@@ -175,7 +175,7 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| TEST-01 | ✅ | `tests/` | 109 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
+| TEST-01 | ✅ | `tests/` | 110 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
 | TEST-02 | ❌ | — | — | Playwright. |
 | TEST-03 | ❌ | — | — | La connexion par nom d'utilisateur et mot de passe existe déjà; les tests Playwright l'utiliseront. |
 

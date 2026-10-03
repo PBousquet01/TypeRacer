@@ -323,6 +323,8 @@ export const en = {
     acc: "ACC",
     time: "TIME",
     yourRace: "Your race",
+    recordTag: "RECORD",
+    newRecord: "New personal best! Your fastest race yet.",
     placeRow: "Place",
     scoreRow: "Score",
     speedRow: "Speed",

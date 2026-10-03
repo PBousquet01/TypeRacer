@@ -303,6 +303,30 @@ describe("texts and stats", () => {
     }
   });
 
+  test("RES-04: beating your best WPM is a personal record; a first or a slower race isn't", async () => {
+    const name = `p${Date.now().toString(36)}`;
+    const cookie = sessionFrom(await post("/api/auth/signup", { username: name, password, displayName: "Recorder" }));
+    const me = await (await fetch(`${base}/api/auth/me`, { headers: { cookie } })).json();
+    const race = (wpm: number) => {
+      const player = { userId: me.user.id, finished: true, wpm, accuracy: 100, score: wpm, timeMs: 20_000, place: 1, samples: [wpm], missed: {} };
+      const field = [{ id: "sock-1", name: "Recorder", place: 1, wpm, racing: true, samples: [wpm], missed: {}, personalBest: false }];
+      const room = { code: "RECRD1", settings: { bonuses: false } } as unknown as Room;
+      return recordRace(room, field as unknown as PublicPlayer[], [["sock-1", player as unknown as Player]]);
+    };
+    try {
+      expect(await race(50)).toEqual([]); // first race: nothing to beat
+      expect(await race(45)).toEqual([]);
+      expect(await race(50)).toEqual([]); // equalling it isn't beating it
+      expect(await race(61)).toEqual(["sock-1"]);
+      const history: HistoryPage = await (await fetch(`${base}/api/history`, { headers: { cookie } })).json();
+      const latest: PastRace = await (await fetch(`${base}/api/races/${history.races[0].runId}`, { headers: { cookie } })).json();
+      expect(latest.players[0].personalBest).toBe(true); // kept for the history too
+    } finally {
+      await sql`DELETE FROM users WHERE lower(username) = lower(${name})`;
+      await sql`DELETE FROM race_runs WHERE room_code = 'RECRD1'`;
+    }
+  });
+
   test("admin routes are closed to everyone else", async () => {
     const res = await post("/api/admin/mount", { username, mount: "fox" });
     expect(res.status).toBe(403);

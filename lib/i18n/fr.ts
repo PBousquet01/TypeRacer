@@ -337,6 +337,8 @@ export const fr: Dictionary = {
     acc: "PRÉC.",
     time: "TEMPS",
     yourRace: "Ta course",
+    recordTag: "RECORD",
+    newRecord: "Nouveau record personnel ! Ta course la plus rapide.",
     placeRow: "Place",
     scoreRow: "Score",
     speedRow: "Vitesse",

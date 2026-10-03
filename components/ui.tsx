@@ -95,6 +95,15 @@ export function BotTag({ children }: { children: ReactNode }) {
   );
 }
 
+/** RES-04: a rider who beat their best WPM in this race. */
+export function RecordTag({ children }: { children: ReactNode }) {
+  return (
+    <span className="ml-1.5 bg-accent px-1.5 py-[3px] align-middle font-display text-tiny/[1.4] whitespace-nowrap text-ink light:text-white">
+      {children}
+    </span>
+  );
+}
+
 export function Loading({ children }: { children: ReactNode }) {
   return (
     <main className="mx-auto max-w-[560px] px-[18px] pt-6 pb-[60px]">
