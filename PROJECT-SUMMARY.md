@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 112 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 113 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -114,6 +114,12 @@ join instead.
   finisher's previous best WPM in the same transaction and returns who beat
   it (a first race doesn't count); `endRace` then sets `personalBest` and
   broadcasts again, since the database answers after the results went out.
+- **Profile photos (AUTH-04, SEC-02).** `server/avatars.ts`: size limit,
+  magic-byte check, sharp decode (pixel cap), 256px WebP stored in the
+  `avatars` table (no disk on Render). `User.avatarUrl` is versioned
+  (`?v=updatedAt`) so `/api/avatars/:id` caches for good. Oversized uploads
+  are drained, not cut, so the browser gets the 413 message.
+  `components/Avatar.tsx` falls back to initials.
 - **Bots are riders without a socket** (`bot: BotLevel`, ids `bot-N`; ADR-002
   in `docs/ARCHITECTURE.md`). The host adds/removes them in the lobby. At the
   start each bot gets a plan from `planBot` (`lib/bots.ts`, pure, seeded from

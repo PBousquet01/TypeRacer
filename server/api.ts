@@ -7,7 +7,9 @@ import { db } from "./db";
 import { raceRuns, races, users } from "./schema";
 import { pickText } from "./texts";
 import { quickRaceRoom, reserveRoomCode } from "./rooms";
+import { deleteAvatar, loadAvatar, MAX_AVATAR_BYTES, prepareAvatar, saveAvatar } from "./avatars";
 import {
+  avatarContentType,
   displayNameBody,
   historyQuery,
   loginBody,
@@ -26,6 +28,7 @@ import {
   createSession,
   createUser,
   destroySession,
+  findUserById,
   findUserByIdentity,
   findUserByUsername,
   grantMount,
@@ -40,6 +43,27 @@ import {
 import type { ErrorCode, HistoryPage, LeaderboardRow, PastRace, ProgressPoint, RecentRace, StatsSummary, User } from "../lib/types";
 
 const MAX_BODY = 4096;
+
+/**
+ * The raw request body, or "too-big" past `limit` bytes. Past the limit,
+ * the rest is read and thrown away rather than the connection being cut, so
+ * the browser gets the answer instead of a network error; a sender that
+ * keeps going far beyond it is cut off.
+ */
+function readBytes(req: IncomingMessage, limit: number): Promise<Buffer | "too-big" | null> {
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    req.on("data", (chunk: Buffer) => {
+      size += chunk.length;
+      if (size <= limit) chunks.push(chunk);
+      else if (size > limit * 4) req.destroy();
+    });
+    req.on("end", () => resolve(size > limit ? "too-big" : Buffer.concat(chunks)));
+    req.on("error", () => resolve(size > limit ? "too-big" : null));
+    req.on("close", () => resolve(size > limit ? "too-big" : null));
+  });
+}
 
 
 function send(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
@@ -93,6 +117,7 @@ function publicUser(user: User | null): User | null {
     isAdmin: user.isAdmin,
     unlocks: user.unlocks,
     linked: user.linked,
+    avatarUrl: user.avatarUrl,
   };
 }
 
@@ -254,6 +279,37 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
 
     const token = await createSession(user.id);
     send(res, 200, { user: publicUser(user) }, { "Set-Cookie": sessionCookie(token) });
+    return true;
+  }
+
+  // AUTH-04, SEC-02: upload or remove the profile photo. The body is the
+  // image itself; server/avatars.ts decides whether it's one.
+  if (path === "/api/account/avatar" && (method === "POST" || method === "DELETE")) {
+    if (!me) return send(res, 401, { error: "sign-in-needed" }), true;
+    if (method === "DELETE") {
+      await deleteAvatar(me.id);
+    } else {
+      const declared = parse(avatarContentType, req.headers["content-type"]);
+      if (!declared.ok) return send(res, 415, { error: "image-type" }), true;
+      const bytes = await readBytes(req, MAX_AVATAR_BYTES);
+      if (bytes === "too-big") return send(res, 413, { error: "image-too-big" }), true;
+      if (!bytes) return send(res, 400, { error: "bad-request" }), true;
+      const prepared = await prepareAvatar(bytes);
+      if ("error" in prepared) return send(res, 400, { error: prepared.error }), true;
+      await saveAvatar(me.id, prepared.image);
+    }
+    send(res, 200, { user: publicUser(await findUserById(me.id)) });
+    return true;
+  }
+
+  const avatarMatch = /^\/api\/avatars\/([^/]+)$/.exec(path);
+  if (avatarMatch && method === "GET") {
+    const id = parse(raceId, avatarMatch[1]);
+    const image = id.ok ? await loadAvatar(id.data) : null;
+    if (!image) return send(res, 404, { error: "no-account" }), true;
+    // The address carries the photo's version, so it can be cached for good.
+    res.writeHead(200, { "Content-Type": "image/webp", "Cache-Control": "public, max-age=31536000, immutable" });
+    res.end(image);
     return true;
   }
 

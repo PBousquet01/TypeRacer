@@ -31,6 +31,9 @@ export type ErrorCode =
   | "kicked"
   | "no-race"
   | "sign-in-needed"
+  | "image-type"
+  | "image-too-big"
+  | "image-unreadable"
   | "text-failed"
   | "bad-request"
   | "username-format"
@@ -164,6 +167,7 @@ export interface User {
   isAdmin: boolean;
   unlocks: string[];
   linked: Provider[]; // GitHub / Discord accounts attached to this one (AUTH-3)
+  avatarUrl: string | null; // AUTH-04: their profile photo; null shows a generated avatar
 }
 
 export interface JoinPayload extends Partial<Profile> {

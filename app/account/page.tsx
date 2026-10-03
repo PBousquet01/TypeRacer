@@ -8,6 +8,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { ErrorText, Field, FieldLabel, FinePrint, Notice, OrRule, PanelTitle } from "@/components/ui";
 import { useSession } from "@/lib/session";
+import Avatar from "@/components/Avatar";
+import { cn } from "@/lib/cn";
 import { useT } from "@/lib/i18n";
 import { RIDER_NAME_MAX } from "@/lib/names";
 import type { ErrorCode, Provider, User } from "@/lib/types";
@@ -67,6 +69,7 @@ function YourAccount({ user, error, justLinked }: { user: User; error: ErrorCode
       {justLinked && <Notice>{t.account.justLinked(PROVIDER_NAMES[justLinked])}</Notice>}
       {error && <ErrorText>{t.errors[error]}</ErrorText>}
 
+      <PhotoForm user={user} />
       <RenameForm user={user} />
 
       {shown.length > 0 && (
@@ -90,6 +93,65 @@ function YourAccount({ user, error, justLinked }: { user: User; error: ErrorCode
       <FinePrint>
         <Link href="/">{t.common.backToStables}</Link>
       </FinePrint>
+    </div>
+  );
+}
+
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+
+function PhotoForm({ user }: { user: User }) {
+  const t = useT();
+  const { setPhoto } = useSession();
+  const [busy, setBusy] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<ErrorCode | null>(null);
+
+  async function change(file: File | null) {
+    setSaved(false);
+    setError(null);
+    // Checked again on the server; this only saves uploading a file that will be refused.
+    if (file && file.size > MAX_PHOTO_BYTES) return setError("image-too-big");
+    setBusy(true);
+    try {
+      await setPhoto(file);
+      setSaved(Boolean(file));
+    } catch (err) {
+      setError((err instanceof Error ? err.message : "unknown") as ErrorCode);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="grid gap-2.5">
+      <FieldLabel>{t.account.photoTitle}</FieldLabel>
+      <div className="flex flex-wrap items-center gap-4">
+        <Avatar name={user.displayName} url={user.avatarUrl} size={72} alt={t.account.photoAlt(user.displayName)} />
+        <div className="grid gap-2">
+          <label className={cn("btn", busy && "pointer-events-none opacity-60")}>
+            {busy ? t.account.oneMoment : t.account.changePhoto}
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              disabled={busy}
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null;
+                e.target.value = "";
+                if (file) void change(file);
+              }}
+            />
+          </label>
+          {user.avatarUrl && (
+            <button type="button" className="btn-link justify-self-start" disabled={busy} onClick={() => void change(null)}>
+              {t.account.removePhoto}
+            </button>
+          )}
+        </div>
+      </div>
+      <FinePrint>{t.account.photoHint}</FinePrint>
+      {saved && <Notice>{t.account.photoSaved}</Notice>}
+      {error && <ErrorText>{t.errors[error] ?? t.errors.unknown}</ErrorText>}
     </div>
   );
 }

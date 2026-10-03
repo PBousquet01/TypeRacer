@@ -4,6 +4,7 @@ import type { AddressInfo } from "node:net";
 import { handleApi } from "../server/api";
 import { migrate, sql } from "../server/db";
 import { recordRace } from "../server/stats";
+import sharp from "sharp";
 import type { Player, Room } from "../server/rooms";
 import type { HistoryPage, PastRace, PublicPlayer } from "../lib/types";
 
@@ -344,6 +345,38 @@ describe("texts and stats", () => {
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({ error: "name-format" });
     }
+  });
+
+  test("AUTH-04, SEC-02: a profile photo is checked by its bytes and its size, then stored resized", async () => {
+    const upload = (body: Blob | string, type: string, cookie = "") =>
+      fetch(`${base}/api/account/avatar`, { method: "POST", headers: { "Content-Type": type, cookie }, body });
+    expect((await upload("x", "image/png")).status).toBe(401);
+    const cookie = sessionFrom(await post("/api/auth/login", { username, password }));
+
+    const refused = async (body: Blob | string, type: string, status: number, error: string) => {
+      const res = await upload(body, type, cookie);
+      expect(res.status).toBe(status);
+      expect(await res.json()).toEqual({ error });
+    };
+    await refused("just some text", "image/png", 400, "image-type"); // says PNG, isn't one
+    await refused(new Blob([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3])]), "image/png", 400, "image-unreadable");
+    await refused("GIF89a", "image/gif", 415, "image-type");
+    await refused(new Blob([new Uint8Array(2 * 1024 * 1024 + 10)]), "image/png", 413, "image-too-big");
+
+    const png = await sharp({ create: { width: 600, height: 400, channels: 3, background: "#e8734a" } }).png().toBuffer();
+    const ok = await upload(new Blob([new Uint8Array(png)]), "image/png", cookie);
+    expect(ok.status).toBe(200);
+    const { user } = await ok.json();
+    expect(user.avatarUrl).toMatch(new RegExp(`^/api/avatars/${user.id}\\?v=\\d+$`));
+
+    const served = await fetch(base + user.avatarUrl);
+    expect(served.headers.get("content-type")).toBe("image/webp");
+    const meta = await sharp(Buffer.from(await served.arrayBuffer())).metadata();
+    expect([meta.format, meta.width, meta.height]).toEqual(["webp", 256, 256]);
+
+    const removed = await fetch(`${base}/api/account/avatar`, { method: "DELETE", headers: { cookie } });
+    expect((await removed.json()).user.avatarUrl).toBeNull();
+    expect((await fetch(base + user.avatarUrl)).status).toBe(404);
   });
 
   test("admin routes are closed to everyone else", async () => {

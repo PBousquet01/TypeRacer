@@ -8,6 +8,7 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   check,
+  customType,
   foreignKey,
   index,
   integer,
@@ -119,6 +120,21 @@ export const races = pgTable(
     index("races_by_user").on(t.userId, t.finishedAt.desc().nullsFirst()),
     foreignKey({ name: "races_user_id_fkey", columns: [t.userId], foreignColumns: [users.id] }).onDelete("cascade"),
     foreignKey({ name: "races_run_id_fkey", columns: [t.runId], foreignColumns: [raceRuns.id] }).onDelete("set null"),
+  ],
+);
+
+// AUTH-04: one profile photo per account, already resized (256 x 256 WebP).
+// Kept in the database: the host's disk doesn't survive a restart.
+const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
+export const avatars = pgTable(
+  "avatars",
+  {
+    userId: integer("user_id").primaryKey(),
+    image: bytea("image").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    foreignKey({ name: "avatars_user_id_fkey", columns: [t.userId], foreignColumns: [users.id] }).onDelete("cascade"),
   ],
 );
 

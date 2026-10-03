@@ -15,6 +15,7 @@ interface Session extends SessionState {
   signUp: (username: string, password: string, displayName: string) => Promise<User>;
   signOut: () => Promise<void>;
   rename: (displayName: string) => Promise<User>;
+  setPhoto: (file: File | null) => Promise<User>; // AUTH-04: null removes it
 }
 
 const signedOut = async () => {
@@ -30,6 +31,7 @@ const SessionContext = createContext<Session>({
   signUp: signedOut,
   signOut: signedOut,
   rename: signedOut,
+  setPhoto: signedOut,
 });
 
 async function post(path: string, body?: Record<string, string>) {
@@ -87,6 +89,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const { user } = await post("/api/account/name", { displayName });
         setState((s) => ({ ...s, user }));
         return user;
+      },
+      setPhoto: async (file) => {
+        const res = await fetch("/api/account/avatar", {
+          method: file ? "POST" : "DELETE",
+          headers: file ? { "Content-Type": file.type } : {},
+          body: file,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error ?? (res.status === 413 ? "image-too-big" : "unknown"));
+        setState((s) => ({ ...s, user: data.user }));
+        return data.user;
       },
       signOut: async () => {
         await post("/api/auth/logout");

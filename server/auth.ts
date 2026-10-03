@@ -12,6 +12,7 @@ import { cleanRiderName } from "../lib/names";
 import type { ErrorCode, Provider, User } from "../lib/types";
 import type { ExternalProfile } from "./oauth";
 import { credentials, parse } from "./schemas";
+import { avatarUrl } from "./avatars";
 
 export const SESSION_COOKIE = "chocobo_session";
 const SESSION_DAYS = 30;
@@ -95,6 +96,7 @@ export async function findUserById(id: number): Promise<User | null> {
     ...row,
     unlocks: await mountsFor(row.id),
     linked: await linkedProviders(row.id),
+    avatarUrl: await avatarUrl(row.id),
   };
 }
 

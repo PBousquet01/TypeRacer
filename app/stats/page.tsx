@@ -12,6 +12,7 @@ import { useI18n, useT } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import type { HistoryPage, LeaderboardRow, ProgressPoint, StatsSummary } from "@/lib/types";
 import ProgressChart from "@/components/ProgressChart";
+import Avatar from "@/components/Avatar";
 
 interface MyStats {
   summary: StatsSummary;
@@ -84,7 +85,10 @@ export default function StatsPage() {
         <>
           <header className="mb-[18px] grid gap-2.5">
             <Eyebrow>{t.stats.record}</Eyebrow>
-            <h2 className="text-xs/normal text-accent uppercase">{user.displayName}</h2>
+            <span className="flex items-center gap-3">
+              <Avatar name={user.displayName} url={user.avatarUrl} size={48} />
+              <h2 className="text-xs/normal text-accent uppercase">{user.displayName}</h2>
+            </span>
           </header>
 
           <section className="mb-[18px] grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-3">

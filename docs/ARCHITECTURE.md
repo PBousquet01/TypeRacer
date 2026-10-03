@@ -130,6 +130,7 @@ erDiagram
     users ||--o{ identities : "se connecte avec"
     users ||--o{ unlocks : "débloque"
     users ||--o{ races : "a couru"
+    users ||--o| avatars : "a pour photo"
     race_runs ||--o{ races : "regroupe"
     users {
         int id PK
@@ -170,6 +171,11 @@ erDiagram
         jsonb missed_keys "touche -> fois manquée (RES-03)"
         int run_id FK "la course (HIST-02)"
         text player_id "qui il était dans le peloton"
+    }
+    avatars {
+        int user_id PK, FK
+        bytea image "WebP 256 x 256, redimensionnée par le serveur"
+        timestamptz updated_at
     }
     race_runs {
         int id PK
@@ -372,6 +378,8 @@ course : les résultats le sont une fois, à la fin.
 | `POST /api/auth/signup`, `login`, `logout` | Comptes par nom d'utilisateur et mot de passe; la session est un cookie HttpOnly |
 | `GET /api/auth/me` | L'utilisateur connecté (ou `null`) et les fournisseurs proposés |
 | `POST /api/account/name` | Change le nom de cavalier de l'utilisateur connecté (AUTH-05) |
+| `POST`, `DELETE /api/account/avatar` | Envoie (le corps est l'image) ou retire la photo de profil (AUTH-04, SEC-02) |
+| `GET /api/avatars/:id` | La photo de profil, en WebP 256 px; l'adresse porte sa version, donc elle se garde en cache |
 | `GET /api/auth/github/start`, `…/callback` (idem `discord`) | Connexion OAuth (AUTH-01); connecté, cela lie le compte. Détails dans `server/oauth.ts` |
 | `POST /api/rooms` | Un code de salle neuf, de 6 caractères, réservé pour l'hôte (SALLE-02), avec la visibilité de départ demandée (`{ visibility }`, sur code par défaut) |
 | `POST /api/rooms/quick` | La salle publique où envoyer un cavalier (« Faire une course », JOIN-03), ou `null` |
@@ -526,6 +534,9 @@ chemin que les humains.**
   vérifié au retour; les comptes sont liés par l'identifiant du fournisseur,
   jamais par le nom affiché.
 - **SQL** toujours paramétré.
+- **Téléversements** (SEC-02) : taille comptée par le serveur, type réel lu
+  dans les premiers octets puis confirmé en décodant l'image; on ne garde que
+  la copie redimensionnée par le serveur (`server/avatars.ts`).
 - **Liens d'invitation** (SALLE-04) : jeton de 128 bits tiré par
   `crypto.randomBytes`, lié à l'adresse IP de la première personne qui
   l'utilise. En ligne, l'adresse vient de l'en-tête `CF-Connecting-IP` posé
@@ -558,7 +569,7 @@ taper** est un réglage séparé de la salle (CONF-02).
 
 ## Tests et intégration continue (TECH-09)
 
-`bun test` lance 112 tests : règles du moteur de frappe, moteur des bots,
+`bun test` lance 113 tests : règles du moteur de frappe, moteur des bots,
 score et dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types
 (`tsc --noEmit`), les tests (avec une vraie base PostgreSQL) et le build à

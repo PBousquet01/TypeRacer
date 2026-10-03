@@ -110,6 +110,9 @@ export const signupBody = credentials.extend({
   displayName: z.string().max(64).optional(),
 });
 
+/** AUTH-04: what the browser says it's sending. Only a first filter: the bytes are checked too. */
+export const avatarContentType = z.enum(["image/jpeg", "image/png", "image/webp"]);
+
 export const displayNameBody = z.object({
   displayName: riderName,
 });
