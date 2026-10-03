@@ -9,9 +9,12 @@
     "start": "NODE_ENV=production bun server.ts",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "db:generate": "drizzle-kit generate",
+    "db:seed": "bun scripts/seed.ts"
   },
   "dependencies": {
+    "drizzle-orm": "0.45.3",
     "next": "16.3.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
@@ -24,6 +27,7 @@
     "@types/node": "^26.6.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "drizzle-kit": "0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
     "tailwindcss": "^4.3.3",

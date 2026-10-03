@@ -3,8 +3,14 @@
 //
 // Bun talks to Postgres natively (Bun.SQL), so there's no database driver to
 // install. Queries are tagged templates — values are sent as parameters, so
-// they can't be read as SQL.
+// they can't be read as SQL. Drizzle (`db`) shares the same connection; the
+// schema lives in server/schema.ts and its history in drizzle/ (TECH-04).
 import { SQL } from "bun";
+import { drizzle } from "drizzle-orm/bun-sql";
+import { migrate as runMigrations } from "drizzle-orm/bun-sql/migrator";
+import { readMigrationFiles } from "drizzle-orm/migrator";
+import { fileURLToPath } from "node:url";
+import * as schema from "./schema";
 
 const url =
   process.env.DATABASE_URL ?? "postgres://localhost:5432/chocobo_race";
@@ -18,96 +24,44 @@ export const sql = new SQL({
   connectionTimeout: 30, // seconds
 });
 
-const STATEMENTS: string[] = [
-  `CREATE TABLE IF NOT EXISTS users (
-     id            SERIAL PRIMARY KEY,
-     username      TEXT NOT NULL,
-     display_name  TEXT NOT NULL,
-     password_hash TEXT NOT NULL,
-     is_admin      BOOLEAN NOT NULL DEFAULT false,
-     created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-   )`,
-  // Usernames are case-insensitive: "Phil" and "phil" are the same account.
-  `CREATE UNIQUE INDEX IF NOT EXISTS users_username_lower
-     ON users (lower(username))`,
+export const db = drizzle({ client: sql, schema });
 
-  // AUTH-1/2/3: GitHub and Discord accounts attached to a user, at most one
-  // of each. Someone who only ever signs in that way has no password.
-  `ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL`,
-  `CREATE TABLE IF NOT EXISTS identities (
-     provider    TEXT NOT NULL CHECK (provider IN ('github', 'discord')),
-     provider_id TEXT NOT NULL,
-     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-     PRIMARY KEY (provider, provider_id),
-     UNIQUE (user_id, provider)
-   )`,
+const MIGRATIONS = fileURLToPath(new URL("../drizzle", import.meta.url));
 
-  `CREATE TABLE IF NOT EXISTS sessions (
-     token      TEXT PRIMARY KEY,
-     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-     expires_at TIMESTAMPTZ NOT NULL
-   )`,
-  `CREATE INDEX IF NOT EXISTS sessions_by_user ON sessions (user_id)`,
-
-  // Mounts that aren't available to everyone (the fox, Miku, and the rest of
-  // the in-jokes) are granted per account here.
-  `CREATE TABLE IF NOT EXISTS unlocks (
-     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-     mount   TEXT NOT NULL,
-     PRIMARY KEY (user_id, mount)
-   )`,
-
-  // One row per finished race, per signed-in rider.
-  `CREATE TABLE IF NOT EXISTS races (
-     id          SERIAL PRIMARY KEY,
-     user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-     room_code   TEXT NOT NULL,
-     wpm         INTEGER NOT NULL,
-     accuracy    INTEGER,
-     time_ms     INTEGER,
-     place       INTEGER,
-     riders      INTEGER NOT NULL,
-     finished_at TIMESTAMPTZ NOT NULL DEFAULT now()
-   )`,
-  `CREATE INDEX IF NOT EXISTS races_by_user ON races (user_id, finished_at DESC)`,
-  // TXT-9: wpm × accuracy. Races saved before the column existed get theirs
-  // worked out once, from the numbers they already have.
-  `ALTER TABLE races ADD COLUMN IF NOT EXISTS score INTEGER`,
-  `UPDATE races SET score = ROUND(wpm * accuracy / 100.0) WHERE score IS NULL AND accuracy IS NOT NULL`,
-
-  // TXT-3: the passages to type live here, not in the code. The bank starts
-  // from server/seed/ and grows with `bun scripts/admin.ts add-text`.
-  `CREATE TABLE IF NOT EXISTS passages (
-     id         SERIAL PRIMARY KEY,
-     language   TEXT NOT NULL CHECK (language IN ('en', 'fr')),
-     body       TEXT NOT NULL,
-     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-   )`,
-  `CREATE INDEX IF NOT EXISTS passages_by_language ON passages (language)`,
-
-  // The dictionary that "random words" races are drawn from.
-  `CREATE TABLE IF NOT EXISTS words (
-     language TEXT NOT NULL CHECK (language IN ('en', 'fr')),
-     word     TEXT NOT NULL,
-     PRIMARY KEY (language, word)
-   )`,
-];
-
-/** Creates anything that's missing. Safe to run on every boot. */
+/** Applies any migration in drizzle/ the database hasn't seen, then makes sure there are texts to type. */
 export async function migrate(): Promise<void> {
-  for (const statement of STATEMENTS) {
-    await sql.unsafe(statement);
-  }
+  await adoptLegacyDatabase();
+  await runMigrations(db, { migrationsFolder: MIGRATIONS });
   await seedTexts();
+}
+
+// Databases created before migrations existed (the local one, and Neon in
+// production) already have every table of the baseline migration, built by
+// the old CREATE TABLE IF NOT EXISTS list. Running the baseline on them would
+// fail, so they're recorded as already being at the baseline instead. The
+// baseline's constraint and index names match the old ones, so the result is
+// the same as a fresh database.
+async function adoptLegacyDatabase(): Promise<void> {
+  const [{ legacy, tracked }]: { legacy: boolean; tracked: boolean }[] = await sql`
+    SELECT to_regclass('public.users') IS NOT NULL AS legacy,
+           to_regclass('drizzle.__drizzle_migrations') IS NOT NULL AS tracked`;
+  if (!legacy || tracked) return;
+
+  const [baseline] = readMigrationFiles({ migrationsFolder: MIGRATIONS });
+  await sql.begin(async (tx) => {
+    await tx`CREATE SCHEMA IF NOT EXISTS drizzle`;
+    await tx`CREATE TABLE IF NOT EXISTS drizzle.__drizzle_migrations (
+               id SERIAL PRIMARY KEY, hash text NOT NULL, created_at bigint)`;
+    await tx`INSERT INTO drizzle.__drizzle_migrations (hash, created_at)
+             VALUES (${baseline.hash}, ${baseline.folderMillis})`;
+  });
 }
 
 const LANGUAGES = ["en", "fr"] as const;
 
 // Fills an empty text bank from server/seed/. Only runs when a language has
 // nothing at all, so passages added or deleted later are left alone.
-async function seedTexts(): Promise<void> {
+export async function seedTexts(): Promise<void> {
   const seed: Record<string, string[]> = await Bun.file(new URL("./seed/passages.json", import.meta.url)).json();
 
   for (const language of LANGUAGES) {

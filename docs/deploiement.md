@@ -60,8 +60,10 @@ et les clés GitHub et Discord sont saisies dans le tableau de bord de Render.
    `postgresql://utilisateur:motdepasse@ep-xxxx.us-east-2.aws.neon.tech/neondb?sslmode=require`.
    **C'est un secret** : ne pas la coller dans le code ni dans une conversation.
 
-Les tables et la banque de textes sont créées automatiquement au premier
-démarrage du serveur (`migrate()`).
+Les migrations (`drizzle/`) et la banque de textes sont appliquées
+automatiquement à chaque démarrage du serveur (`migrate()`). Pour avoir les
+comptes de démonstration en ligne, lancer une fois, depuis son ordinateur :
+`DATABASE_URL="<chaîne Neon>" SEED_PASSWORD="<mot de passe>" bun run db:seed`.
 
 ### 2. Créer le serveur (Render)
 

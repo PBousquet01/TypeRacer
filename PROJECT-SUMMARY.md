@@ -27,8 +27,13 @@ bun scripts/admin.ts list
 PostgreSQL runs via Homebrew (`brew services start postgresql@17`), database
 `chocobo_race`, connection string in `.env` (git-ignored). **On this Mac it
 listens on port 5433**, not 5432: the hacksorel-2 project's Docker stack
-publishes its own Postgres on 5432. Use `psql -p 5433 -d chocobo_race`. Tables are created
-at boot by `server/db.ts`; there is no migration step.
+publishes its own Postgres on 5432. Use `psql -p 5433 -d chocobo_race`. The schema is
+`server/schema.ts` (Drizzle); migrations live in `drizzle/` and run at boot
+(`migrate()` in `server/db.ts`). **Never edit the database or a committed
+migration by hand**: change `schema.ts`, run `bun run db:generate`, commit
+the new file. Databases from before Drizzle are adopted at the baseline
+(`adoptLegacyDatabase`). `bun run db:seed` adds 3 demo accounts + history.
+App queries still use `sql` (Bun.SQL); `db` (Drizzle) shares the connection.
 
 ## Layout
 

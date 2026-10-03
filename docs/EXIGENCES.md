@@ -14,7 +14,7 @@ que tout changement qui fait avancer une exigence.
 
 | Section | ✅ | 🟡 | ❌ | Total |
 | --- | --- | --- | --- | --- |
-| Contraintes techniques (TECH) | 5 | 4 | 1 | 10 |
+| Contraintes techniques (TECH) | 6 | 3 | 1 | 10 |
 | Identité visuelle et design (DES) | 5 | 1 | 0 | 6 |
 | Comptes et profil (AUTH) | 1 | 3 | 2 | 6 |
 | Salles et visibilité (SALLE) | 1 | 4 | 5 | 10 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 2 | 0 | 1 | 3 |
-| **Total** | **29** | **25** | **36** | **90** |
+| **Total** | **30** | **24** | **36** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -39,13 +39,13 @@ que tout changement qui fait avancer une exigence.
 | TECH-01 | ✅ | `app/`, `server.ts` | CI : étape « Build » | Next.js 16, App Router, React 19. |
 | TECH-02 | 🟡 | `tsconfig.json`, `eslint.config.mjs` | CI : étapes « Lint » et « Type-check » | `strict: true`; `no-explicit-any` est en erreur (règle incluse par `eslint-config-next/typescript`); aucun `any`, `@ts-ignore` ni `@ts-expect-error`. **Reste** : `eslint.config.mjs` et `postcss.config.mjs` à convertir en TypeScript. |
 | TECH-03 | ✅ | `app/globals.css`, `components/` | CI : étape « Build » | Tailwind CSS v4. |
-| TECH-04 | 🟡 | `server/db.ts`, `server/seed/` | Tests de `api.test.ts` et `rooms.test.ts` sur une vraie base | PostgreSQL 17 avec `Bun.SQL`. **Reste** : un ORM, des migrations versionnées dans le dépôt, et un seed qui crée aussi des utilisateurs et un historique (aujourd'hui : textes seulement). Voir [ARCHITECTURE.md](ARCHITECTURE.md#accès-aux-données-tech-04). |
+| TECH-04 | 🟡 | `server/schema.ts`, `drizzle/`, `server/db.ts`, `scripts/seed.ts` | Tests de `api.test.ts` et `rooms.test.ts` sur une vraie base (la CI part d'une base vide et applique les migrations) | PostgreSQL 17 et Drizzle ORM : schéma, migrations versionnées appliquées au démarrage, seed (textes, comptes de démonstration, historique). **Reste** : la plupart des requêtes de l'application sont encore en SQL (`Bun.SQL`), à passer à Drizzle. Voir [ARCHITECTURE.md](ARCHITECTURE.md#accès-aux-données-tech-04). |
 | TECH-05 | 🟡 | `render.yaml`, `GET /api/health` | En ligne : <https://chocobo-race.onrender.com> (HTTPS, course complète jouée le 2 octobre 2026) | Fonctionnel en production en HTTPS, mais sur Render (plateforme gratuite), pas sur un VPS. Approbation de l'enseignant demandée. Justification dans [deploiement.md](deploiement.md). |
 | TECH-06 | ✅ | `server/rooms.ts`, `components/Track.tsx` | Tous les tests de `rooms.test.ts` | Socket.IO. Voir [ADR-001](ARCHITECTURE.md#adr-001--technologie-temps-réel). |
 | TECH-07 | ❌ | `server/rooms.ts`, `server/api.ts` | « invalid settings are ignored » | Les entrées sont vérifiées à la main (noms, codes, réglages, montures), pas par un schéma. Zod à ajouter sur l'API et les messages Socket.IO. |
 | TECH-08 | ✅ | `render.yaml` | — | Render et Neon en forfaits gratuits; GitHub et Discord OAuth gratuits. Rien à payer pour corriger. |
 | TECH-09 | ✅ | `.github/workflows/ci.yml` | 68 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
-| TECH-10 | 🟡 | `.env.example`, `.gitignore` | — | Aucun secret commité. **Reste** : documenter `PORT` et `PUBLIC_URL` dans `.env.example`. |
+| TECH-10 | ✅ | `.env.example`, `.gitignore` | — | Toutes les variables lues par le serveur et les scripts y sont documentées. Aucun secret commité. |
 
 ## Identité visuelle et design (DES)
 

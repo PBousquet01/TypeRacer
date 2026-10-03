@@ -76,7 +76,7 @@ flowchart LR
 | Environnement d'exécution | Bun 1.4 | Exécute TypeScript directement (pas de compilation du serveur), inclut le pilote PostgreSQL, le hachage de mots de passe et le lanceur de tests. |
 | Style (TECH-03) | Tailwind CSS v4 | Exigé. Les couleurs restent des variables CSS, ce qui permet de changer de thème en direct (DES-05). |
 | Base de données (TECH-04) | PostgreSQL 17 | Exigée. |
-| Accès aux données (TECH-04) | `Bun.SQL` aujourd'hui; **ORM avec migrations versionnées à venir** | Voir ci-dessous. |
+| Accès aux données (TECH-04) | Drizzle ORM (schéma, migrations, seed) sur `Bun.SQL` | Voir ci-dessous. |
 | Temps réel (TECH-06) | Socket.IO 4 | Voir [ADR-001](#adr-001--technologie-temps-réel). |
 | Hébergement (TECH-05) | Render (service web) + Neon (PostgreSQL), forfaits gratuits | Justification dans [deploiement.md](deploiement.md). |
 | Tests (TECH-09) | `bun test` + GitHub Actions | Intégré à Bun, aucune dépendance de plus. |
@@ -91,11 +91,30 @@ requête :
 const [row] = await sql`SELECT id FROM users WHERE lower(username) = lower(${username})`;
 ```
 
-Le schéma est créé au démarrage par `migrate()` (`server/db.ts`), avec des
-`CREATE TABLE IF NOT EXISTS` sûrs à relancer. TECH-04 demande un ORM, des
-migrations versionnées dans le dépôt et un script de seed (textes,
-utilisateurs, historique) : c'est **à faire**. Drizzle est le candidat
-pressenti, parce qu'il reste proche du SQL déjà écrit et fonctionne avec Bun.
+Le schéma est décrit en TypeScript avec **Drizzle ORM** dans
+`server/schema.ts`. Drizzle a été choisi parce qu'il reste proche du SQL déjà
+écrit, qu'il fonctionne directement avec le pilote de Bun (`drizzle-orm/bun-sql`)
+et qu'il n'ajoute pas de langage de schéma à part, contrairement à Prisma.
+
+- **Migrations versionnées** : `bun run db:generate` compare `schema.ts` à
+  l'historique et écrit une nouvelle migration SQL dans `drizzle/`, qui est
+  commitée. Au démarrage, `migrate()` (`server/db.ts`) applique celles que la
+  base n'a pas encore vues; Drizzle les note dans
+  `drizzle.__drizzle_migrations`.
+- **Bases d'avant les migrations** : la base locale et celle de production
+  avaient déjà toutes les tables. `adoptLegacyDatabase()` les marque comme
+  étant déjà à la migration de départ (`0000_baseline.sql`) au lieu de la
+  rejouer. Les noms de contraintes et d'index de `schema.ts` sont ceux des
+  anciennes tables, et le schéma obtenu a été comparé (`pg_dump`) à celui
+  d'une base neuve : ils sont identiques.
+- **Seed** : `bun run db:seed` (`scripts/seed.ts`) remplit la banque de
+  textes, crée trois comptes de démonstration et leur historique de courses.
+  Il peut être relancé sans rien dupliquer. Le mot de passe vient de
+  `SEED_PASSWORD`.
+- **Requêtes** : celles de l'application sont encore écrites en SQL avec
+  `Bun.SQL`, sur la même connexion que Drizzle (`db` et `sql` dans
+  `server/db.ts`). Le seed utilise déjà Drizzle; les autres requêtes y
+  passeront au fil des fonctionnalités.
 
 ## Modèle de données
 
