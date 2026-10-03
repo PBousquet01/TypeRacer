@@ -1,6 +1,6 @@
 import { CHOCOBO_COLORS, isCustomColor } from "../chocobos";
 import { RIDER_NAME_MAX, RIDER_NAME_MIN } from "../names";
-import { MIN_RIDERS } from "../rules";
+import { MAX_RIDERS, MIN_RIDERS } from "../rules";
 import type { BotLevel } from "../bots";
 import type { BonusKind } from "../bonuses";
 import type { RaceStatus } from "../rules";
@@ -129,7 +129,7 @@ export const en = {
     titleAccent: "exactly",
     titleAfter: " as fast as you type.",
     intro:
-      "No stats to grind, no gear to farm. Up to forty riders, one paragraph, whoever's fingers hold up. Typos make her stumble, so maybe slow down. Or don't.",
+      "No stats to grind, no gear to farm. Up to thirty riders, one paragraph, whoever's fingers hold up. Typos make her stumble, so maybe slow down. Or don't.",
     saddleUp: "Saddle up",
     riderName: "Rider name",
     hostRace: "Host a race",
@@ -151,7 +151,7 @@ export const en = {
     pickName: "Pick a name first.",
     enterCode: "Enter a room code to join.",
     features: [
-      ["A whole class, one prompt", "Up to forty riders get the same paragraph. No excuses available."],
+      ["A whole class, one prompt", "Up to thirty riders get the same paragraph. No excuses available."],
       ["Accuracy is the brake", "A wrong letter stalls your bird until you backspace over it. She's stubborn."],
       ["A host runs the show", "One person opens the room, starts the race and watches. Everyone else rides."],
     ] as [string, string][],
@@ -265,6 +265,10 @@ export const en = {
     bonusesOptions: { on: "On", off: "Off" },
     bonusesHint:
       "When the leader passes 25, 50 and 75 % of the text, riders far behind get a bonus: 3 words off their own text, 3 more for the leader, or fog over the leader's next words.",
+    capacityLabel: "Capacity",
+    capacityLess: "One place fewer",
+    capacityMore: "One place more",
+    capacityHint: `Most riders in the room, bots and a riding host included, from ${MIN_RIDERS} to ${MAX_RIDERS}. Spectators don't count. It can't go below the riders already here.`,
     visibilityLabel: "Who can join",
     visibilityOptions: { public: "Public", code: "With code", private: "Private" } satisfies Record<Visibility, string>,
     visibilityHint: {

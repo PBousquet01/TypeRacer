@@ -75,10 +75,11 @@ describe("lobby rules", () => {
     expect(countdowns).toBe(1);
   });
 
-  test(`COURSE-4: a room takes ${MAX_RIDERS} riders, not one more`, async () => {
+  test(`SALLE-05: a room takes ${MAX_RIDERS} riders by default, not one more`, async () => {
     const code = freshCode();
     const host = await open(code, "Host", "host");
     await host.join();
+    expect((await host.until(() => true)).settings.capacity).toBe(MAX_RIDERS);
     for (let i = 0; i < MAX_RIDERS; i++) {
       const r = await open(code, `R${i}`, "rider");
       expect(await r.join()).toMatchObject({ ok: true });
@@ -86,6 +87,35 @@ describe("lobby rules", () => {
     const extra = await open(code, "Extra", "rider");
     expect(await extra.join()).toEqual({ error: "room-full" });
   }, 20_000);
+
+  test("SALLE-05: the host sets the capacity; a riding host and bots fill it, the room never drops below who's in", async () => {
+    const code = freshCode();
+    const host = await open(code, "Host", "host");
+    await host.join();
+    raw(host).emit("updateSettings", { capacity: 1 }); // under the minimum: refused
+    raw(host).emit("updateSettings", { capacity: MAX_RIDERS + 1 }); // over the maximum: refused
+    host.socket.emit("updateSettings", { capacity: 3, hostRides: true });
+    await host.until((r) => r.settings.capacity === 3);
+
+    const a = await open(code, "Alice", "rider");
+    expect(await a.join()).toMatchObject({ ok: true });
+    host.socket.emit("addBot", "beginner");
+    await host.until((r) => r.players.some((p) => p.bot));
+    host.socket.emit("addBot", "beginner"); // host + Alice + bot = 3: full
+    const b = await open(code, "Bob", "rider");
+    expect(await b.join()).toEqual({ error: "room-full" });
+
+    host.socket.emit("updateSettings", { capacity: 2 }); // three are in: refused
+    host.socket.emit("updateSettings", { hostRides: false });
+    await host.until((r) => !r.settings.hostRides);
+    expect(host.room!.settings.capacity).toBe(3);
+    expect(host.room!.players.filter((p) => p.bot)).toHaveLength(1);
+    expect(await b.join()).toMatchObject({ ok: true }); // a watching host frees a place
+
+    host.socket.emit("updateSettings", { hostRides: true }); // full again: the host can't start riding
+    await sleep(150);
+    expect(host.room!.settings.hostRides).toBe(false);
+  });
 
   test("riders need a room that exists", async () => {
     const a = await open(freshCode(), "Alice", "rider");

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Chocobo from "./Chocobo";
-import { BotTag, Choice, Field, FinePrint, HostTag, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
+import { BotTag, Choice, Field, FieldLabel, FinePrint, HostTag, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
 import { cn } from "@/lib/cn";
 import { MAX_RIDERS, MIN_RIDERS } from "@/lib/rules";
 import { useT } from "@/lib/i18n";
@@ -55,10 +55,10 @@ export default function Lobby({
   const me = room.players.find((p) => p.id === myId);
   const host = room.players.find((p) => p.id === room.hostId);
   const hostRides = room.settings.hostRides;
-  const riders = room.players.filter((p) => p.role === "rider");
   const lineup = room.players.filter((p) => p.role === "rider" || hostRides);
   const readyCount = lineup.filter((p) => p.role === "host" || (p.ready && !p.watching)).length;
-  const freeStalls = MAX_RIDERS - riders.length;
+  const capacity = room.settings.capacity;
+  const freeStalls = capacity - lineup.length;
   const canStart = readyCount >= MIN_RIDERS;
 
   const isPrivate = room.settings.visibility === "private";
@@ -92,7 +92,7 @@ export default function Lobby({
       <section className="grid content-start">
         <header className="flex flex-wrap items-baseline justify-between gap-3 pb-3.5">
           <h2 className="text-xs/normal text-accent uppercase">
-            {t.lobby.riders} <span className="font-body text-muted">{lineup.length} / {MAX_RIDERS}</span>
+            {t.lobby.riders} <span className="font-body text-muted">{lineup.length} / {capacity}</span>
           </h2>
           <MonoNote>{t.lobby.readyCount(readyCount)}</MonoNote>
         </header>
@@ -198,6 +198,14 @@ export default function Lobby({
                 onChange={(visibility) => onChangeSettings({ visibility })}
               />
               <FinePrint>{t.lobby.visibilityHint[room.settings.visibility]}</FinePrint>
+              <CapacityField
+                label={t.lobby.capacityLabel}
+                value={capacity}
+                min={Math.max(MIN_RIDERS, lineup.length)}
+                max={MAX_RIDERS}
+                onChange={(value) => onChangeSettings({ capacity: value })}
+              />
+              <FinePrint>{t.lobby.capacityHint}</FinePrint>
               <FinePrint>{t.lobby.settingsHint}</FinePrint>
             </Panel>
             <Panel>
@@ -310,7 +318,7 @@ export default function Lobby({
             <Panel>
               <PanelTitle>{t.lobby.control}</PanelTitle>
               <Spec>
-                <SpecRow label={t.lobby.ridersRow}>{lineup.length} / {MAX_RIDERS}</SpecRow>
+                <SpecRow label={t.lobby.ridersRow}>{lineup.length} / {capacity}</SpecRow>
                 <SpecRow label={t.lobby.readyRow}>{readyCount}</SpecRow>
                 <SpecRow label={t.lobby.textRow}>
                   {t.text.label(room.settings)} · {t.lobby.textDetail(room.settings.length, t.lobby.complexityOptions[room.settings.complexity])}
@@ -421,5 +429,66 @@ function CharsField({ label, value, onCommit }: { label: string; value: string; 
         onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
       />
     </Field>
+  );
+}
+
+function CapacityField({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  const t = useT();
+  const [current, setCurrent] = useState(value);
+  const [typed, setTyped] = useState(String(value));
+  const [shown, setShown] = useState(value);
+  if (value !== shown) {
+    setShown(value);
+    setCurrent(value);
+    setTyped(String(value));
+  }
+  function change(next: number) {
+    const clamped = Math.min(max, Math.max(min, next));
+    setCurrent(clamped);
+    setTyped(String(clamped));
+    if (clamped !== value) onChange(clamped);
+  }
+  function commit() {
+    const n = Number.parseInt(typed, 10);
+    if (Number.isNaN(n)) setTyped(String(current));
+    else change(n);
+  }
+  const step = "w-12 shrink-0 cursor-pointer self-stretch border-2 border-edge/25 bg-ink/60 font-display text-micro text-strong hover:border-accent disabled:cursor-default disabled:opacity-40 disabled:hover:border-edge/25 light:border-ink/20 light:bg-ink/4";
+  return (
+    <div className="grid gap-2" role="group" aria-label={label}>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex gap-2">
+        <button type="button" className={step} aria-label={t.lobby.capacityLess} disabled={current <= min} onClick={() => change(current - 1)}>
+          −
+        </button>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={min}
+          max={max}
+          aria-label={label}
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+          className="min-w-0 flex-1 text-center font-display text-accent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+        />
+        <button type="button" className={step} aria-label={t.lobby.capacityMore} disabled={current >= max} onClick={() => change(current + 1)}>
+          +
+        </button>
+      </div>
+    </div>
   );
 }

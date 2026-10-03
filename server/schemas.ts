@@ -8,7 +8,7 @@
 // knows how to translate. Anything else malformed is a `bad-request`.
 import { z } from "zod";
 import { USERNAME_RE, cleanRiderName } from "../lib/names";
-import { isRoomCode, normalizeRoomCode } from "../lib/rules";
+import { MAX_RIDERS, MIN_RIDERS, isRoomCode, normalizeRoomCode } from "../lib/rules";
 import { BOT_LEVEL_IDS } from "../lib/bots";
 import type { ErrorCode } from "../lib/types";
 
@@ -74,6 +74,7 @@ export const settingsChange = z.object({
   kind: textKind.optional(),
   hostRides: z.boolean().optional(),
   visibility: visibility.optional(),
+  capacity: z.number().int().min(MIN_RIDERS).max(MAX_RIDERS).optional(), // SALLE-05
   bonuses: z.boolean().optional(),
   maxTimeMs: z.number().int().min(30_000).max(600_000).nullable().optional(), // CONF-01
   length: z.number().int().min(5).max(200).optional(), // CONF-04

@@ -3,7 +3,7 @@
 État de chaque exigence du *Travail de session — Web V*, où elle se trouve
 dans le code et comment elle est vérifiée.
 
-*Dernière mise à jour : 2 octobre 2026.* À mettre à jour dans le même commit
+*Dernière mise à jour : 3 octobre 2026.* À mettre à jour dans le même commit
 que tout changement qui fait avancer une exigence.
 
 **Statut** : ✅ complet · 🟡 partiel · ❌ non fait.
@@ -17,9 +17,9 @@ que tout changement qui fait avancer une exigence.
 | Contraintes techniques (TECH) | 9 | 1 | 0 | 10 |
 | Identité visuelle et design (DES) | 5 | 1 | 0 | 6 |
 | Comptes et profil (AUTH) | 4 | 2 | 0 | 6 |
-| Salles et visibilité (SALLE) | 5 | 2 | 3 | 10 |
+| Salles et visibilité (SALLE) | 6 | 1 | 3 | 10 |
 | Rejoindre une course (JOIN) | 3 | 0 | 0 | 3 |
-| Configuration (CONF) | 11 | 1 | 0 | 12 |
+| Configuration (CONF) | 12 | 0 | 0 | 12 |
 | Déroulement d'une course (COURSE) | 7 | 3 | 1 | 11 |
 | Bots (BOT) | 5 | 0 | 0 | 5 |
 | Bonus de remontée (BONUS) | 4 | 0 | 0 | 4 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 3 | 0 | 0 | 3 |
-| **Total** | **67** | **16** | **7** | **90** |
+| **Total** | **69** | **14** | **7** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -77,7 +77,7 @@ que tout changement qui fait avancer une exigence.
 | SALLE-02 | ✅ | `lib/rules.ts`, `reserveRoomCode` dans `server/rooms.ts`, `POST /api/rooms` | « SALLE-02: room codes are six unambiguous characters », « SALLE-02: a malformed code is refused », « SALLE-02: a host can't open a room on a code the server didn't issue », « SALLE-02: the server hands a host a fresh six-character code » | 6 caractères tirés par le serveur (`crypto.randomInt`) parmi 31, sans 0/O, 1/I/L; jamais un code déjà pris. Un hôte ne peut ouvrir une salle que sur un code émis par le serveur (réservé 5 min). Un code tapé avec des minuscules, des espaces ou des tirets est accepté. |
 | SALLE-03 | ✅ | `settings.visibility`, `publicRooms` et `joinRoom` dans `server/rooms.ts`, réglage « Qui peut entrer » de `components/Lobby.tsx` | « SALLE-03: only public rooms are listed, and the list follows changes live », « SALLE-03, SALLE-04: a private room takes an invite link, never the code alone », « SALLE-03: a new room can ask for a visibility, but only a real one » | Publique : dans l'explorateur et « Faire une course ». Sur code (par défaut) : code ou lien. Privée : lien seulement. L'hôte change la visibilité dans la salle d'attente. |
 | SALLE-04 | ✅ | `createInvite`, `sendInvites`, `clientIp` dans `server/rooms.ts`, panneau « Liens d'invitation » de `components/Lobby.tsx` | « SALLE-03, SALLE-04: a private room takes an invite link, never the code alone », « SALLE-04: links die with the room », « SALLE-04, SALLE-07: a kicked rider's invite link is revoked » | L'hôte crée autant de liens qu'il veut, les copie et voit leur statut (non utilisé, ou utilisé par qui). Jeton de 128 bits (`randomBytes(16)`). Le premier usage lie le lien à l'adresse IP; une autre IP est refusée, la même peut revenir. Les liens vivent en mémoire avec la salle et disparaissent à sa fermeture. IP : en ligne, l'en-tête `CF-Connecting-IP` de Cloudflare (Render est derrière Cloudflare); ailleurs, l'adresse de la connexion. Le lien d'un participant expulsé est révoqué (SALLE-07). |
-| SALLE-05 | 🟡 | `lib/rules.ts` (`MIN_RIDERS`, `MAX_RIDERS`) | « COURSE-3: a race needs two ready riders », « COURSE-4: a room takes 40 riders, not one more » | Minimum 2, maximum fixe de 40; les spectateurs ne comptent pas. **Reste** : capacité réglable par l'hôte, de 2 à 30. |
+| SALLE-05 | ✅ | `lib/rules.ts` (`MIN_RIDERS`, `MAX_RIDERS`), `participantCount` et `isFull` dans `server/rooms.ts`, réglage « Capacité » de `components/Lobby.tsx` | « SALLE-05: a room takes 30 riders by default, not one more », « SALLE-05: the host sets the capacity; a riding host and bots fill it, the room never drops below who's in » | L'hôte règle la capacité de 2 à 30 (30 par défaut), vérifiée par Zod et par le serveur à chaque entrée, ajout de bot et changement de réglage. Comptent : les cavaliers, les bots et l'hôte s'il court; l'hôte qui regarde ne compte pas. Un cavalier envoyé dans les gradins (COURSE-06) garde sa place, puisque l'hôte peut le faire revenir. La capacité ne descend jamais sous le nombre de participants présents : personne n'est expulsé par un réglage. |
 | SALLE-06 | ❌ | `leaveCurrentRoom` | — | Un même onglet quitte sa salle avant d'en rejoindre une autre, mais rien n'est garanti par la base et deux onglets créent deux joueurs. |
 | SALLE-07 | ✅ | `kickPlayer` dans `server/rooms.ts`, bouton « Expulser » de `components/Lobby.tsx` | « SALLE-07: the host kicks a rider out for good; nobody else can », « SALLE-04, SALLE-07: a kicked rider's invite link is revoked » | L'hôte expulse un cavalier ou un spectateur, après confirmation; la personne est retirée tout de suite (même en course) et prévenue. Elle ne peut plus revenir : refusée par son onglet (`clientId`) et, si elle est connectée, par son compte. Pas par adresse IP : toute une classe partage souvent la même. Limite : un invité qui ouvre un nouvel onglet a un nouvel identifiant; une session d'invité par cookie signé (AUTH-02) fermera cette porte. |
 | SALLE-08 | ✅ | `server/rooms.ts` (`HOST_RECLAIM_MS`) | « COURSE-14: a riding host who drops keeps their lane and the host seat » | La place d'hôte est gardée 20 s pour une reconnexion, puis passe à la personne présente depuis le plus longtemps. Salle fermée quand il n'y a plus personne. |
@@ -106,7 +106,7 @@ que tout changement qui fait avancer une exigence.
 | CONF-08 | ✅ | `ErrorMode`, `progressChars`, `correctCount` dans `lib/typing.ts`; `settings.errorMode`; réglage « Fautes » de `components/Lobby.tsx` | « CONF-08: in free mode a rider carries on past mistakes and finishes at the text's length », « CONF-08: in free mode a rider finishes with mistakes left in, and they count », « BOT-03: in correct mode a bot fixes every slip; in free mode it never backspaces », « can't type more than 5 characters past a mistake » | Correction obligatoire (par défaut) : impossible d'aller plus de 5 caractères au-delà d'une faute. Libre : on continue, la faute reste et compte dans la précision, le nombre d'erreurs et le MPM net (seuls les caractères justes comptent, annexe A); on finit en ayant tapé autant de caractères que le texte. Les mêmes règles servent au navigateur, au serveur et aux bots. |
 | CONF-09 | ✅ | `settings.bonuses`, réglage « Bonus de remontée » de `components/Lobby.tsx` | « CONF-09: with bonuses off, nobody gets one » | Désactivés par défaut; l'hôte les active dans la salle d'attente. |
 | CONF-10 | ✅ | `addBot`, `removeBot` dans `server/rooms.ts`, panneau « Bots » de `components/Lobby.tsx` | « CONF-10: the host adds and removes bots; riders can't, and a made-up level is ignored » | L'hôte ajoute un bot du niveau choisi ou le retire, dans la salle d'attente. Les bots comptent dans la capacité. |
-| CONF-11 | 🟡 | réglage « Qui peut entrer » de `components/Lobby.tsx` | « SALLE-03: only public rooms are listed, and the list follows changes live » | La visibilité se règle dans la salle d'attente. **Reste** : la capacité (SALLE-05). |
+| CONF-11 | ✅ | réglages « Qui peut entrer » et « Capacité » de `components/Lobby.tsx` | « SALLE-03: only public rooms are listed, and the list follows changes live », tests SALLE-05 | Visibilité et capacité se règlent dans la salle d'attente; l'explorateur affiche la capacité choisie. |
 | CONF-12 | ✅ | `updateSettings`, `components/Lobby.tsx` | « COURSE-11: the host's settings reach riders; riders can't change them », « invalid settings are ignored » | Diffusée à toute la salle en direct. |
 
 ## Déroulement d'une course (COURSE)

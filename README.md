@@ -18,7 +18,7 @@ race history, using the password in `SEED_PASSWORD`.
 A multiplayer typing race (like Monkeytype) where every rider is a chocobo
 running down a track. Type fast, run fast.
 
-Each room has **one host and up to forty riders** (a race needs at least two). The host opens the room,
+Each room has **one host and up to thirty riders** (the host sets the capacity, from 2 to 30; a race needs at least two). The host opens the room,
 starts the race, and either watches from the stands or rides along (COURSE-5).
 Riders ready up and race; the host can send a rider to the stands, and let
 them back, between races (COURSE-6). If the host's browser drops (a refresh, a flaky network)

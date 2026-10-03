@@ -163,7 +163,12 @@ join instead.
   drops keeps both the lane and the seat (held like any rider's lane).
   If the host drops, the seat is held 20s for a reconnect, then the
   longest-present player inherits it.
-- **Race rules live in `lib/rules.ts`** (shared by server and lobby): 2–40
+- **Capacity (SALLE-05, CONF-11).** `settings.capacity`, 2–30 (default 30),
+  counts `participantCount`: riders (benched ones included) + bots + a riding
+  host. `isFull` gates joins, `addBot` and quick play; `updateSettings`
+  refuses any change that would leave more participants than the capacity
+  (lowering it, or the host starting to ride), so nobody is pushed out.
+- **Race rules live in `lib/rules.ts`** (shared by server and lobby): 2–30
   riders, a 30s last call once the first rider finishes (then DNFs), and a
   30s hold on the lane of a rider who drops. The same tab (same `clientId`)
   reconnecting gets its lane and progress back; the client resumes the

@@ -78,6 +78,7 @@ export interface RoomSettings extends TextSettings, Omit<TextOptions, "kind"> {
   errorMode: ErrorMode; // CONF-08: must mistakes be fixed, or can riders carry on
   hostRides: boolean; // COURSE-5: the host races too, instead of only watching
   visibility: Visibility;
+  capacity: number; // SALLE-05: most participants (riders, bots, a riding host), MIN_RIDERS to MAX_RIDERS
   bonuses: boolean; // CONF-09: comeback bonuses on or off
 }
 

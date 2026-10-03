@@ -183,6 +183,7 @@ function createRoom(code: string, language: TextLanguage, visibility: Visibility
       kind: "sentences",
       hostRides: false,
       visibility,
+      capacity: MAX_RIDERS,
       bonuses: false,
       maxTimeMs: DEFAULT_MAX_TIME_MS,
       errorMode: "correct",
@@ -358,8 +359,14 @@ const EXPLORER = "explorer"; // the Socket.IO room the explorer pages join
 const ROOM_LIST_MS = 500;
 let roomListTimer: Timer | null = null;
 
-/** Participants: riders and bots, plus the host when they ride. */
-const participantCount = (room: Room) => riders(room).length + (room.settings.hostRides ? 1 : 0);
+/**
+ * SALLE-05: participants, the people the capacity limits: riders and bots,
+ * plus the host when they ride. A host who only watches doesn't count.
+ * A rider the host sent to the stands (COURSE-6) keeps their place: they
+ * can be let back in at any time, so their place stays reserved.
+ */
+const participantCount = (room: Room, settings = room.settings) => riders(room).length + (settings.hostRides ? 1 : 0);
+const isFull = (room: Room) => participantCount(room) >= room.settings.capacity;
 
 export function publicRooms(): RoomSummary[] {
   return [...rooms.values()]
@@ -369,7 +376,7 @@ export function publicRooms(): RoomSummary[] {
       code: room.code,
       host: (room.hostId && room.players.get(room.hostId)?.name) || null,
       riders: participantCount(room),
-      capacity: MAX_RIDERS,
+      capacity: room.settings.capacity,
       language: room.settings.language,
       kind: room.settings.kind,
       complexity: room.settings.complexity,
@@ -395,7 +402,7 @@ export function quickRaceRoom(): string | null {
     (room) =>
       room.settings.visibility === "public" &&
       (room.status === "lobby" || room.status === "finished") &&
-      riders(room).length < MAX_RIDERS,
+      !isFull(room),
   );
   open.sort((a, b) => participantCount(b) - participantCount(a) || a.createdAt - b.createdAt);
   return open[0]?.code ?? null;
@@ -866,7 +873,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       if (invite.ip !== null && invite.ip !== socket.data.ip) return reply({ error: "invite-used" });
     }
 
-    if (finalRole === "rider" && riders(room).length >= MAX_RIDERS) {
+    if (finalRole === "rider" && isFull(room)) {
       return reply({ error: "room-full" });
     }
     if (invite && invite.ip === null) {
@@ -959,7 +966,12 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
 
     // Only what was sent changes; the rest stays as it was.
     const sent = Object.fromEntries(Object.entries(changes.data).filter(([, v]) => v !== undefined));
-    room.settings = { ...room.settings, ...sent };
+    const settings = { ...room.settings, ...sent };
+    // SALLE-05: nobody already in is pushed out. The capacity can't drop
+    // below the participants present, and the host can't start riding in a
+    // full room; the host kicks someone first.
+    if (participantCount(room, settings) > settings.capacity) return;
+    room.settings = settings;
     broadcastRoom(io, room);
   });
 
@@ -1006,7 +1018,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const room = currentRoom(socket);
     const level = parse(botLevel, payload);
     if (!room || !isHost(room, socket) || room.status !== "lobby" || !level.ok) return;
-    if (riders(room).length >= MAX_RIDERS) return;
+    if (isFull(room)) return;
     addBot(room, level.data);
     broadcastRoom(io, room);
   });

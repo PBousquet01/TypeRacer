@@ -1,6 +1,6 @@
 import { CHOCOBO_COLORS, isCustomColor } from "../chocobos";
 import { RIDER_NAME_MAX, RIDER_NAME_MIN } from "../names";
-import { MIN_RIDERS } from "../rules";
+import { MAX_RIDERS, MIN_RIDERS } from "../rules";
 import type { ErrorCode, NoticeCode, TextSettings, TextKind, TextLanguage } from "../types";
 import type { Dictionary } from "./en";
 
@@ -141,7 +141,7 @@ export const fr: Dictionary = {
     titleAccent: "exactement",
     titleAfter: " aussi vite que tu tapes.",
     intro:
-      "Pas de stats à farmer, pas d'équipement à collectionner. Jusqu'à quarante cavaliers, un seul paragraphe, et que les meilleurs doigts gagnent. Les fautes la font trébucher, alors ralentis peut-être. Ou pas.",
+      "Pas de stats à farmer, pas d'équipement à collectionner. Jusqu'à trente cavaliers, un seul paragraphe, et que les meilleurs doigts gagnent. Les fautes la font trébucher, alors ralentis peut-être. Ou pas.",
     saddleUp: "En selle",
     riderName: "Nom de cavalier",
     hostRace: "Organiser une course",
@@ -163,7 +163,7 @@ export const fr: Dictionary = {
     pickName: "Choisis d'abord un nom.",
     enterCode: "Entre un code de salon pour rejoindre.",
     features: [
-      ["Toute la classe, un seul texte", "Jusqu'à quarante cavaliers tapent le même paragraphe. Aucune excuse possible."],
+      ["Toute la classe, un seul texte", "Jusqu'à trente cavaliers tapent le même paragraphe. Aucune excuse possible."],
       ["La précision, c'est le frein", "Une mauvaise lettre bloque ton oiseau tant que tu ne l'effaces pas. Il est têtu."],
       ["Un hôte mène la course", "Une personne ouvre le salon, lance la course et regarde. Tous les autres courent."],
     ],
@@ -277,6 +277,10 @@ export const fr: Dictionary = {
     bonusesOptions: { on: "Activés", off: "Désactivés" },
     bonusesHint:
       "Quand le meneur passe 25, 50 et 75 % du texte, les cavaliers loin derrière reçoivent un bonus : 3 mots de moins dans leur texte, 3 mots de plus pour le meneur, ou du brouillard sur ses prochains mots.",
+    capacityLabel: "Capacité",
+    capacityLess: "Une place de moins",
+    capacityMore: "Une place de plus",
+    capacityHint: `Nombre maximal de cavaliers, bots et hôte qui court compris, de ${MIN_RIDERS} à ${MAX_RIDERS}. Les spectateurs ne comptent pas. Elle ne peut pas descendre sous le nombre de cavaliers déjà là.`,
     visibilityLabel: "Qui peut entrer",
     visibilityOptions: { public: "Public", code: "Sur code", private: "Privé" },
     visibilityHint: {
