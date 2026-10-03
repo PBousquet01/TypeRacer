@@ -2,12 +2,23 @@
 // sees the request. Keeping it here (instead of in a Next route handler)
 // means the database code never goes through the bundler.
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { count, desc, eq, isNotNull, max, sql } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, max, sql } from "drizzle-orm";
 import { db } from "./db";
-import { races, users } from "./schema";
+import { raceRuns, races, users } from "./schema";
 import { pickText } from "./texts";
 import { quickRaceRoom, reserveRoomCode } from "./rooms";
-import { loginBody, mountBody, newRoomBody, oauthCallbackQuery, parse, queryOf, signupBody, textQuery } from "./schemas";
+import {
+  historyQuery,
+  loginBody,
+  mountBody,
+  newRoomBody,
+  oauthCallbackQuery,
+  parse,
+  queryOf,
+  raceId,
+  signupBody,
+  textQuery,
+} from "./schemas";
 import { authorizeUrl, configuredProviders, fetchProfile, isProvider, newState, stateCookie, stateMatches } from "./oauth";
 import {
   createOAuthUser,
@@ -24,7 +35,7 @@ import {
   userForToken,
   verifyLogin,
 } from "./auth";
-import type { ErrorCode, LeaderboardRow, RecentRace, StatsSummary, User } from "../lib/types";
+import type { ErrorCode, HistoryPage, LeaderboardRow, PastRace, RecentRace, StatsSummary, User } from "../lib/types";
 
 const MAX_BODY = 4096;
 
@@ -85,7 +96,7 @@ function publicUser(user: User | null): User | null {
 
 const winsOf = sql<number>`count(*) filter (where ${races.place} = 1)::int`;
 
-async function statsFor(userId: number): Promise<{ summary: StatsSummary; recent: RecentRace[] }> {
+async function statsFor(userId: number): Promise<{ summary: StatsSummary }> {
   const [summary]: StatsSummary[] = await db
     .select({
       races: count(),
@@ -98,8 +109,18 @@ async function statsFor(userId: number): Promise<{ summary: StatsSummary; recent
     .from(races)
     .where(eq(races.userId, userId));
 
-  const recent: RecentRace[] = await db
+  return { summary };
+}
+
+const HISTORY_PAGE = 10;
+
+/** HIST-01: a page of a rider's races, newest first. */
+async function historyFor(userId: number, page: number): Promise<HistoryPage> {
+  const [{ total }] = await db.select({ total: count() }).from(races).where(eq(races.userId, userId));
+  const pages = Math.max(1, Math.ceil(total / HISTORY_PAGE));
+  const rows = await db
     .select({
+      runId: races.runId,
       roomCode: races.roomCode,
       wpm: races.wpm,
       accuracy: races.accuracy,
@@ -107,14 +128,32 @@ async function statsFor(userId: number): Promise<{ summary: StatsSummary; recent
       timeMs: races.timeMs,
       place: races.place,
       riders: races.riders,
-      finishedAt: sql<string>`to_char(${races.finishedAt}, 'YYYY-MM-DD HH24:MI')`,
+      finishedAt: races.finishedAt,
     })
     .from(races)
     .where(eq(races.userId, userId))
     .orderBy(desc(races.finishedAt), desc(races.id))
-    .limit(10);
+    .limit(HISTORY_PAGE)
+    .offset((Math.min(page, pages) - 1) * HISTORY_PAGE);
+  const list: RecentRace[] = rows.map((r) => ({ ...r, finishedAt: r.finishedAt.toISOString() }));
+  return { races: list, page: Math.min(page, pages), pages };
+}
 
-  return { summary, recent };
+/** HIST-02: a race's full results, for someone who was in it; null otherwise. */
+async function pastRace(userId: number, id: number): Promise<PastRace | null> {
+  const [row] = await db
+    .select({
+      id: raceRuns.id,
+      roomCode: raceRuns.roomCode,
+      finishedAt: raceRuns.finishedAt,
+      bonuses: raceRuns.bonuses,
+      players: raceRuns.players,
+      myId: races.playerId,
+    })
+    .from(races)
+    .innerJoin(raceRuns, eq(raceRuns.id, races.runId))
+    .where(and(eq(races.userId, userId), eq(races.runId, id)));
+  return row ? { ...row, finishedAt: row.finishedAt.toISOString() } : null;
 }
 
 /** Returns true when it answered, false to let Next.js handle the URL. */
@@ -216,6 +255,25 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
     if (!query.ok) return send(res, 400, { error: query.error }), true;
     const text = await pickText({ language: query.data.lang, kind: query.data.kind });
     send(res, 200, { text });
+    return true;
+  }
+
+  if (path === "/api/history" && method === "GET") {
+    if (!me) return send(res, 401, { error: "sign-in-for-stats" }), true;
+    const query = parse(historyQuery, queryOf(url));
+    if (!query.ok) return send(res, 400, { error: query.error }), true;
+    send(res, 200, await historyFor(me.id, query.data.page));
+    return true;
+  }
+
+  const raceMatch = /^\/api\/races\/([^/]+)$/.exec(path);
+  if (raceMatch && method === "GET") {
+    if (!me) return send(res, 401, { error: "sign-in-for-stats" }), true;
+    const id = parse(raceId, raceMatch[1]);
+    if (!id.ok) return send(res, 400, { error: id.error }), true;
+    const race = await pastRace(me.id, id.data);
+    if (!race) return send(res, 404, { error: "no-race" }), true;
+    send(res, 200, race);
     return true;
   }
 

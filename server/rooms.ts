@@ -544,9 +544,9 @@ function endRace(io: IO, room: Room) {
   room.status = "finished";
   room.finishAt = null;
   rankFinishers(room);
-  racers(room).forEach((player) =>
-    recordRace(room, player).catch((err) => console.error("could not save a race result", err)),
-  );
+  const field = playerList(room).filter((p) => p.racing);
+  const entries = [...room.players.entries()].filter(([, p]) => p.racing);
+  recordRace(room, field, entries).catch((err) => console.error("could not save a race result", err));
   broadcastRoom(io, room);
 }
 

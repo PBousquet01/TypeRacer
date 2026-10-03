@@ -24,13 +24,13 @@ que tout changement qui fait avancer une exigence.
 | Bots (BOT) | 5 | 0 | 0 | 5 |
 | Bonus de remontée (BONUS) | 4 | 0 | 0 | 4 |
 | Résultats (RES) | 3 | 1 | 1 | 5 |
-| Historique (HIST) | 0 | 1 | 1 | 2 |
-| Internationalisation (I18N) | 2 | 0 | 1 | 3 |
+| Historique (HIST) | 2 | 0 | 0 | 2 |
+| Internationalisation (I18N) | 2 | 1 | 0 | 3 |
 | Tests (TEST) | 1 | 0 | 2 | 3 |
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 2 | 0 | 1 | 3 |
-| **Total** | **52** | **20** | **18** | **90** |
+| **Total** | **54** | **20** | **16** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -44,7 +44,7 @@ que tout changement qui fait avancer une exigence.
 | TECH-06 | ✅ | `server/rooms.ts`, `components/Track.tsx` | Tous les tests de `rooms.test.ts` | Socket.IO. Voir [ADR-001](ARCHITECTURE.md#adr-001--technologie-temps-réel). |
 | TECH-07 | ✅ | `server/schemas.ts`, `server/rooms.ts`, `server/api.ts` | « TECH-07: a join of the wrong shape is refused, and a bad acknowledgement can't crash the server », « TECH-07: setWatching with the wrong types is ignored », « invalid settings are ignored », « the server judges the keys: wrong ones don't move the bird », « a body that isn't the expected shape gets the matching error code », « a body that isn't JSON is a bad request », « a text in a language the site doesn't have is refused » | Zod : chaque message Socket.IO qui porte des données (`joinRoom`, `updateSettings`, `setWatching`, `typed`), chaque corps JSON (`signup`, `login`, `admin/mount`) et chaque paramètre d'URL (`/api/text`, retour OAuth). Les messages d'erreur des schémas sont les codes d'erreur de l'API. Le projet n'utilise pas d'actions serveur Next.js. |
 | TECH-08 | ✅ | `render.yaml` | — | Render et Neon en forfaits gratuits; GitHub et Discord OAuth gratuits. Rien à payer pour corriger. |
-| TECH-09 | ✅ | `.github/workflows/ci.yml` | 108 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
+| TECH-09 | ✅ | `.github/workflows/ci.yml` | 109 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
 | TECH-10 | ✅ | `.env.example`, `.gitignore` | — | Toutes les variables lues par le serveur et les scripts y sont documentées. Aucun secret commité. |
 
 ## Identité visuelle et design (DES)
@@ -160,8 +160,8 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| HIST-01 | 🟡 | `app/stats/page.tsx` | « stats need an account » | Les 10 dernières courses. **Reste** : pagination. |
-| HIST-02 | ❌ | — | — | Réafficher la page de résultats d'une course passée. |
+| HIST-01 | ✅ | `GET /api/history`, tableau « Tes courses » de `app/stats/page.tsx` | « stats need an account », « HIST-01, HIST-02: the history comes a page at a time, and a race's full results only to its riders » | Chaque course terminée par l'utilisateur connecté, la plus récente d'abord, 10 par page (précédente / suivante). Les dates sont affichées dans la langue choisie. |
+| HIST-02 | ✅ | `GET /api/races/:id`, `app/history/[id]/page.tsx`, table `race_runs` (migration `drizzle/0002_race_history.sql`) | « HIST-01, HIST-02: the history comes a page at a time, and a race's full results only to its riders » | Un clic sur « Résultats » réaffiche la page de résultats complète : podium, tableau de tous les participants (invités et bots compris), graphique du MPM et carte de chaleur, avec la date. Seuls les cavaliers de cette course y ont accès. Les courses enregistrées avant cette fonction n'ont pas de résultats complets et ne sont pas cliquables. |
 
 ## Internationalisation (I18N)
 
@@ -169,13 +169,13 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 | --- | --- | --- | --- | --- |
 | I18N-01 | ✅ | `lib/i18n/en.ts`, `lib/i18n/fr.ts`, `generateMetadata` dans `app/layout.tsx` | « every server code has a French and an English message », « French places » | Une traduction manquante est une erreur de compilation; les erreurs du serveur sont des codes traduits par le navigateur. |
 | I18N-02 | ✅ | `components/LanguageToggle.tsx`, `lib/i18n/server.ts` | — | Sur toutes les pages; gardé dans un cookie; langue du navigateur par défaut. |
-| I18N-03 | ❌ | — | — | Dates et nombres à formater selon la langue (`Intl`). |
+| I18N-03 | 🟡 | `formatDateTime` dans `lib/format.ts` | — | Les dates de l'historique sont formatées selon la langue (`Intl.DateTimeFormat`). **Reste** : les autres dates et les nombres. |
 
 ## Tests (TEST)
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| TEST-01 | ✅ | `tests/` | 108 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
+| TEST-01 | ✅ | `tests/` | 109 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
 | TEST-02 | ❌ | — | — | Playwright. |
 | TEST-03 | ❌ | — | — | La connexion par nom d'utilisateur et mot de passe existe déjà; les tests Playwright l'utiliseront. |
 

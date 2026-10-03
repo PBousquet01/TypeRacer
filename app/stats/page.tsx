@@ -7,14 +7,13 @@ import ThemeToggle from "@/components/ThemeToggle";
 import LanguageToggle from "@/components/LanguageToggle";
 import { Eyebrow, FinePrint, Panel, PanelTitle, Spec, SpecRow, Table, Td, Th } from "@/components/ui";
 import { useSession } from "@/lib/session";
-import { formatTime } from "@/lib/format";
-import { useT } from "@/lib/i18n";
+import { formatDateTime, formatTime } from "@/lib/format";
+import { useI18n, useT } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
-import type { LeaderboardRow, RecentRace, StatsSummary } from "@/lib/types";
+import type { HistoryPage, LeaderboardRow, StatsSummary } from "@/lib/types";
 
 interface MyStats {
   summary: StatsSummary;
-  recent: RecentRace[];
 }
 
 export default function StatsPage() {
@@ -22,6 +21,22 @@ export default function StatsPage() {
   const { user, loading } = useSession();
   const [data, setData] = useState<MyStats | null>(null);
   const [board, setBoard] = useState<LeaderboardRow[]>([]);
+  const { lang } = useI18n();
+  const [page, setPage] = useState(1);
+  const [history, setHistory] = useState<HistoryPage | null>(null);
+
+  // HIST-01: the rider's races, a page at a time.
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    fetch(`/api/history?page=${page}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json: HistoryPage | null) => active && setHistory(json))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [user, page]);
 
   useEffect(() => {
     let active = true;
@@ -40,7 +55,7 @@ export default function StatsPage() {
 
   return (
     <main className="mx-auto max-w-[1280px] px-[18px] pt-6 pb-[60px]">
-      <header className="mb-[18px] flex items-center justify-between gap-4">
+      <header className="mb-[18px] flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <Link href="/" className="no-underline">
           <Wordmark size={16} />
         </Link>
@@ -85,7 +100,8 @@ export default function StatsPage() {
           <div className="grid gap-4 wide:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
             <section>
               <h3 className="text-lg/normal">{t.stats.recent}</h3>
-              {data?.recent?.length ? (
+              {history?.races.length ? (
+                <>
                 <Table>
                   <thead>
                     <tr>
@@ -96,12 +112,13 @@ export default function StatsPage() {
                       <Th num>{t.results.wpm}</Th>
                       <Th num>{t.results.acc}</Th>
                       <Th num>{t.results.time}</Th>
+                      <Th />
                     </tr>
                   </thead>
                   <tbody className="text-strong">
-                    {data.recent.map((r, i) => (
+                    {history.races.map((r, i) => (
                       <tr key={i}>
-                        <Td>{r.finishedAt.slice(0, 16)}</Td>
+                        <Td>{formatDateTime(r.finishedAt, lang)}</Td>
                         <Td>{r.roomCode}</Td>
                         <Td num>
                           {t.common.place(r.place)}{" "}
@@ -111,10 +128,37 @@ export default function StatsPage() {
                         <Td num>{r.wpm}</Td>
                         <Td num>{r.accuracy != null ? `${r.accuracy}%` : "—"}</Td>
                         <Td num>{formatTime(r.timeMs)}</Td>
+                        <Td num>
+                          {r.runId ? (
+                            <Link className="btn-link" href={`/history/${r.runId}`}>
+                              {t.stats.open}
+                            </Link>
+                          ) : (
+                            <span className="text-muted" title={t.stats.noReplay}>
+                              —
+                            </span>
+                          )}
+                        </Td>
                       </tr>
                     ))}
                   </tbody>
                 </Table>
+                {history.pages > 1 && (
+                  <nav className="mt-3 flex items-center justify-between gap-3 font-body text-xs text-muted" aria-label={t.stats.recent}>
+                    <button className="btn-link" onClick={() => setPage(history.page - 1)} disabled={history.page <= 1}>
+                      ← {t.stats.previous}
+                    </button>
+                    <span>{t.stats.page(history.page, history.pages)}</span>
+                    <button
+                      className="btn-link"
+                      onClick={() => setPage(history.page + 1)}
+                      disabled={history.page >= history.pages}
+                    >
+                      {t.stats.next} →
+                    </button>
+                  </nav>
+                )}
+                </>
               ) : (
                 <FinePrint>{t.stats.noRaces}</FinePrint>
               )}

@@ -15,6 +15,13 @@
       "when": 1791053207161,
       "tag": "0001_race_charts",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791053664094,
+      "tag": "0002_race_history",
+      "breakpoints": true
     }
   ]
 }

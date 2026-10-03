@@ -46,7 +46,7 @@ export default function RoomsPage() {
 
   return (
     <main className="mx-auto max-w-[1280px] px-[18px] pt-6 pb-[60px]">
-      <header className="mb-[18px] flex items-center justify-between gap-4">
+      <header className="mb-[18px] flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
         <Link href="/" className="no-underline">
           <Wordmark size={16} />
         </Link>

@@ -3,6 +3,9 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { handleApi } from "../server/api";
 import { migrate, sql } from "../server/db";
+import { recordRace } from "../server/stats";
+import type { Player, Room } from "../server/rooms";
+import type { HistoryPage, PastRace, PublicPlayer } from "../lib/types";
 
 let http: Server;
 let base = "";
@@ -254,6 +257,50 @@ describe("texts and stats", () => {
     const res = await fetch(`${base}/api/stats/me`);
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({ error: "sign-in-for-stats" });
+  });
+
+  test("HIST-01, HIST-02: the history comes a page at a time, and a race's full results only to its riders", async () => {
+    const stamp = Date.now().toString(36);
+    const [rider, other] = [`h${stamp}`, `o${stamp}`];
+    const cookie = sessionFrom(await post("/api/auth/signup", { username: rider, password, displayName: "Histo" }));
+    const otherCookie = sessionFrom(await post("/api/auth/signup", { username: other, password, displayName: "Other" }));
+    const me = await (await fetch(`${base}/api/auth/me`, { headers: { cookie } })).json();
+    try {
+      // 12 races, each with the rider, a guest and a bot.
+      for (let i = 0; i < 12; i++) {
+        const mine = { userId: me.user.id, finished: true, wpm: 40 + i, accuracy: 95, score: 38 + i, timeMs: 30_000, place: 1, samples: [30, 40 + i], missed: { e: 1 } };
+        const field = [
+          { id: "sock-1", name: "Histo", place: 1, wpm: 40 + i, racing: true, samples: [30, 40 + i], missed: { e: 1 } },
+          { id: "sock-2", name: "Guest", place: 2, wpm: 30, racing: true, samples: [20, 30], missed: {} },
+          { id: "bot-9", name: "Boko", bot: "expert", place: 3, wpm: 25, racing: true, samples: [25], missed: {} },
+        ] as unknown as PublicPlayer[];
+        const room = { code: "HSTRY2", settings: { bonuses: false } } as unknown as Room;
+        await recordRace(room, field, [["sock-1", mine as unknown as Player], ["sock-2", { userId: null, finished: true } as unknown as Player]]);
+      }
+
+      expect((await fetch(`${base}/api/history`)).status).toBe(401);
+      const first: HistoryPage = await (await fetch(`${base}/api/history?page=1`, { headers: { cookie } })).json();
+      expect(first.pages).toBe(2);
+      expect(first.races).toHaveLength(10);
+      expect(first.races[0].wpm).toBe(51); // newest first
+      const second: HistoryPage = await (await fetch(`${base}/api/history?page=2`, { headers: { cookie } })).json();
+      expect(second.races.map((r) => r.wpm)).toEqual([41, 40]);
+      expect((await fetch(`${base}/api/history?page=zero`, { headers: { cookie } })).status).toBe(400);
+
+      const runId = first.races[0].runId!;
+      const race: PastRace = await (await fetch(`${base}/api/races/${runId}`, { headers: { cookie } })).json();
+      expect(race.players.map((p) => p.name)).toEqual(["Histo", "Guest", "Boko"]); // the whole field
+      expect(race.myId).toBe("sock-1");
+      expect(race.players[0].samples).toEqual([30, 51]);
+
+      const stranger = await fetch(`${base}/api/races/${runId}`, { headers: { cookie: otherCookie } });
+      expect(stranger.status).toBe(404);
+      expect(await stranger.json()).toEqual({ error: "no-race" });
+      expect((await fetch(`${base}/api/races/abc`, { headers: { cookie } })).status).toBe(400);
+    } finally {
+      await sql`DELETE FROM users WHERE lower(username) IN (lower(${rider}), lower(${other}))`;
+      await sql`DELETE FROM race_runs WHERE room_code = 'HSTRY2'`;
+    }
   });
 
   test("admin routes are closed to everyone else", async () => {

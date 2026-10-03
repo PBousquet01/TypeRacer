@@ -130,6 +130,7 @@ erDiagram
     users ||--o{ identities : "se connecte avec"
     users ||--o{ unlocks : "débloque"
     users ||--o{ races : "a couru"
+    race_runs ||--o{ races : "regroupe"
     users {
         int id PK
         text username "unique sans tenir compte de la casse"
@@ -167,6 +168,15 @@ erDiagram
         timestamptz finished_at
         int_array wpm_samples "MPM seconde par seconde (RES-05)"
         jsonb missed_keys "touche -> fois manquée (RES-03)"
+        int run_id FK "la course (HIST-02)"
+        text player_id "qui il était dans le peloton"
+    }
+    race_runs {
+        int id PK
+        text room_code
+        timestamptz finished_at
+        bool bonuses
+        jsonb players "tout le peloton tel qu'affiché (HIST-02)"
     }
     passages {
         int id PK
@@ -365,7 +375,9 @@ course : les résultats le sont une fois, à la fin.
 | `POST /api/rooms` | Un code de salle neuf, de 6 caractères, réservé pour l'hôte (SALLE-02), avec la visibilité de départ demandée (`{ visibility }`, sur code par défaut) |
 | `POST /api/rooms/quick` | La salle publique où envoyer un cavalier (« Faire une course », JOIN-03), ou `null` |
 | `GET /api/text?lang=en\|fr&kind=sentences\|words` | Un texte pour l'entraînement |
-| `GET /api/stats/me` | Résumé et 10 dernières courses (connecté) |
+| `GET /api/stats/me` | Résumé des statistiques (connecté) |
+| `GET /api/history?page=N` | L'historique, 10 courses par page (connecté; HIST-01) |
+| `GET /api/races/:id` | Les résultats complets d'une course passée, pour qui l'a courue (HIST-02) |
 | `GET /api/stats/leaderboard` | Meilleurs scores du serveur |
 | `GET /api/health` | Vérification de l'hébergeur; ne touche pas la base |
 | `POST /api/admin/mount` | Donner ou retirer une monture (admin) |
@@ -545,7 +557,7 @@ taper** est un réglage séparé de la salle (CONF-02).
 
 ## Tests et intégration continue (TECH-09)
 
-`bun test` lance 108 tests : règles du moteur de frappe, moteur des bots,
+`bun test` lance 109 tests : règles du moteur de frappe, moteur des bots,
 score et dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types
 (`tsc --noEmit`), les tests (avec une vraie base PostgreSQL) et le build à

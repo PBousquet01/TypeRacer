@@ -28,6 +28,7 @@ export type ErrorCode =
   | "invite-invalid"
   | "invite-used"
   | "kicked"
+  | "no-race"
   | "text-failed"
   | "bad-request"
   | "username-format"
@@ -208,7 +209,9 @@ export interface StatsSummary {
   wins: number;
 }
 
+/** HIST-01: one race in a rider's history. */
 export interface RecentRace {
+  runId: number | null; // HIST-02: its full results can be shown again; null for races saved before that existed
   roomCode: string;
   wpm: number;
   accuracy: number | null;
@@ -216,7 +219,24 @@ export interface RecentRace {
   place: number | null;
   score: number | null;
   riders: number;
+  finishedAt: string; // ISO date; each browser formats it in its own language
+}
+
+/** HIST-01: a page of the history. */
+export interface HistoryPage {
+  races: RecentRace[];
+  page: number;
+  pages: number;
+}
+
+/** HIST-02: a past race's results, as they were shown when it ended. */
+export interface PastRace {
+  id: number;
+  roomCode: string;
   finishedAt: string;
+  bonuses: boolean;
+  players: PublicPlayer[];
+  myId: string | null; // which of the players is the person asking
 }
 
 export interface LeaderboardRow {

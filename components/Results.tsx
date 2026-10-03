@@ -39,11 +39,12 @@ interface ResultsProps {
   roomCode: string;
   isHost: boolean;
   hostName: string | undefined;
-  onPlayAgain: () => void;
+  onPlayAgain?: () => void;
   bonuses: boolean; // comeback bonuses were on: show who got which (RES-02)
+  racedOn?: string; // HIST-02: shown from the history, already formatted; no lobby controls then
 }
 
-export default function Results({ players, myId, roomCode, isHost, hostName, onPlayAgain, bonuses }: ResultsProps) {
+export default function Results({ players, myId, roomCode, isHost, hostName, onPlayAgain, bonuses, racedOn }: ResultsProps) {
   const t = useT();
   const ranked = rank(players.filter((p) => p.racing));
   const me = ranked.find((p) => p.id === myId);
@@ -58,6 +59,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
         </h2>
         <p className="max-w-[62ch] font-body text-sm/[1.7] text-copy">{headline(ranked, t)}</p>
         <span className="font-display text-label tracking-[0.08em] text-accent">{t.results.room(roomCode)}</span>
+        {racedOn && <span className="font-body text-xs text-muted uppercase">{t.history.racedOn(racedOn)}</span>}
       </header>
 
       <div className="grid w-full grid-cols-[repeat(auto-fit,minmax(180px,1fr))] items-end gap-4">
@@ -161,19 +163,20 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
               </Spec>
             </Panel>
           )}
-          {isHost ? (
-            <>
-              <button className="btn btn-primary btn-block" onClick={onPlayAgain}>
-                {t.results.backToLobby}
-              </button>
-              <FinePrint>{t.results.hostHint}</FinePrint>
-            </>
-          ) : (
-            <FinePrint>
-              {watched && t.results.watched}
-              {hostName ? t.results.hostTakesBack(hostName) : t.results.waitingForHost}
-            </FinePrint>
-          )}
+          {!racedOn &&
+            (isHost ? (
+              <>
+                <button className="btn btn-primary btn-block" onClick={onPlayAgain}>
+                  {t.results.backToLobby}
+                </button>
+                <FinePrint>{t.results.hostHint}</FinePrint>
+              </>
+            ) : (
+              <FinePrint>
+                {watched && t.results.watched}
+                {hostName ? t.results.hostTakesBack(hostName) : t.results.waitingForHost}
+              </FinePrint>
+            ))}
         </aside>
       </div>
 

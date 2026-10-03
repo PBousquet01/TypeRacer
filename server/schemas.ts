@@ -125,6 +125,12 @@ export const newRoomBody = z.object({
   visibility: visibility.optional(),
 });
 
+export const historyQuery = z.object({
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+});
+
+export const raceId = z.coerce.number().int().min(1).max(2_147_483_647);
+
 export const textQuery = z.object({
   lang: language.optional(),
   kind: textKind.optional(),

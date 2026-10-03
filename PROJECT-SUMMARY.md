@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 108 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 109 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list
@@ -103,6 +103,13 @@ join instead.
   over (`playerList`), and are saved with the race (`wpm_samples`,
   `missed_keys`). Chart colours are `--series-1..8` / `--heat-1..3` in
   `globals.css`, validated per theme; keep the fixed order.
+- **History (HIST-01/02).** A race with at least one signed-in finisher
+  writes one `race_runs` row (the whole field's `PublicPlayer`s, chart data
+  included) and one `races` row per signed-in finisher pointing at it
+  (`run_id`, `player_id`), in one transaction (`recordRace`). `/stats` pages
+  through `/api/history`; `/history/[id]` reuses `<Results racedOn=…>`, and
+  `/api/races/:id` only answers riders of that race. Deleting an account
+  leaves its runs (other riders' history still needs them).
 - **Bots are riders without a socket** (`bot: BotLevel`, ids `bot-N`; ADR-002
   in `docs/ARCHITECTURE.md`). The host adds/removes them in the lobby. At the
   start each bot gets a plan from `planBot` (`lib/bots.ts`, pure, seeded from

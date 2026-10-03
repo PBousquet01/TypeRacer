@@ -20,7 +20,7 @@ import {
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
-import type { Provider, TextLanguage } from "../lib/types";
+import type { Provider, PublicPlayer, TextLanguage } from "../lib/types";
 
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 
@@ -83,6 +83,17 @@ export const unlocks = pgTable(
   ],
 );
 
+// HIST-02: one row per race that has at least one signed-in finisher: the
+// whole field's results as they were on the results screen, so the page can
+// be shown again (guests and bots included).
+export const raceRuns = pgTable("race_runs", {
+  id: serial("id").primaryKey(),
+  roomCode: text("room_code").notNull(),
+  finishedAt: timestamp("finished_at", { withTimezone: true }).notNull().defaultNow(),
+  bonuses: boolean("bonuses").notNull().default(false),
+  players: jsonb("players").$type<PublicPlayer[]>().notNull(),
+});
+
 // One row per finished race, per signed-in rider.
 export const races = pgTable(
   "races",
@@ -100,10 +111,14 @@ export const races = pgTable(
     // RES-05: what the results charts need to be drawn again later.
     wpmSamples: integer("wpm_samples").array(),
     missedKeys: jsonb("missed_keys").$type<Record<string, number>>(),
+    // HIST-02: the race this row belongs to, and which rider of its field it is.
+    runId: integer("run_id"),
+    playerId: text("player_id"),
   },
   (t) => [
     index("races_by_user").on(t.userId, t.finishedAt.desc().nullsFirst()),
     foreignKey({ name: "races_user_id_fkey", columns: [t.userId], foreignColumns: [users.id] }).onDelete("cascade"),
+    foreignKey({ name: "races_run_id_fkey", columns: [t.runId], foreignColumns: [raceRuns.id] }).onDelete("set null"),
   ],
 );
 
