@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { scoreOf } from "../lib/rules";
+import { rawWpmOf, raceStatus, scoreOf } from "../lib/rules";
 import { USERNAME_RE, cleanRiderName } from "../lib/names";
 import { en } from "../lib/i18n/en";
 import { fr } from "../lib/i18n/fr";
@@ -55,4 +55,12 @@ describe("dictionaries (UX-5)", () => {
     expect(en.mount.label("yellow")).toBe("Yellow chocobo");
     expect(fr.mount.label("yellow")).toBe("Chocobo jaune");
   });
+});
+
+test("RES-02: how a race ended, and raw WPM", () => {
+  expect(raceStatus({ finished: true, away: false })).toBe("finished");
+  expect(raceStatus({ finished: false, away: false })).toBe("timeout");
+  expect(raceStatus({ finished: false, away: true })).toBe("abandoned");
+  expect(rawWpmOf(300, 60_000)).toBe(60); // 300 keys in a minute: 60 "words"
+  expect(rawWpmOf(10, 500)).toBe(0); // under a second: not meaningful yet
 });

@@ -18,7 +18,7 @@ Bun 1.4 · PostgreSQL 17 · Tailwind CSS v4.
 ```bash
 bun run dev      # ALWAYS this, never `next dev` — server.ts runs Next + Socket.IO together
 bun run lint
-bun test            # 110 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
+bun test            # 111 tests (~65 s: several real races): typing engine, rules, referee over real sockets, API (needs Postgres)
 bun run typecheck   # tsc --noEmit (TypeScript is pinned to 6.0: TS 7 has no JS API, which Next and typescript-eslint need)
 bun run build
 bun scripts/admin.ts list

@@ -3,6 +3,7 @@ import { RIDER_NAME_MAX, RIDER_NAME_MIN } from "../names";
 import { MIN_RIDERS } from "../rules";
 import type { BotLevel } from "../bots";
 import type { BonusKind } from "../bonuses";
+import type { RaceStatus } from "../rules";
 import type { ErrorCode, NoticeCode, RoomStatus, TextSettings, TextKind, TextLanguage, Visibility } from "../types";
 
 const LANGUAGES: Record<TextLanguage, string> = { en: "English", fr: "French" };
@@ -322,6 +323,12 @@ export const en = {
     wpm: "WPM",
     acc: "ACC",
     time: "TIME",
+    raw: "RAW",
+    rawLong: "Raw WPM: every key typed, right or wrong",
+    errors: "ERR.",
+    errorsLong: "Wrong keys, fixed or not",
+    status: "STATUS",
+    statuses: { finished: "Finished", timeout: "Out of time", abandoned: "Gave up" } satisfies Record<RaceStatus, string>,
     yourRace: "Your race",
     recordTag: "RECORD",
     newRecord: "New personal best! Your fastest race yet.",

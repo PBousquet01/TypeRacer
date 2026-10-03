@@ -18,6 +18,23 @@ export function isRoomCode(code: string): boolean {
   return ROOM_CODE_RE.test(code);
 }
 
+/** RES-02: how a rider's race ended. */
+export type RaceStatus = "finished" | "timeout" | "abandoned";
+
+/**
+ * A rider who reached the end finished; one still there when the race ended
+ * ran out of time; one who had left (their lane held, or given up) abandoned.
+ */
+export function raceStatus({ finished, away }: { finished: boolean; away: boolean }): RaceStatus {
+  if (finished) return "finished";
+  return away ? "abandoned" : "timeout";
+}
+
+/** RES-02, annex A: raw WPM counts every key typed, right or wrong. */
+export function rawWpmOf(keystrokes: number, elapsedMs: number): number {
+  return elapsedMs >= 1000 ? Math.round(keystrokes / 5 / (elapsedMs / 60000)) : 0;
+}
+
 /** TXT-9: the score that decides the ranking. 60 wpm at 90% → 54. */
 export function scoreOf(wpm: number, accuracy: number): number {
   return Math.round((wpm * accuracy) / 100);

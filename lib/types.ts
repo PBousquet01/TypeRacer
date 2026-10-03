@@ -8,6 +8,7 @@ export type RoomStatus = "lobby" | "countdown" | "racing" | "finished";
 
 import type { BotLevel } from "./bots";
 import type { BonusKind } from "./bonuses";
+import type { RaceStatus } from "./rules";
 
 export type TextLanguage = "en" | "fr";
 /** Language of the interface (UX-5). Same two as the texts, but a separate choice. */
@@ -114,6 +115,10 @@ export interface PublicPlayer {
   samples: number[];
   missed: Record<string, number>;
   personalBest: boolean; // RES-04: a signed-in rider who beat their best WPM in this race
+  // RES-02, set when the race ends: every key typed per minute, wrong keys, and how it ended.
+  rawWpm: number | null;
+  errors: number | null;
+  status: RaceStatus | null;
   progress: number; // 0..1, against their own text
 }
 

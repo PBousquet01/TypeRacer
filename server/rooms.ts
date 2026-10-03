@@ -21,7 +21,10 @@ import {
   RECONNECT_MS,
   ROOM_CODE_CHARS,
   ROOM_CODE_LENGTH,
+  rawWpmOf,
+  raceStatus,
   scoreOf,
+  type RaceStatus,
 } from "../lib/rules";
 import { accuracyOf, correctPrefixLength, EMPTY_STATE, replayKeys, type TypingState } from "../lib/typing";
 import { planBot, seededRandom, seedOf, type BotKey, type BotLevel } from "../lib/bots";
@@ -111,6 +114,9 @@ export interface Player {
   samples: number[]; // RES-03: net WPM at each whole second of the race
   missed: Record<string, number>; // RES-03: character that should have been typed -> times missed
   personalBest: boolean; // RES-04: beat their best WPM; known once the result is saved
+  rawWpm: number | null; // RES-02
+  errors: number | null; // RES-02: wrong keys, fixed or not
+  status: RaceStatus | null; // RES-02: set when the race ends
 }
 
 export interface Room {
@@ -227,6 +233,9 @@ function newPlayer(
     samples: [],
     missed: {},
     personalBest: false,
+    rawWpm: null,
+    errors: null,
+    status: null,
   };
 }
 
@@ -267,6 +276,9 @@ function resetPlayer(player: Player) {
     samples: [],
     missed: {},
     personalBest: false,
+    rawWpm: null,
+    errors: null,
+    status: null,
   });
 }
 
@@ -547,6 +559,15 @@ function endRace(io: IO, room: Room) {
   room.status = "finished";
   room.finishAt = null;
   rankFinishers(room);
+  // RES-02: the figures for everyone in the race, finished or not.
+  const now = Date.now();
+  for (const p of racers(room)) {
+    const elapsed = p.finished ? p.timeMs! : now - room.startAt;
+    p.rawWpm = rawWpmOf(p.typing.keystrokes, elapsed);
+    p.errors = p.typing.mistakes;
+    p.accuracy ??= accuracyOf(p.typing.keystrokes, p.typing.mistakes);
+    p.status = raceStatus(p);
+  }
   const field = playerList(room).filter((p) => p.racing);
   const entries = [...room.players.entries()].filter(([, p]) => p.racing);
   const raceId = room.raceId;

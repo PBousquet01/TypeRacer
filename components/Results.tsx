@@ -82,7 +82,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                 )}
               >
                 <span className={cn("font-display", winner ? "text-[13px] text-accent" : "text-xs text-muted")}>
-                  {t.common.place(p.place)}
+                  {p.place ? t.common.place(p.place) : p.status ? t.results.statuses[p.status] : t.common.place(null)}
                 </span>
                 <span className="font-body text-[15px]/[1.3] font-medium text-strong">
                   {p.name}
@@ -117,8 +117,15 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                 <Th>{t.results.rider}</Th>
                 <Th num>{t.results.score}</Th>
                 <Th num>{t.results.wpm}</Th>
+                <Th num>
+                  <abbr title={t.results.rawLong} className="no-underline">{t.results.raw}</abbr>
+                </Th>
                 <Th num>{t.results.acc}</Th>
+                <Th num>
+                  <abbr title={t.results.errorsLong} className="no-underline">{t.results.errors}</abbr>
+                </Th>
                 <Th num>{t.results.time}</Th>
+                <Th>{t.results.status}</Th>
                 {bonuses && <Th>{t.bonus.column}</Th>}
               </tr>
             </thead>
@@ -140,8 +147,11 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                     </Td>
                     <Td num className={cn("font-medium", tone)}>{p.score ?? "—"}</Td>
                     <Td num className={tone}>{p.wpm ?? "—"}</Td>
+                    <Td num className={tone}>{p.rawWpm ?? "—"}</Td>
                     <Td num className={tone}>{p.accuracy != null ? `${p.accuracy}%` : "—"}</Td>
-                    <Td num className={tone}>{p.place ? formatTime(p.timeMs) : t.common.place(null)}</Td>
+                    <Td num className={tone}>{p.errors ?? "—"}</Td>
+                    <Td num className={tone}>{p.finished ? formatTime(p.timeMs) : "—"}</Td>
+                    <Td className={tone}>{p.status ? t.results.statuses[p.status] : "—"}</Td>
                     {bonuses && (
                       <Td className={tone}>{p.bonuses.map((b) => t.bonus.names[b]).join(", ") || "—"}</Td>
                     )}

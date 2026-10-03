@@ -125,7 +125,11 @@ export function Notice({ children }: { children: ReactNode }) {
 }
 
 export function Table({ children }: { children: ReactNode }) {
-  return <table className="w-full border-collapse font-body text-[13.5px]/[1.3]">{children}</table>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse font-body text-[13.5px]/[1.3]">{children}</table>
+    </div>
+  );
 }
 
 export function Th({ num = false, className, ...props }: ThHTMLAttributes<HTMLTableCellElement> & { num?: boolean }) {

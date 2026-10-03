@@ -319,6 +319,11 @@ describe("a full race", () => {
     expect(bob.timeMs!).toBeLessThan(alice.timeMs!);
     expect(alice.place).toBe(1);
     expect(bob.place).toBe(2);
+    // RES-02: raw WPM counts the wrong keys too; errors are the wrong keys.
+    expect(alice).toMatchObject({ errors: 0, status: "finished" });
+    expect(alice.rawWpm).toBeGreaterThanOrEqual(alice.wpm!);
+    expect(bob).toMatchObject({ errors: wrong, status: "finished" });
+    expect(bob.rawWpm!).toBeGreaterThan(bob.wpm!);
   });
 
   test("a finished rider's result can't be changed", async () => {
