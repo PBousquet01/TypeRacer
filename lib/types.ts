@@ -9,6 +9,7 @@ export type RoomStatus = "lobby" | "countdown" | "racing" | "finished";
 import type { BotLevel } from "./bots";
 import type { BonusKind } from "./bonuses";
 import type { RaceStatus } from "./rules";
+import type { TextOptions } from "./textgen";
 
 export type TextLanguage = "en" | "fr";
 /** Language of the interface (UX-5). Same two as the texts, but a separate choice. */
@@ -71,7 +72,8 @@ export interface TextSettings {
 export type Visibility = "public" | "code" | "private";
 
 /** What the host chooses in the lobby. */
-export interface RoomSettings extends TextSettings {
+export interface RoomSettings extends TextSettings, Omit<TextOptions, "kind"> {
+  maxTimeMs: number | null; // CONF-01: the race ends after this long; null for no limit
   hostRides: boolean; // COURSE-5: the host races too, instead of only watching
   visibility: Visibility;
   bonuses: boolean; // CONF-09: comeback bonuses on or off
@@ -91,6 +93,7 @@ export interface RoomSummary {
   capacity: number;
   language: TextLanguage;
   kind: TextKind;
+  complexity: TextOptions["complexity"];
   status: RoomStatus;
 }
 

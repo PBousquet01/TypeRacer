@@ -246,12 +246,15 @@ describe("rooms", () => {
 
 describe("texts and stats", () => {
   test("TXT-3: texts come from the bank, in the language asked for", async () => {
+    // A passage from the bank, cut to the default length (25 words).
     const fr = await (await fetch(`${base}/api/text?lang=fr`)).json();
-    const [match]: { id: number }[] = await sql`SELECT id FROM passages WHERE body = ${fr.text}`;
+    const start = fr.text.split(" ").slice(0, 6).join(" ");
+    const [match]: { id: number }[] = await sql`SELECT id FROM passages WHERE language = 'fr' AND starts_with(body, ${start})`;
     expect(match).toBeDefined();
+    expect(fr.text.split(" ")).toHaveLength(25);
 
     const words = await (await fetch(`${base}/api/text?kind=words`)).json();
-    expect(words.text.split(" ").length).toBe(30);
+    expect(words.text.split(" ").length).toBe(25);
   });
 
   test("stats need an account", async () => {

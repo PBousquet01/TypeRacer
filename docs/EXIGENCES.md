@@ -18,8 +18,8 @@ que tout changement qui fait avancer une exigence.
 | Identité visuelle et design (DES) | 5 | 1 | 0 | 6 |
 | Comptes et profil (AUTH) | 4 | 2 | 0 | 6 |
 | Salles et visibilité (SALLE) | 5 | 2 | 3 | 10 |
-| Rejoindre une course (JOIN) | 2 | 1 | 0 | 3 |
-| Configuration (CONF) | 5 | 2 | 5 | 12 |
+| Rejoindre une course (JOIN) | 3 | 0 | 0 | 3 |
+| Configuration (CONF) | 10 | 2 | 0 | 12 |
 | Déroulement d'une course (COURSE) | 7 | 3 | 1 | 11 |
 | Bots (BOT) | 5 | 0 | 0 | 5 |
 | Bonus de remontée (BONUS) | 4 | 0 | 0 | 4 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 3 | 0 | 0 | 3 |
-| **Total** | **60** | **18** | **12** | **90** |
+| **Total** | **66** | **17** | **7** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -44,7 +44,7 @@ que tout changement qui fait avancer une exigence.
 | TECH-06 | ✅ | `server/rooms.ts`, `components/Track.tsx` | Tous les tests de `rooms.test.ts` | Socket.IO. Voir [ADR-001](ARCHITECTURE.md#adr-001--technologie-temps-réel). |
 | TECH-07 | ✅ | `server/schemas.ts`, `server/rooms.ts`, `server/api.ts` | « TECH-07: a join of the wrong shape is refused, and a bad acknowledgement can't crash the server », « TECH-07: setWatching with the wrong types is ignored », « invalid settings are ignored », « the server judges the keys: wrong ones don't move the bird », « a body that isn't the expected shape gets the matching error code », « a body that isn't JSON is a bad request », « a text in a language the site doesn't have is refused » | Zod : chaque message Socket.IO qui porte des données (`joinRoom`, `updateSettings`, `setWatching`, `typed`), chaque corps JSON (`signup`, `login`, `admin/mount`) et chaque paramètre d'URL (`/api/text`, retour OAuth). Les messages d'erreur des schémas sont les codes d'erreur de l'API. Le projet n'utilise pas d'actions serveur Next.js. |
 | TECH-08 | ✅ | `render.yaml` | — | Render et Neon en forfaits gratuits; GitHub et Discord OAuth gratuits. Rien à payer pour corriger. |
-| TECH-09 | ✅ | `.github/workflows/ci.yml` | 113 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
+| TECH-09 | ✅ | `.github/workflows/ci.yml` | 119 tests; CI verte | Lint, `tsc --noEmit`, tests (avec PostgreSQL) et build à chaque envoi. |
 | TECH-10 | ✅ | `.env.example`, `.gitignore` | — | Toutes les variables lues par le serveur et les scripts y sont documentées. Aucun secret commité. |
 
 ## Identité visuelle et design (DES)
@@ -89,20 +89,20 @@ que tout changement qui fait avancer une exigence.
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
 | JOIN-01 | ✅ | `components/JoinCard.tsx`, `app/page.tsx` | « riders need a room that exists » | Champ de code sur la page d'accueil; bouton « Copier l'invitation ». |
-| JOIN-02 | 🟡 | `app/rooms/page.tsx`, `publicRooms` et `announceRoomList` dans `server/rooms.ts` | « SALLE-03: only public rooms are listed, and the list follows changes live » | Page `/rooms` : code, hôte, participants et capacité, langue et type de texte, état. Mise à jour en direct par Socket.IO (au plus deux fois par seconde), sans recharger. Filtres : langue et type de texte. **Reste** : la complexité et son filtre, quand CONF-05 existera. |
+| JOIN-02 | ✅ | `app/rooms/page.tsx`, `publicRooms` et `announceRoomList` dans `server/rooms.ts` | « SALLE-03: only public rooms are listed, and the list follows changes live » | Page `/rooms` : code, hôte, participants et capacité, langue, type et complexité du texte, état. Mise à jour en direct par Socket.IO (au plus deux fois par seconde), sans recharger. Filtres : langue, type de texte et complexité. |
 | JOIN-03 | ✅ | `quickRaceRoom` dans `server/rooms.ts`, `POST /api/rooms/quick`, bouton de `app/page.tsx` | « JOIN-03: quick play picks the fullest public room with a free place, the oldest on a tie », « JOIN-03: quick play answers with a room code, or null when no public room is free » | Parmi les salles publiques en attente ou sur les résultats et pas pleines : la plus remplie, puis la plus ancienne. Si aucune : un utilisateur connecté peut ouvrir une salle publique (configuration par défaut) dont il devient l'hôte; un invité voit un message. |
 
 ## Configuration de la course (CONF)
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| CONF-01 | ❌ | `MAX_RACE_MS` | — | Temps maximal fixe de 3 min, pas réglable. |
+| CONF-01 | ✅ | `settings.maxTimeMs`, `startRace` dans `server/rooms.ts`, réglage « Temps maximal » de `components/Lobby.tsx` | « CONF-01, CONF-04 to CONF-07: the host's text settings shape the race text » | Aucun, 30 s, 1, 2, 3 (par défaut), 5 ou 10 min; le serveur refuse toute valeur hors de 30 s à 10 min. Sans limite, la course finit quand tous ont fini (et le dernier appel de 30 s reste en place, voir COURSE-09). |
 | CONF-02 | ✅ | `room.settings.language`, `components/Lobby.tsx` | « TXT-3: texts come from the bank, in the language asked for » | Indépendante de la langue de l'interface. |
 | CONF-03 | ✅ | `server/texts.ts`, tables `passages` et `words` | « TXT-3: texts come from the bank, in the language asked for » | 12 passages FR + 12 EN; dictionnaires de 280 et 330 mots. |
-| CONF-04 | ❌ | — | — | Longueur en nombre de mots. |
-| CONF-05 | ❌ | — | — | Complexité facile, moyen, difficile, avec critères mesurables. |
-| CONF-06 | ❌ | — | — | Ponctuation, nombres, majuscules, accents. |
-| CONF-07 | ❌ | — | — | Caractères à inclure ou exclure. |
+| CONF-04 | ✅ | `lib/textgen.ts` (`buildText`), réglage « Longueur » | « CONF-04: the text has the length the host asked for, in words », « CONF-01, CONF-04 to CONF-07: the host's text settings shape the race text » | 10, 25 (par défaut), 50 ou 100 mots (5 à 200 acceptés par le serveur). Passages : enchaînés puis coupés au nombre de mots; mots au hasard : tirés ce nombre de fois. |
+| CONF-05 | ✅ | `lib/textgen.ts` (`buildText`) (`passageLevel`, `wordFits`), réglage « Difficulté » | « CONF-05: complexity is measured: word length, accents, apostrophes » | Critères mesurables. Passages : longueur moyenne des mots (en lettres) : facile sous 4,3, moyen de 4,3 à 4,6, difficile à partir de 4,6 (seuils choisis pour répartir la banque en trois). Mots au hasard : facile = 3 ou 4 lettres sans accent ni apostrophe; moyen = 6 lettres au plus; difficile = 5 lettres et plus. |
+| CONF-06 | ✅ | `lib/textgen.ts` (`buildText`), boutons « Dans le texte » | « CONF-06: punctuation, capitals and accents can be taken out of any text », « CONF-06: random words get numbers, capitals and punctuation when asked » | Désactivés, la ponctuation, les majuscules et les accents sont retirés de tout texte (les apostrophes dans les mots restent). Activés, les mots au hasard reçoivent des majuscules, des virgules et points, et des nombres. Choix documenté : les nombres ne s'ajoutent qu'aux mots au hasard, car les passages sont de vrais textes (option désactivée pour eux). |
+| CONF-07 | ✅ | `lib/textgen.ts` (`buildText`), champs « Pratiquer ces lettres » / « Exclure ces lettres » | « CONF-07: excluded characters never appear; included ones are in every word » | Mots au hasard seulement (désactivé pour les passages, comme le permet l'exigence). Exclure : aucun mot contenant ces lettres, accents compris (exclure « e » exclut « é »). Inclure : seulement des mots qui contiennent l'une d'elles; s'il en reste moins de 5, ce filtre est abandonné plutôt que de faire échouer la course. |
 | CONF-08 | 🟡 | `lib/typing.ts` (`MAX_CHARS_PAST_MISTAKE`) | « can't type more than 5 characters past a mistake », « fixed mistakes still count against accuracy » | Correction obligatoire seulement. **Reste** : mode libre. |
 | CONF-09 | ✅ | `settings.bonuses`, réglage « Bonus de remontée » de `components/Lobby.tsx` | « CONF-09: with bonuses off, nobody gets one » | Désactivés par défaut; l'hôte les active dans la salle d'attente. |
 | CONF-10 | ✅ | `addBot`, `removeBot` dans `server/rooms.ts`, panneau « Bots » de `components/Lobby.tsx` | « CONF-10: the host adds and removes bots; riders can't, and a made-up level is ignored » | L'hôte ajoute un bot du niveau choisi ou le retire, dans la salle d'attente. Les bots comptent dans la capacité. |
@@ -175,7 +175,7 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| TEST-01 | ✅ | `tests/` | 113 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
+| TEST-01 | ✅ | `tests/` | 119 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
 | TEST-02 | ❌ | — | — | Playwright. |
 | TEST-03 | ❌ | — | — | La connexion par nom d'utilisateur et mot de passe existe déjà; les tests Playwright l'utiliseront. |
 

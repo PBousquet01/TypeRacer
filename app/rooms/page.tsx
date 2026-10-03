@@ -11,6 +11,7 @@ import { getSocket } from "@/lib/socket";
 import { saveProfile, useSavedProfile } from "@/lib/profile";
 import { useT } from "@/lib/i18n";
 import type { RoomSummary, TextKind, TextLanguage } from "@/lib/types";
+import type { Complexity } from "@/lib/textgen";
 
 type Any = "any";
 
@@ -21,6 +22,7 @@ export default function RoomsPage() {
   const [rooms, setRooms] = useState<RoomSummary[] | null>(null);
   const [language, setLanguage] = useState<TextLanguage | Any>("any");
   const [kind, setKind] = useState<TextKind | Any>("any");
+  const [complexity, setComplexity] = useState<Complexity | Any>("any");
 
   useEffect(() => {
     const socket = getSocket();
@@ -41,7 +43,10 @@ export default function RoomsPage() {
   }
 
   const shown = (rooms ?? []).filter(
-    (r) => (language === "any" || r.language === language) && (kind === "any" || r.kind === kind),
+    (r) =>
+      (language === "any" || r.language === language) &&
+      (kind === "any" || r.kind === kind) &&
+      (complexity === "any" || r.complexity === complexity),
   );
 
   return (
@@ -76,6 +81,12 @@ export default function RoomsPage() {
             options={{ any: t.rooms.any, ...t.text.kinds }}
             onChange={setKind}
           />
+          <Choice
+            label={t.lobby.complexityLabel}
+            value={complexity}
+            options={{ any: t.rooms.any, ...t.lobby.complexityOptions }}
+            onChange={setComplexity}
+          />
         </Panel>
 
         <Panel className="content-start">
@@ -106,7 +117,9 @@ export default function RoomsPage() {
                       <Td num>
                         {r.riders} / {r.capacity}
                       </Td>
-                      <Td>{t.text.label(r)}</Td>
+                      <Td>
+                        {t.text.label(r)} · {t.lobby.complexityOptions[r.complexity].toLowerCase()}
+                      </Td>
                       <Td>{t.rooms.statuses[r.status]}</Td>
                       <Td num>
                         <button className="btn-link" onClick={() => join(r.code)} disabled={full}>

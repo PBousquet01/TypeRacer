@@ -171,7 +171,27 @@ describe("lobby rules", () => {
     raw(host).emit("updateSettings", { language: "fr", hostRides: "yes" }); // one bad value spoils the message
     raw(host).emit("updateSettings", "fr");
     await sleep(150);
-    expect(host.room?.settings).toEqual({ language: "en", kind: "sentences", hostRides: false, visibility: "code", bonuses: false });
+    expect(host.room?.settings).toMatchObject({ language: "en", kind: "sentences", hostRides: false, visibility: "code", bonuses: false });
+  });
+
+  test("CONF-01, CONF-04 to CONF-07: the host's text settings shape the race text", async () => {
+    const { host, a } = await readyRoom();
+    host.socket.emit("updateSettings", { length: 10, complexity: "easy", punctuation: false, maxTimeMs: 60_000 });
+    raw(host).emit("updateSettings", { maxTimeMs: 5_000 }); // under 30 s: refused
+    raw(host).emit("updateSettings", { length: 5000 }); // too long: refused
+    const r = await host.until((x) => x.settings.length === 10 && x.settings.maxTimeMs === 60_000);
+    await sleep(150);
+    expect(host.room!.settings).toMatchObject({ length: 10, complexity: "easy", punctuation: false, maxTimeMs: 60_000 });
+    expect(r.settings.capitals).toBe(true); // untouched settings keep their value
+
+    expect(await host.startRace()).toEqual({ ok: true });
+    const { text } = await a.until((x) => x.status === "countdown");
+    expect(text.split(" ")).toHaveLength(10);
+    expect(text).not.toMatch(/[.,;:!?]/);
+
+    host.socket.emit("updateSettings", { maxTimeMs: null }); // too late: the race has started
+    await sleep(150);
+    expect(host.room!.settings.maxTimeMs).toBe(60_000);
   });
 
   test("TECH-07: setWatching with the wrong types is ignored", async () => {
@@ -441,7 +461,7 @@ describe("visibility and joining", () => {
     expect(listed).toContain(pub.code);
     expect(listed).not.toContain(coded.code);
     expect(listed).not.toContain(priv.code);
-    expect(lists.at(-1)!.find((r) => r.code === pub.code)).toMatchObject({ host: "Pat", riders: 0, status: "lobby" });
+    expect(lists.at(-1)!.find((r) => r.code === pub.code)).toMatchObject({ host: "Pat", riders: 0, status: "lobby", complexity: "medium" });
 
     coded.host.socket.emit("updateSettings", { visibility: "public" });
     raw(priv.host).emit("updateSettings", { visibility: "secret" }); // not a visibility: ignored

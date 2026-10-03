@@ -4,6 +4,7 @@ import { MIN_RIDERS } from "../rules";
 import type { BotLevel } from "../bots";
 import type { BonusKind } from "../bonuses";
 import type { RaceStatus } from "../rules";
+import type { Complexity } from "../textgen";
 import type { ErrorCode, NoticeCode, RoomStatus, TextSettings, TextKind, TextLanguage, Visibility } from "../types";
 
 const LANGUAGES: Record<TextLanguage, string> = { en: "English", fr: "French" };
@@ -214,6 +215,23 @@ export const en = {
     stallsOpen: (n: number) => `— ${n} ${n === 1 ? "stall" : "stalls"} open · send the invite code —`,
     settings: "Race settings",
     settingsHint: "Riders see your choice as soon as you make it.",
+    textSettings: "The text",
+    timeLabel: "Time limit",
+    timeOptions: { none: "None", "30": "30 s", "60": "1 min", "120": "2 min", "180": "3 min", "300": "5 min", "600": "10 min" },
+    lengthLabel: "Length",
+    lengthOptions: { "10": "10 words", "25": "25", "50": "50", "100": "100" },
+    complexityLabel: "Difficulty",
+    complexityOptions: { easy: "Easy", medium: "Medium", hard: "Hard" } satisfies Record<Complexity, string>,
+    complexityHint:
+      "Easy: short words, no accents. Hard: long words. For passages, it's their average word length.",
+    optionsLabel: "In the text",
+    optionNames: { punctuation: "Punctuation", numbers: "Numbers", capitals: "Capitals", accents: "Accents" },
+    numbersHint: "Numbers only go into random words: passages are real text.",
+    includeLabel: "Practise these letters",
+    excludeLabel: "Leave out these letters",
+    charsHint: "Random words only. Type letters together, like “qz”.",
+    timeRow: "Time limit",
+    textDetail: (words: number, level: string) => `${words} words · ${level.toLowerCase()}`,
     control: "Race control",
     ridersRow: "Riders",
     readyRow: "Ready",

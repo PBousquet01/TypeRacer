@@ -27,6 +27,7 @@ import {
   type RaceStatus,
 } from "../lib/rules";
 import { accuracyOf, correctPrefixLength, EMPTY_STATE, replayKeys, type TypingState } from "../lib/typing";
+import { DEFAULT_TEXT_OPTIONS } from "../lib/textgen";
 import { planBot, seededRandom, seedOf, type BotKey, type BotLevel } from "../lib/bots";
 import {
   awardCheckpoint,
@@ -145,7 +146,7 @@ export interface Room {
 
 const COUNTDOWN_MS = 3000;
 const TICK_MS = 100; // how often positions are broadcast during a race
-const MAX_RACE_MS = 3 * 60 * 1000; // unfinished riders get a DNF after this
+const DEFAULT_MAX_TIME_MS = 3 * 60 * 1000; // CONF-01: the host can change it, or remove it
 const MAX_CHARS_PER_SEC = 25; // ~300 WPM; progress faster than this is ignored
 const MAX_KEYS_PER_REPORT = 2000; // a report is one word plus its corrections; anything longer isn't typing
 const TYPED_ARGS = typedArgs(MAX_KEYS_PER_REPORT);
@@ -177,7 +178,15 @@ function createRoom(code: string, language: TextLanguage, visibility: Visibility
     text: "",
     startAt: 0,
     finishAt: null,
-    settings: { language, kind: "sentences", hostRides: false, visibility, bonuses: false },
+    settings: {
+      language,
+      kind: "sentences",
+      hostRides: false,
+      visibility,
+      bonuses: false,
+      maxTimeMs: DEFAULT_MAX_TIME_MS,
+      ...DEFAULT_TEXT_OPTIONS,
+    },
     players: new Map(),
     hostId: null,
     hostClientId: null,
@@ -362,6 +371,7 @@ export function publicRooms(): RoomSummary[] {
       capacity: MAX_RIDERS,
       language: room.settings.language,
       kind: room.settings.kind,
+      complexity: room.settings.complexity,
       status: room.status,
     }));
 }
@@ -537,7 +547,9 @@ function startRace(io: IO, room: Room) {
       .map(({ id, progress }) => ({ id, progress }));
     io.to(room.code).emit("positions", positions);
   }, TICK_MS);
-  room.timeouts.push(setTimeout(() => endRace(io, room), MAX_RACE_MS));
+  if (room.settings.maxTimeMs !== null) {
+    room.timeouts.push(setTimeout(() => endRace(io, room), room.settings.maxTimeMs));
+  }
 }
 
 // TXT-9: the ranking punishes fast but sloppy typing. Places go by score
@@ -930,14 +942,9 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const changes = parse(settingsChange, payload);
     if (!room || !isHost(room, socket) || room.status !== "lobby" || !changes.ok) return;
 
-    const { language, kind, hostRides, visibility, bonuses } = changes.data;
-    room.settings = {
-      language: language ?? room.settings.language,
-      kind: kind ?? room.settings.kind,
-      hostRides: hostRides ?? room.settings.hostRides,
-      visibility: visibility ?? room.settings.visibility,
-      bonuses: bonuses ?? room.settings.bonuses,
-    };
+    // Only what was sent changes; the rest stays as it was.
+    const sent = Object.fromEntries(Object.entries(changes.data).filter(([, v]) => v !== undefined));
+    room.settings = { ...room.settings, ...sent };
     broadcastRoom(io, room);
   });
 

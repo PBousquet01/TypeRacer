@@ -2,12 +2,18 @@
 
 import { useState } from "react";
 import Chocobo from "./Chocobo";
-import { BotTag, Choice, FinePrint, HostTag, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
+import { BotTag, Choice, Field, FinePrint, HostTag, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
 import { cn } from "@/lib/cn";
 import { MAX_RIDERS, MIN_RIDERS } from "@/lib/rules";
 import { useT } from "@/lib/i18n";
 import type { InviteSummary, PublicRoom, RoomSettings } from "@/lib/types";
 import type { BotLevel } from "@/lib/bots";
+import type { Complexity } from "@/lib/textgen";
+
+type TextOption = "punctuation" | "numbers" | "capitals" | "accents";
+const TEXT_OPTIONS: TextOption[] = ["punctuation", "numbers", "capitals", "accents"];
+type TimeKey = "none" | "30" | "60" | "120" | "180" | "300" | "600";
+const timeKey = (ms: number | null): TimeKey => (ms === null ? "none" : (String(ms / 1000) as TimeKey));
 
 const RIDER_ROW = "flex items-center gap-3 border-b border-edge/14 py-3 last:border-b-0 light:border-ink/14";
 const CURSOR = "w-4 flex-none font-display text-xs/none text-accent";
@@ -221,6 +227,72 @@ export default function Lobby({
               <FinePrint>{t.lobby.invitesHint}</FinePrint>
             </Panel>
             <Panel>
+              <PanelTitle>{t.lobby.textSettings}</PanelTitle>
+              <Choice
+                label={t.lobby.timeLabel}
+                value={timeKey(room.settings.maxTimeMs)}
+                options={t.lobby.timeOptions}
+                onChange={(key) => onChangeSettings({ maxTimeMs: key === "none" ? null : Number(key) * 1000 })}
+              />
+              <Choice
+                label={t.lobby.lengthLabel}
+                value={String(room.settings.length) as keyof typeof t.lobby.lengthOptions}
+                options={t.lobby.lengthOptions}
+                onChange={(key) => onChangeSettings({ length: Number(key) })}
+              />
+              <Choice<Complexity>
+                label={t.lobby.complexityLabel}
+                value={room.settings.complexity}
+                options={t.lobby.complexityOptions}
+                onChange={(complexity) => onChangeSettings({ complexity })}
+              />
+              <FinePrint>{t.lobby.complexityHint}</FinePrint>
+              <div className="grid gap-2" role="group" aria-label={t.lobby.optionsLabel}>
+                <span className="font-display text-micro text-muted uppercase">{t.lobby.optionsLabel}</span>
+                <div className="flex flex-wrap gap-2">
+                  {TEXT_OPTIONS.map((option) => {
+                    const on = room.settings[option];
+                    const unused = option === "numbers" && room.settings.kind === "sentences";
+                    return (
+                      <button
+                        key={option}
+                        type="button"
+                        aria-pressed={on}
+                        disabled={unused}
+                        onClick={() => onChangeSettings({ [option]: !on })}
+                        className={cn(
+                          "cursor-pointer border-2 px-3 py-2 font-display text-micro uppercase disabled:cursor-not-allowed disabled:opacity-40",
+                          on
+                            ? "border-accent bg-accent/10 text-accent light:bg-accent/12"
+                            : "border-edge/25 bg-ink/60 text-muted hover:text-strong light:border-ink/20 light:bg-ink/4",
+                        )}
+                      >
+                        {on ? "✓ " : ""}
+                        {t.lobby.optionNames[option]}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {room.settings.kind === "sentences" ? (
+                <FinePrint>{t.lobby.numbersHint}</FinePrint>
+              ) : (
+                <>
+                  <CharsField
+                    label={t.lobby.includeLabel}
+                    value={room.settings.include}
+                    onCommit={(include) => onChangeSettings({ include })}
+                  />
+                  <CharsField
+                    label={t.lobby.excludeLabel}
+                    value={room.settings.exclude}
+                    onCommit={(exclude) => onChangeSettings({ exclude })}
+                  />
+                  <FinePrint>{t.lobby.charsHint}</FinePrint>
+                </>
+              )}
+            </Panel>
+            <Panel>
               <PanelTitle>{t.lobby.bots}</PanelTitle>
               <Choice label={t.lobby.botLevel} value={botLevel} options={t.bot.levels} onChange={setBotLevel} />
               <button className="btn btn-block" onClick={() => onAddBot(botLevel)} disabled={freeStalls <= 0}>
@@ -233,7 +305,10 @@ export default function Lobby({
               <Spec>
                 <SpecRow label={t.lobby.ridersRow}>{lineup.length} / {MAX_RIDERS}</SpecRow>
                 <SpecRow label={t.lobby.readyRow}>{readyCount}</SpecRow>
-                <SpecRow label={t.lobby.textRow}>{t.text.label(room.settings)}</SpecRow>
+                <SpecRow label={t.lobby.textRow}>
+                  {t.text.label(room.settings)} · {t.lobby.textDetail(room.settings.length, t.lobby.complexityOptions[room.settings.complexity])}
+                </SpecRow>
+                <SpecRow label={t.lobby.timeRow}>{t.lobby.timeOptions[timeKey(room.settings.maxTimeMs)]}</SpecRow>
               </Spec>
               <button className="btn btn-primary btn-block" onClick={onStartRace} disabled={!canStart}>
                 {canStart ? t.lobby.start(readyCount) : t.lobby.waiting(readyCount)}
@@ -245,7 +320,10 @@ export default function Lobby({
           <Panel>
             <PanelTitle>{t.lobby.rules}</PanelTitle>
             <Spec>
-              <SpecRow label={t.lobby.textRow}>{t.text.label(room.settings)}</SpecRow>
+              <SpecRow label={t.lobby.textRow}>
+                  {t.text.label(room.settings)} · {t.lobby.textDetail(room.settings.length, t.lobby.complexityOptions[room.settings.complexity])}
+                </SpecRow>
+                <SpecRow label={t.lobby.timeRow}>{t.lobby.timeOptions[timeKey(room.settings.maxTimeMs)]}</SpecRow>
               <SpecRow label={t.lobby.backspace}>{t.lobby.backspaceValue}</SpecRow>
               <SpecRow label={t.lobby.mistakes}>{t.lobby.mistakesValue}</SpecRow>
               <SpecRow label={t.lobby.winner}>{t.lobby.winnerValue}</SpecRow>
@@ -311,5 +389,26 @@ export default function Lobby({
         </div>
       </div>
     </div>
+  );
+}
+
+/** Letters to practise or leave out; sent when the host leaves the field. */
+function CharsField({ label, value, onCommit }: { label: string; value: string; onCommit: (value: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  const [shown, setShown] = useState(value);
+  if (value !== shown) {
+    setShown(value);
+    setDraft(value);
+  }
+  return (
+    <Field label={label}>
+      <input
+        value={draft}
+        maxLength={20}
+        onChange={(e) => setDraft(e.target.value.replace(/\s/g, ""))}
+        onBlur={() => draft !== value && onCommit(draft)}
+        onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
+      />
+    </Field>
   );
 }

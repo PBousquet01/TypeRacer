@@ -569,7 +569,7 @@ taper** est un réglage séparé de la salle (CONF-02).
 
 ## Tests et intégration continue (TECH-09)
 
-`bun test` lance 113 tests : règles du moteur de frappe, moteur des bots,
+`bun test` lance 119 tests : règles du moteur de frappe, moteur des bots,
 score et dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types
 (`tsc --noEmit`), les tests (avec une vraie base PostgreSQL) et le build à

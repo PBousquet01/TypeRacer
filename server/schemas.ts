@@ -75,6 +75,15 @@ export const settingsChange = z.object({
   hostRides: z.boolean().optional(),
   visibility: visibility.optional(),
   bonuses: z.boolean().optional(),
+  maxTimeMs: z.number().int().min(30_000).max(600_000).nullable().optional(), // CONF-01
+  length: z.number().int().min(5).max(200).optional(), // CONF-04
+  complexity: z.enum(["easy", "medium", "hard"]).optional(), // CONF-05
+  punctuation: z.boolean().optional(), // CONF-06
+  numbers: z.boolean().optional(),
+  capitals: z.boolean().optional(),
+  accents: z.boolean().optional(),
+  include: z.string().max(20).optional(), // CONF-07
+  exclude: z.string().max(20).optional(),
 });
 
 export const setWatchingArgs = z.tuple([z.string().max(64), z.boolean()]);
