@@ -76,7 +76,15 @@ join instead.
   only the speed limit bounds.
 - **Room codes come from the server (SALLE-02).** A host gets one from
   `POST /api/rooms` (`reserveRoomCode`, held 5 min), then opens the room by
-  joining it; `joinRoom` refuses to create a room on any other code. Codes are
+  joining it; `joinRoom` refuses to create a room on any other code.
+  **Only signed-in users open rooms (AUTH-03, SALLE-01):** the API answers
+  guests 401 `sign-in-to-host`, the code is reserved for that account, and
+  `joinRoom` only creates the room for it. A guest can still inherit the host
+  seat. In tests, host clients sign in as a throwaway account made by
+  `startGameServer` (`auth.signedIn`; `{ guest: true }` for a guest host) and
+  `freshCode()` reserves for it; it's deleted, with its races, on close.
+  `PublicPlayer.avatarUrl` carries a signed-in rider's photo; the lobby shows
+  it, or `Avatar`'s generated initials for guests and bots. Codes are
   6 characters from `ROOM_CODE_CHARS` in `lib/rules.ts` (no 0/O, 1/I/L).
   The join field cleans what's typed (`normalizeRoomCode`) and caps the
   *cleaned* length: a `maxLength` on the raw input would cut off a pasted

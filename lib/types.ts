@@ -21,6 +21,7 @@ export type Lang = "en" | "fr";
 export type ErrorCode =
   | "bad-code"
   | "no-room"
+  | "sign-in-to-host"
   | "host-reconnecting"
   | "room-full"
   | "host-only"
@@ -124,6 +125,7 @@ export interface PublicPlayer {
   // how often each character was missed.
   samples: number[];
   missed: Record<string, number>;
+  avatarUrl: string | null; // AUTH-04: a signed-in rider's photo; null shows a generated avatar (AUTH-03)
   personalBest: boolean; // RES-04: a signed-in rider who beat their best WPM in this race
   // RES-02, set when the race ends: every key typed per minute, wrong keys, and how it ended.
   rawWpm: number | null;

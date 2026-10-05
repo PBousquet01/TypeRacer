@@ -23,6 +23,7 @@ function placeLabel(place: number | null | undefined): string {
 const errors: Record<ErrorCode, string> = {
   "bad-code": "That room code isn't valid.",
   "no-room": "No race with that code. Ask the host for the invite link.",
+  "sign-in-to-host": "Sign in to host a race. Guests can join one with a code or quick race.",
   "host-reconnecting": "The host dropped out and may be reconnecting. Try again in a moment.",
   "room-full": "This room is full.",
   "host-only": "Only the host can start the race.",
@@ -134,6 +135,8 @@ export const en = {
     riderName: "Rider name",
     hostRace: "Host a race",
     hostHint: "You open the room and start the race, then watch from the stands or ride along.",
+    signInToHost: "Sign in to host",
+    hostHintGuest: "Hosting a race needs an account. As a guest, join one with a code or a quick race.",
     orJoin: "or join as a rider",
     roomCode: "ROOM CODE",
     roomCodeLabel: "Room code",

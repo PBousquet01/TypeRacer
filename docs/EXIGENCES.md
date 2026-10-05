@@ -3,7 +3,7 @@
 État de chaque exigence du *Travail de session — Web V*, où elle se trouve
 dans le code et comment elle est vérifiée.
 
-*Dernière mise à jour : 3 octobre 2026.* À mettre à jour dans le même commit
+*Dernière mise à jour : 5 octobre 2026.* À mettre à jour dans le même commit
 que tout changement qui fait avancer une exigence.
 
 **Statut** : ✅ complet · 🟡 partiel · ❌ non fait.
@@ -16,8 +16,8 @@ que tout changement qui fait avancer une exigence.
 | --- | --- | --- | --- | --- |
 | Contraintes techniques (TECH) | 9 | 1 | 0 | 10 |
 | Identité visuelle et design (DES) | 5 | 1 | 0 | 6 |
-| Comptes et profil (AUTH) | 4 | 2 | 0 | 6 |
-| Salles et visibilité (SALLE) | 6 | 1 | 3 | 10 |
+| Comptes et profil (AUTH) | 5 | 1 | 0 | 6 |
+| Salles et visibilité (SALLE) | 7 | 0 | 3 | 10 |
 | Rejoindre une course (JOIN) | 3 | 0 | 0 | 3 |
 | Configuration (CONF) | 12 | 0 | 0 | 12 |
 | Déroulement d'une course (COURSE) | 7 | 3 | 1 | 11 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 3 | 0 | 0 | 3 |
-| **Total** | **69** | **14** | **7** | **90** |
+| **Total** | **71** | **12** | **7** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -64,7 +64,7 @@ que tout changement qui fait avancer une exigence.
 | --- | --- | --- | --- | --- |
 | AUTH-01 | ✅ | `server/oauth.ts`, `server/auth.ts`, `server/api.ts`, `app/account/page.tsx` | « the first sign-in makes an account; the next one finds it again », « a callback whose state doesn't match is refused », « a signed-in rider can link Discord, but not someone else's », « signing up signs you in with an HttpOnly cookie », « a wrong password is refused » | GitHub et Discord actifs en local et en ligne; nom d'utilisateur et mot de passe aussi offerts. Un compte peut lier les deux fournisseurs. Les tests simulent les fournisseurs. |
 | AUTH-02 | 🟡 | `app/page.tsx`, `lib/profile.ts` | Tous les tests de `rooms.test.ts` jouent en invité | Pseudonyme de 2 à 16 caractères, gardé dans le navigateur. **Reste** : 3 à 20 caractères, session d'invité dans un cookie signé. |
-| AUTH-03 | 🟡 | `server/rooms.ts`, `server/stats.ts` | — | Pas d'historique pour les invités. **Reste** : un invité peut encore créer une salle; avatar généré. |
+| AUTH-03 | ✅ | `POST /api/rooms` (`server/api.ts`), `joinRoom` et `reserveRoomCode` (`server/rooms.ts`), `app/page.tsx`, `components/Avatar.tsx`, `components/Lobby.tsx` | « AUTH-03, SALLE-01: a guest can't get a room code to host with », « AUTH-03, SALLE-01: a guest can't open a room, even on a code the server issued » | Un invité ne reçoit pas de code de salle (401) et le serveur refuse qu'il ouvre une salle; l'accueil lui propose de se connecter à la place du bouton « Organiser ». Pas d'historique ni de photo pour les invités : la salle d'attente montre la photo des comptes qui en ont une et, pour les autres (invités, bots), un avatar généré (initiales sur une couleur tirée du nom). |
 | AUTH-04 | ✅ | `server/avatars.ts`, `POST`/`DELETE /api/account/avatar`, `GET /api/avatars/:id`, table `avatars` (migration `drizzle/0003_avatars.sql`), `components/Avatar.tsx`, `app/account/page.tsx` | « AUTH-04, SEC-02: a profile photo is checked by its bytes and its size, then stored resized » | JPEG, PNG ou WebP, 2 Mo au plus, vérifiés côté serveur. Redimensionnée avant l'affichage : recadrée en carré de 256 px, enregistrée en WebP dans PostgreSQL (le disque de l'hébergeur ne survit pas à un redémarrage). Affichée sur la page du compte et des statistiques; sans photo, un avatar généré avec les initiales. |
 | AUTH-05 | ✅ | `POST /api/account/name`, `setDisplayName` dans `server/auth.ts`, formulaire « Nom de cavalier » de `app/account/page.tsx` | « AUTH-05: a signed-in rider changes their display name; the username stays » | Validé comme tout nom de cavalier (2 à 16 caractères : lettres, chiffres, espaces, - et _). Le nom d'utilisateur servant à la connexion ne change pas; les résultats déjà enregistrés gardent le nom de l'époque. |
 | AUTH-06 | ✅ | `app/stats/page.tsx`, `components/ProgressChart.tsx`, `GET /api/stats/me` | « stats need an account », « RES-04: beating your best WPM is a personal record; a first or a slower race isn't » | Meilleur MPM, MPM moyen, précision moyenne, nombre de courses et de victoires, et graphique du MPM de ses 100 dernières courses (la plus ancienne à gauche, info-bulle avec la date). |
@@ -73,7 +73,7 @@ que tout changement qui fait avancer une exigence.
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| SALLE-01 | 🟡 | `createRoom`, réglage « Toi, l'hôte » (`settings.hostRides`) | « COURSE-5: a host who rides counts towards the minimum and races » | L'hôte choisit de courir ou de regarder. **Reste** : réserver la création aux utilisateurs connectés. |
+| SALLE-01 | ✅ | `createRoom`, `claimReservedCode`, réglage « Toi, l'hôte » (`settings.hostRides`) | « COURSE-5: a host who rides counts towards the minimum and races », tests AUTH-03 ci-dessus | Seul un utilisateur connecté obtient un code, et ce code est réservé à son compte : personne d'autre ne peut ouvrir la salle avec. Il en devient l'hôte et choisit de courir ou de regarder. |
 | SALLE-02 | ✅ | `lib/rules.ts`, `reserveRoomCode` dans `server/rooms.ts`, `POST /api/rooms` | « SALLE-02: room codes are six unambiguous characters », « SALLE-02: a malformed code is refused », « SALLE-02: a host can't open a room on a code the server didn't issue », « SALLE-02: the server hands a host a fresh six-character code » | 6 caractères tirés par le serveur (`crypto.randomInt`) parmi 31, sans 0/O, 1/I/L; jamais un code déjà pris. Un hôte ne peut ouvrir une salle que sur un code émis par le serveur (réservé 5 min). Un code tapé avec des minuscules, des espaces ou des tirets est accepté. |
 | SALLE-03 | ✅ | `settings.visibility`, `publicRooms` et `joinRoom` dans `server/rooms.ts`, réglage « Qui peut entrer » de `components/Lobby.tsx` | « SALLE-03: only public rooms are listed, and the list follows changes live », « SALLE-03, SALLE-04: a private room takes an invite link, never the code alone », « SALLE-03: a new room can ask for a visibility, but only a real one » | Publique : dans l'explorateur et « Faire une course ». Sur code (par défaut) : code ou lien. Privée : lien seulement. L'hôte change la visibilité dans la salle d'attente. |
 | SALLE-04 | ✅ | `createInvite`, `sendInvites`, `clientIp` dans `server/rooms.ts`, panneau « Liens d'invitation » de `components/Lobby.tsx` | « SALLE-03, SALLE-04: a private room takes an invite link, never the code alone », « SALLE-04: links die with the room », « SALLE-04, SALLE-07: a kicked rider's invite link is revoked » | L'hôte crée autant de liens qu'il veut, les copie et voit leur statut (non utilisé, ou utilisé par qui). Jeton de 128 bits (`randomBytes(16)`). Le premier usage lie le lien à l'adresse IP; une autre IP est refusée, la même peut revenir. Les liens vivent en mémoire avec la salle et disparaissent à sa fermeture. IP : en ligne, l'en-tête `CF-Connecting-IP` de Cloudflare (Render est derrière Cloudflare); ailleurs, l'adresse de la connexion. Le lien d'un participant expulsé est révoqué (SALLE-07). |
@@ -211,6 +211,10 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
   Là où il contredit le travail de session, c'est le travail de session qui
   l'emporte; les écarts restants sont marqués « Reste » ou « Écart » dans
   la matrice.
+- **AUTH-03, invité qui hérite de la place d'hôte.** Un invité ne peut pas
+  *créer* de salle. Si l'hôte part, sa place passe quand même à la personne
+  présente depuis le plus longtemps, invitée ou non (SALLE-08) : fermer la
+  salle de tout le monde serait pire, et ce n'est pas une création.
 - **SALLE-08, délai de l'hôte.** La place d'hôte est gardée 20 s avant de
   passer à quelqu'un d'autre, pour qu'un simple rechargement de page ne la
   fasse pas perdre.

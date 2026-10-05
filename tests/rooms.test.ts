@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { client, freshCode, sleep, startGameServer, type ClientOptions, type TestClient } from "./helpers";
-import { publicRooms, quickRaceRoom, reserveRoomCode } from "../server/rooms";
+import { publicRooms, quickRaceRoom } from "../server/rooms";
 import type { BonusEvent, InviteSummary, RoomSummary } from "../lib/types";
 import { migrate } from "../server/db";
 import { FINISH_GRACE_MS, MAX_RIDERS } from "../lib/rules";
@@ -115,6 +115,14 @@ describe("lobby rules", () => {
     host.socket.emit("updateSettings", { hostRides: true }); // full again: the host can't start riding
     await sleep(150);
     expect(host.room!.settings.hostRides).toBe(false);
+  });
+
+  test("AUTH-03, SALLE-01: a guest can't open a room, even on a code the server issued", async () => {
+    const code = freshCode();
+    const guest = await open(code, "Guest", "host", { guest: true });
+    expect(await guest.join()).toEqual({ error: "sign-in-to-host" });
+    const host = await open(code, "Host", "host");
+    expect(await host.join()).toMatchObject({ ok: true, role: "host" }); // the code is still the host's
   });
 
   test("riders need a room that exists", async () => {
@@ -493,7 +501,7 @@ describe("bots", () => {
 describe("visibility and joining", () => {
   /** A host's room with the given visibility, and the host's client. */
   async function hostRoom(visibility: "public" | "code" | "private", name = "Host") {
-    const code = reserveRoomCode(visibility);
+    const code = freshCode(visibility);
     const host = await open(code, name, "host");
     await host.join();
     return { code, host };

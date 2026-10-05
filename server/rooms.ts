@@ -94,6 +94,7 @@ export interface Player {
   color: string;
   clientId: string | null; // never shown to anyone; recognises the same tab after a reload
   userId: number | null; // set when this rider is signed in; their results get saved
+  avatarUrl: string | null; // AUTH-03, AUTH-04: their profile photo; guests and bots get a generated avatar
   role: Role;
   ready: boolean;
   watching: boolean; // COURSE-6: the host put this rider in the stands; stays there across races
@@ -216,13 +217,14 @@ function newPlayer(
   color: string,
   role: Role,
   clientId: string | null,
-  userId: number | null,
+  user: User | null,
 ): Player {
   return {
     name,
     color,
     clientId,
-    userId,
+    userId: user?.id ?? null,
+    avatarUrl: user?.avatarUrl ?? null,
     role,
     ready: false,
     watching: false,
@@ -782,9 +784,11 @@ function leaveCurrentRoom(io: IO, socket: ClientSocket) {
 const RESERVATION_MS = 5 * 60_000;
 // The visibility asked for comes with the code, so a room created from quick
 // play ("no room free, open a public one") starts out public.
-const reservedCodes = new Map<string, { expires: number; visibility: Visibility }>();
+// AUTH-03, SALLE-01: only a signed-in user opens a room, so a code is
+// reserved for one account and only that account can open it.
+const reservedCodes = new Map<string, { expires: number; visibility: Visibility; userId: number }>();
 
-export function reserveRoomCode(visibility: Visibility = "code"): string {
+export function reserveRoomCode(userId: number, visibility: Visibility = "code"): string {
   const now = Date.now();
   for (const [code, { expires }] of reservedCodes) {
     if (expires <= now) reservedCodes.delete(code);
@@ -792,17 +796,22 @@ export function reserveRoomCode(visibility: Visibility = "code"): string {
   for (;;) {
     const code = Array.from({ length: ROOM_CODE_LENGTH }, () => ROOM_CODE_CHARS[randomInt(ROOM_CODE_CHARS.length)]).join("");
     if (!rooms.has(code) && !reservedCodes.has(code)) {
-      reservedCodes.set(code, { expires: now + RESERVATION_MS, visibility });
+      reservedCodes.set(code, { expires: now + RESERVATION_MS, visibility, userId });
       return code;
     }
   }
 }
 
-/** The visibility the code was reserved with, or null if the server never issued it (or it expired). */
-function claimReservedCode(code: string): Visibility | null {
+/**
+ * The visibility the code was reserved with, or null if the server never
+ * issued it, it expired, or it was reserved for another account. A code
+ * someone else reserved stays theirs.
+ */
+function claimReservedCode(code: string, userId: number): Visibility | null {
   const reservation = reservedCodes.get(code);
+  if (!reservation || reservation.userId !== userId) return null;
   reservedCodes.delete(code);
-  return reservation && reservation.expires > Date.now() ? reservation.visibility : null;
+  return reservation.expires > Date.now() ? reservation.visibility : null;
 }
 
 export function registerRoomHandlers(io: IO, socket: ClientSocket) {
@@ -815,18 +824,19 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
 
     leaveCurrentRoom(io, socket);
 
+    const user = socket.data.user ?? null;
     let room = rooms.get(code);
     const created = !room;
     if (!room) {
-      // Only a host opens a room, on a code the server issued; riders need a
-      // room that already exists.
-      const reserved = wantsHost ? claimReservedCode(code) : null;
+      // Only a signed-in host opens a room (AUTH-03, SALLE-01), on a code the
+      // server issued to that account; riders need a room that already exists.
+      if (wantsHost && !user) return reply({ error: "sign-in-to-host" });
+      const reserved = wantsHost && user ? claimReservedCode(code, user.id) : null;
       if (!reserved) return reply({ error: "no-room" });
       room = createRoom(code, lang ?? "en", reserved);
       rooms.set(code, room);
     }
 
-    const user = socket.data.user ?? null;
     if ((clientId && room.bannedClients.has(clientId)) || (user && room.bannedUsers.has(user.id))) {
       return reply({ error: "kicked" });
     }
@@ -888,7 +898,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
 
     room.players.set(
       socket.id,
-      newPlayer(name, safeColor(color, user), finalRole, clientId ?? null, user?.id ?? null),
+      newPlayer(name, safeColor(color, user), finalRole, clientId ?? null, user),
     );
     if (finalRole === "host") {
       room.hostId = socket.id;

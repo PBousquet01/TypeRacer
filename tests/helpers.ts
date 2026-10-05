@@ -2,15 +2,25 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
+import { randomBytes } from "node:crypto";
 import { registerRoomHandlers, reserveRoomCode, type IO } from "../server/rooms";
-import type { ActionReply, ClientToServerEvents, JoinReply, PublicRoom, ServerToClientEvents } from "../lib/types";
+import { createUser } from "../server/auth";
+import { sql } from "../server/db";
+import type { ActionReply, ClientToServerEvents, JoinReply, PublicRoom, ServerToClientEvents, User, Visibility } from "../lib/types";
 
-/** The real room referee on a random port, with every socket treated as a guest. */
+// AUTH-03, SALLE-01: only a signed-in user opens a room, so the tests' hosts
+// share one throwaway account, deleted (with its races) when the server closes.
+let hostAccount: User | null = null;
+
+/** The real room referee on a random port. Hosts are signed in as the test account; everyone else is a guest. */
 export async function startGameServer() {
+  const made = await createUser({ username: `th_${randomBytes(4).toString("hex")}`, password: randomBytes(16).toString("hex"), displayName: "Host" });
+  if ("error" in made) throw new Error(made.error);
+  hostAccount = made.user;
   const http = createServer();
   const io: IO = new Server(http);
   io.use((socket, next) => {
-    socket.data.user = null;
+    socket.data.user = socket.handshake.auth.signedIn ? hostAccount : null;
     socket.data.roomCode = null;
     // A test can say which address a client comes from (invite links are tied to one).
     const ip: unknown = socket.handshake.auth.ip;
@@ -22,7 +32,12 @@ export async function startGameServer() {
   const url = `http://localhost:${(http.address() as AddressInfo).port}`;
   return {
     url,
-    close: () => new Promise<void>((resolve) => io.close(() => resolve())),
+    close: async () => {
+      await new Promise<void>((resolve) => io.close(() => resolve()));
+      const id = made.user.id;
+      await sql`DELETE FROM race_runs WHERE id IN (SELECT run_id FROM races WHERE user_id = ${id})`;
+      await sql`DELETE FROM users WHERE id = ${id}`;
+    },
   };
 }
 
@@ -40,6 +55,7 @@ export interface TestClient {
 export interface ClientOptions {
   ip?: string; // the address the server should see
   invite?: string; // an invite link's token
+  guest?: boolean; // a host who isn't signed in
 }
 
 export async function client(
@@ -47,9 +63,10 @@ export async function client(
   code: string,
   name: string,
   role: "host" | "rider",
-  { ip, invite }: ClientOptions = {},
+  { ip, invite, guest = false }: ClientOptions = {},
 ): Promise<TestClient> {
-  const socket: TestClient["socket"] = connect(url, { transports: ["websocket"], forceNew: true, auth: ip ? { ip } : {} });
+  const auth = { ...(ip ? { ip } : {}), ...(role === "host" && !guest ? { signedIn: true } : {}) };
+  const socket: TestClient["socket"] = connect(url, { transports: ["websocket"], forceNew: true, auth });
   await new Promise<void>((resolve) => socket.on("connect", () => resolve()));
 
   const c: TestClient = {
@@ -81,5 +98,5 @@ export async function client(
 
 export const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** A room code issued by the referee, as a host gets from POST /api/rooms. */
-export const freshCode = () => reserveRoomCode();
+/** A room code issued by the referee to the test host, as a host gets from POST /api/rooms. */
+export const freshCode = (visibility?: Visibility) => reserveRoomCode(hostAccount!.id, visibility);

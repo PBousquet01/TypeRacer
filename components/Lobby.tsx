@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Avatar from "./Avatar";
 import Chocobo from "./Chocobo";
 import { BotTag, Choice, Field, FieldLabel, FinePrint, HostTag, MonoNote, Panel, PanelTitle, Spec, SpecRow } from "./ui";
 import { cn } from "@/lib/cn";
@@ -109,6 +110,7 @@ export default function Lobby({
                 <span className={cn(MOUNT_BOX, "border-edge/50 bg-ink/55 light:border-ink/35 light:bg-ink/5")}>
                   <Chocobo color={p.color} size={34} />
                 </span>
+                <Avatar name={p.name} url={p.avatarUrl} size={32} />
                 <span className="grid min-w-0 flex-1 gap-[5px]">
                   <span className={cn("font-body text-sm/[1.3] font-medium", isMe ? "text-accent" : "text-strong")}>
                     {p.name}

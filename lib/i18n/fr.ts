@@ -37,6 +37,7 @@ function placeLabel(place: number | null | undefined): string {
 const errors: Record<ErrorCode, string> = {
   "bad-code": "Ce code de salon n'est pas valide.",
   "no-room": "Aucune course avec ce code. Demande le lien d'invitation à l'hôte.",
+  "sign-in-to-host": "Connecte-toi pour organiser une course. Les invités peuvent en rejoindre une avec un code ou par course rapide.",
   "host-reconnecting": "L'hôte s'est déconnecté et revient peut-être. Réessaie dans un instant.",
   "room-full": "Ce salon est plein.",
   "host-only": "Seul l'hôte peut lancer la course.",
@@ -146,6 +147,8 @@ export const fr: Dictionary = {
     riderName: "Nom de cavalier",
     hostRace: "Organiser une course",
     hostHint: "Tu ouvres le salon, tu lances la course, puis tu regardes des estrades ou tu cours aussi.",
+    signInToHost: "Se connecter pour organiser",
+    hostHintGuest: "Organiser une course demande un compte. En invité, rejoins-en une avec un code ou une course rapide.",
     orJoin: "ou rejoins comme cavalier",
     roomCode: "CODE DU SALON",
     roomCodeLabel: "Code du salon",

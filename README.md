@@ -25,7 +25,7 @@ them back, between races (COURSE-6). If the host's browser drops (a refresh, a f
 the seat is held open for 20 seconds so they can reclaim it; only if they
 don't come back does the longest-present player inherit it.
 
-Accounts are optional: guests can race as always, and signing in saves your
+Guests can join and race without an account; hosting a race needs one. Signing in also saves your
 results and unlocks any special mounts granted to you.
 
 Built with Next.js (React) in TypeScript, Tailwind CSS, Socket.IO, Bun and PostgreSQL.

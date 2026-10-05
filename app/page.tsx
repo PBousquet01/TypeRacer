@@ -79,9 +79,9 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks, signed
   async function hostRoom(visibility?: Visibility) {
     const riderName = riderNameOrError();
     if (!riderName) return;
-    const reply = await fetch("/api/rooms", { method: "POST", body: JSON.stringify({ visibility }) })
-      .then((res) => (res.ok ? (res.json() as Promise<{ code: string }>) : null))
-      .catch(() => null);
+    const res = await fetch("/api/rooms", { method: "POST", body: JSON.stringify({ visibility }) }).catch(() => null);
+    if (res?.status === 401) return setError(t.errors["sign-in-to-host"]);
+    const reply = res?.ok ? ((await res.json()) as { code: string }) : null;
     if (!reply) return setError(t.errors["server-error"]);
     saveProfile({ name: riderName, color, role: "host" });
     router.push(`/room/${reply.code}`);
@@ -142,10 +142,21 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks, signed
 
           {error && <ErrorText>{error}</ErrorText>}
 
-          <button className="btn btn-primary btn-block" onClick={() => hostRoom()}>
-            {t.home.hostRace}
-          </button>
-          <FinePrint>{t.home.hostHint}</FinePrint>
+          {signedIn ? (
+            <>
+              <button className="btn btn-primary btn-block" onClick={() => hostRoom()}>
+                {t.home.hostRace}
+              </button>
+              <FinePrint>{t.home.hostHint}</FinePrint>
+            </>
+          ) : (
+            <>
+              <Link className="btn btn-primary btn-block" href="/account">
+                {t.home.signInToHost}
+              </Link>
+              <FinePrint>{t.home.hostHintGuest}</FinePrint>
+            </>
+          )}
 
           <OrRule>{t.home.orJoin}</OrRule>
 

@@ -217,10 +217,19 @@ describe("input validation (TECH-07)", () => {
 });
 
 describe("rooms", () => {
+  const signedIn = async () => sessionFrom(await post("/api/auth/login", { username, password }));
+
+  test("AUTH-03, SALLE-01: a guest can't get a room code to host with", async () => {
+    const res = await fetch(`${base}/api/rooms`, { method: "POST" });
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ error: "sign-in-to-host" });
+  });
+
   test("SALLE-02: the server hands a host a fresh six-character code", async () => {
+    const cookie = await signedIn();
     const codes = new Set<string>();
     for (let i = 0; i < 5; i++) {
-      const res = await fetch(`${base}/api/rooms`, { method: "POST" });
+      const res = await fetch(`${base}/api/rooms`, { method: "POST", headers: { cookie } });
       expect(res.status).toBe(200);
       const { code } = await res.json();
       expect(code).toMatch(/^[A-HJKMNP-Z2-9]{6}$/);
@@ -230,8 +239,9 @@ describe("rooms", () => {
   });
 
   test("SALLE-03: a new room can ask for a visibility, but only a real one", async () => {
-    expect((await post("/api/rooms", { visibility: "public" })).status).toBe(200);
-    const bad = await post("/api/rooms", { visibility: "secret" });
+    const cookie = await signedIn();
+    expect((await post("/api/rooms", { visibility: "public" }, cookie)).status).toBe(200);
+    const bad = await post("/api/rooms", { visibility: "secret" }, cookie);
     expect(bad.status).toBe(400);
     expect(await bad.json()).toEqual({ error: "bad-request" });
   });

@@ -363,10 +363,13 @@ export async function handleApi(req: IncomingMessage, res: ServerResponse): Prom
 
   // SALLE-02: a fresh room code for a host about to open a room, with the
   // visibility it should start with (SALLE-03; code-only by default).
+  // AUTH-03, SALLE-01: guests can't open rooms; the code is held for this account.
   if (path === "/api/rooms" && method === "POST") {
+    const me = await userFromRequest(req);
+    if (!me) return send(res, 401, { error: "sign-in-to-host" }), true;
     const body = parse(newRoomBody, await readJson(req));
     if (!body.ok) return send(res, 400, { error: body.error }), true;
-    send(res, 200, { code: reserveRoomCode(body.data.visibility) });
+    send(res, 200, { code: reserveRoomCode(me.id, body.data.visibility) });
     return true;
   }
 
