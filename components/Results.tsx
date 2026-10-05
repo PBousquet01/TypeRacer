@@ -21,6 +21,7 @@ function headline(ranked: PublicPlayer[], t: Dictionary) {
   const runnerUp = ranked.find((p) => p.place === 2);
   const best = ranked.find((p) => p.place);
 
+  if (winner && !winner.finished) return t.results.nobody;
   if (winner && runnerUp?.timeMs && winner.timeMs) {
     if (winner.timeMs > runnerUp.timeMs) {
       return t.results.onAccuracy(winner.name, runnerUp.name);
@@ -172,7 +173,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                 <SpecRow label={t.results.scoreRow}>{me?.score != null ? t.common.pts(me.score) : "—"}</SpecRow>
                 <SpecRow label={t.results.speedRow}>{me?.wpm ? t.common.wpm(me.wpm) : "—"}</SpecRow>
                 <SpecRow label={t.results.accuracyRow}>{me?.accuracy != null ? `${me.accuracy}%` : "—"}</SpecRow>
-                <SpecRow label={t.results.timeRow}>{me?.place ? formatTime(me.timeMs) : "—"}</SpecRow>
+                <SpecRow label={t.results.timeRow}>{me?.finished ? formatTime(me.timeMs) : "—"}</SpecRow>
               </Spec>
             </Panel>
           )}

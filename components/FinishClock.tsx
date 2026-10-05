@@ -16,5 +16,5 @@ export default function FinishClock({ deadline }: { deadline: number | null }) {
   }, [deadline]);
 
   if (!deadline) return null;
-  return <Stat value={formatTime(Math.max(0, deadline - now))} label={t.race.lastCall} accent />;
+  return <Stat value={formatTime(Math.max(0, deadline - now))} label={t.race.timeLeft} accent />;
 }

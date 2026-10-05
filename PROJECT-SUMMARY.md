@@ -155,11 +155,17 @@ join instead.
   throw an unhandled error. New socket event or route? Add its schema first.
 - **Restricted mounts are enforced server-side** in `safeColor()`. Hiding them
   in the picker is cosmetic; the colour is just a string a client sends.
-- **Ranking is by score (TXT-9)**: score = WPM × accuracy (`scoreOf` in
-  `lib/rules.ts`). Places are handed out when the race ends
-  (`rankFinishers` in `server/rooms.ts`), best score first, ties to whoever
-  crossed first; DNFs get no place. The first bird across the line can lose.
-  No minimum-accuracy threshold yet (H-11 says 80%; undecided).
+- **Ranking (COURSE-10)**: every starter gets a place when the race ends
+  (`rankField` in `server/rooms.ts`, after `raceStatus` sets each status):
+  finishers by time, then riders the time limit stopped ("timeout") by
+  progress, then those who abandoned by the progress they had. The score
+  (WPM × accuracy, `scoreOf`) is still shown but no longer ranks anyone.
+- **End of a race (COURSE-08, 09)**: no last call. The race ends at
+  `settings.maxTimeMs` (`room.finishAt`, shown as "time left"), or once
+  every starter has finished or abandoned. A rider away for `RECONNECT_MS`
+  (30 s) is `abandoned` (`dropHeldLane`): kept in the field and ranked, but
+  their keys are ignored; coming back shows them the spectator screen. An
+  away rider still inside the hold is waited for.
 - **Accuracy is counted by the server** from the keys it was sent, at the
   finish. The figure shown during the race is the browser's own estimate.
 - **One host per room.** The host opens the room and presses start, then
@@ -177,8 +183,7 @@ join instead.
   refuses any change that would leave more participants than the capacity
   (lowering it, or the host starting to ride), so nobody is pushed out.
 - **Race rules live in `lib/rules.ts`** (shared by server and lobby): 2–30
-  riders, a 30s last call once the first rider finishes (then DNFs), and a
-  30s hold on the lane of a rider who drops. The same tab (same `clientId`)
+  riders and a 30s hold on the lane of a rider who drops. The same tab (same `clientId`)
   reconnecting gets its lane and progress back; the client resumes the
   typing engine from the server's `charIndex`. Someone who joins mid-race
   is a rider with `racing: false` and watches until the next race. The state

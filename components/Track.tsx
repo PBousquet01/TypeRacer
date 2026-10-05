@@ -25,6 +25,7 @@ export interface TrackRider {
   score?: number | null;
   liveWpm?: number;
   away?: boolean;
+  abandoned?: boolean;
   bot?: BotLevel | null;
   textLength?: number; // their own text, which a bonus can change
 }
@@ -103,7 +104,11 @@ export default function Track({ players, myId, racing, textLength, raceStartedAt
                       </span>
                     )}
                     {isMe && <span className="text-muted max-wide:hidden"> · {t.common.you}</span>}
-                    {p.away && <span className="text-amber"> · {t.race.reconnecting}</span>}
+                    {p.abandoned ? (
+                      <span className="text-muted"> · {t.race.gaveUp}</span>
+                    ) : (
+                      p.away && <span className="text-amber"> · {t.race.reconnecting}</span>
+                    )}
                   </span>
                   {compact && !isStalled ? null : isStalled ? (
                     <span className="border-2 border-paper bg-ember px-1.5 py-1 font-display text-tiny/[1.4] whitespace-nowrap text-ink">

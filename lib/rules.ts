@@ -1,8 +1,7 @@
 // Race rules both sides need: the server enforces them, the lobby shows them.
 export const MIN_RIDERS = 2; // COURSE-3: a race needs at least two riders
 export const MAX_RIDERS = 30; // SALLE-05: the most the host can set the capacity to; also the default
-export const FINISH_GRACE_MS = 30_000; // COURSE-15: once someone finishes, the rest get this long (H-3)
-export const RECONNECT_MS = 30_000; // COURSE-14: how long a dropped rider's lane is kept for them
+export const RECONNECT_MS = 30_000; // COURSE-08: how long a dropped rider's lane is kept for them; then they have abandoned
 
 // SALLE-02: six characters, none that can be mistaken for another (0/O, 1/I/L).
 export const ROOM_CODE_LENGTH = 6;
@@ -25,9 +24,9 @@ export type RaceStatus = "finished" | "timeout" | "abandoned";
  * A rider who reached the end finished; one still there when the race ended
  * ran out of time; one who had left (their lane held, or given up) abandoned.
  */
-export function raceStatus({ finished, away }: { finished: boolean; away: boolean }): RaceStatus {
+export function raceStatus({ finished, away, abandoned }: { finished: boolean; away: boolean; abandoned: boolean }): RaceStatus {
   if (finished) return "finished";
-  return away ? "abandoned" : "timeout";
+  return away || abandoned ? "abandoned" : "timeout";
 }
 
 /** RES-02, annex A: raw WPM counts every key typed, right or wrong. */

@@ -118,6 +118,7 @@ export interface PublicPlayer {
   timeMs: number | null;
   score: number | null; // wpm × accuracy; decides the final places (TXT-9)
   away: boolean; // dropped mid-race; their lane is held until they reconnect
+  abandoned: boolean; // COURSE-08: gone longer than the hold; out of this race, ranked last
   bot: BotLevel | null; // BOT-04: a bot, and how good it is; null for a person
   bonuses: BonusKind[]; // comeback bonuses this rider earned in the race (RES-02)
   textLength: number; // their own text can grow or shrink with bonuses (BONUS-04)

@@ -75,7 +75,8 @@ export default function RoomPage() {
 
   const phase = room.status === "lobby" ? t.room.lobby : room.status === "finished" ? t.room.results : t.room.racing;
   const isHost = room.hostId === myId;
-  const riding = room.players.find((p) => p.id === myId)?.racing ?? false;
+  const meInRoom = room.players.find((p) => p.id === myId);
+  const riding = Boolean(meInRoom?.racing && !meInRoom.abandoned);
   const hostName = room.players.find((p) => p.id === room.hostId)?.name;
 
   return (

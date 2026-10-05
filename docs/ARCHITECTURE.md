@@ -236,9 +236,8 @@ stateDiagram-v2
     [*] --> ATTENTE : l'hôte crée la salle
     ATTENTE --> DECOMPTE : l'hôte lance (≥ 2 participants prêts, dont 1 personne)
     DECOMPTE --> COURSE : 3 s plus tard
-    COURSE --> RESULTATS : tous les participants ont fini
-    COURSE --> RESULTATS : dernier appel écoulé (30 s après le 1er arrivé)
-    COURSE --> RESULTATS : temps maximal atteint (3 min)
+    COURSE --> RESULTATS : tous les participants ont fini ou abandonné
+    COURSE --> RESULTATS : temps maximal atteint (réglé par l'hôte, 3 min par défaut)
     RESULTATS --> ATTENTE : l'hôte relance
     ATTENTE --> FERMEE : la dernière personne part
     RESULTATS --> FERMEE : la dernière personne part
@@ -254,9 +253,8 @@ stateDiagram-v2
 | *(rien)* → EN_ATTENTE | Un hôte rejoint un code qui n'existe pas | Rôle demandé = hôte, et code émis par le serveur (`POST /api/rooms`) depuis moins de 5 min (SALLE-02) | Salle créée; la langue du texte part de la langue d'interface de l'hôte | `createRoom` |
 | EN_ATTENTE → DÉCOMPTE | L'hôte clique « Lancer la course » (`startRace`) | C'est bien l'hôte; salle en attente; au moins 2 participants prêts, bots compris, dont au moins une personne (COURSE-02). Revérifié après le chargement du texte (un double clic ne lance qu'une course) | Un texte est tiré de la banque selon la configuration; seuls les participants **prêts** deviennent partants; départ fixé à maintenant + 3 s | `startRace`, `startCountdown` |
 | DÉCOMPTE → EN_COURSE | Minuterie de 3 s (`COUNTDOWN_MS`) | — | Les positions sont diffusées toutes les 100 ms; la minuterie de 3 min démarre | `startRace` |
-| EN_COURSE → RÉSULTATS | Le dernier partant franchit la ligne | Tous les partants ont fini (vérifié aussi quand quelqu'un part) | Classement, résultats enregistrés pour les comptes connectés | `endIfEveryoneFinished`, `endRace`, `rankFinishers` |
-| EN_COURSE → RÉSULTATS | Dernier appel écoulé | Le premier arrivé a lancé le compte de `FINISH_GRACE_MS` = 30 s | Ceux qui n'ont pas fini n'ont pas de place | `startFinishClock`, `endRace` |
-| EN_COURSE → RÉSULTATS | Temps maximal écoulé | `MAX_RACE_MS` = 3 min depuis le départ | Idem | `startRace`, `endRace` |
+| EN_COURSE → RÉSULTATS | Le dernier partant encore en course finit ou abandonne | Chaque partant a fini ou abandonné (déconnecté depuis plus de 30 s); un partant déconnecté depuis moins longtemps peut revenir, donc on l'attend (COURSE-09) | Classement de tout le monde (COURSE-10), résultats enregistrés pour les comptes connectés | `endIfEveryoneFinished`, `dropHeldLane`, `endRace`, `rankField` |
+| EN_COURSE → RÉSULTATS | Temps maximal écoulé | `settings.maxTimeMs` depuis le départ (CONF-01 : aucun, ou 30 s à 10 min; 3 min par défaut) | Idem; ceux qui n'ont pas fini sont classés par progression | `startRace`, `endRace` |
 | RÉSULTATS → EN_ATTENTE | L'hôte clique « Retour au salon » (`playAgain`) | C'est bien l'hôte; salle en résultats | Les joueurs encore déconnectés sont retirés; tout le monde redevient « pas prêt » | `backToLobby` |
 | n'importe quel état → FERMÉE | La dernière personne quitte | Plus personne dans la salle | Minuteries arrêtées, salle effacée de la mémoire | `removePlayer` |
 
@@ -277,9 +275,8 @@ stateDiagram-v2
 | Nom (code) | Durée | Rôle |
 | --- | --- | --- |
 | `COUNTDOWN_MS` | 3 s | Décompte avant le départ (COURSE-03) |
-| `FINISH_GRACE_MS` | 30 s | Dernier appel après le premier arrivé |
-| `MAX_RACE_MS` | 3 min | Temps maximal d'une course |
-| `RECONNECT_MS` | 30 s | Voie gardée pour un participant déconnecté (COURSE-08) |
+| `settings.maxTimeMs` | aucun, ou 30 s à 10 min (3 min par défaut) | Temps maximal d'une course, réglé par l'hôte (CONF-01); l'écran affiche le temps restant |
+| `RECONNECT_MS` | 30 s | Voie gardée pour un participant déconnecté; passé ce délai, il a abandonné (COURSE-08) |
 | `HOST_RECLAIM_MS` | 20 s | Place d'hôte gardée avant de passer à la personne présente depuis le plus longtemps (SALLE-08) |
 | `TICK_MS` | 100 ms | Fréquence de diffusion des positions pendant la course (COURSE-05) |
 
@@ -289,8 +286,9 @@ stateDiagram-v2
 - **`watching`** : participant envoyé aux estrades par l'hôte. Il ne peut pas se déclarer prêt; l'état reste d'une course à l'autre.
 - **`ready`** : participant prêt (l'hôte qui court est prêt d'office). Remis à faux au retour au salon.
 - **`racing`** : partant de la course en cours, figé au lancement.
-- **`finished`**, **`place`**, **`score`** : fixés à l'arrivée; la place n'est donnée qu'à la fin de la course.
+- **`finished`**, **`score`** : fixés à l'arrivée. La **`place`** est donnée à tous les partants à la fin de la course (COURSE-10) : d'abord ceux qui ont fini, par temps; puis ceux arrêtés par le temps maximal, par progression; enfin ceux qui ont abandonné, par progression au moment de partir. Le score (MPM × précision) est affiché, mais ne compte plus pour le classement.
 - **`away`** : partant déconnecté dont la voie est gardée. Le même onglet (même `clientId`) qui revient reprend sa voie.
+- **`abandoned`** : partant parti depuis plus de 30 s pendant la course (COURSE-08). Il reste dans le classement avec la progression qu'il avait; s'il revient, il regarde la fin de la course sans pouvoir taper.
 
 ### Écarts connus avec le cahier de l'enseignant
 
@@ -300,11 +298,6 @@ pour respecter le travail de session; ils sont suivis dans
 
 - **SALLE-09** : on ne pourra plus rejoindre pendant DÉCOMPTE et EN_COURSE
   (aujourd'hui, on y entre comme spectateur).
-- **COURSE-09** : le dernier appel de 30 s disparaît; la course finit quand
-  tous ont fini ou abandonné, ou au temps maximal, réglable par l'hôte
-  (CONF-01, aucun ou 30 s à 10 min).
-- **COURSE-10** : classement par temps d'arrivée, puis par progression, puis
-  les abandons (aujourd'hui, au score MPM × précision).
 - **COURSE-11** : l'hôte pourra aussi **fermer** la salle depuis les
   résultats (transition RÉSULTATS → FERMÉE explicite).
 

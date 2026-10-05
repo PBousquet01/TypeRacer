@@ -20,7 +20,7 @@ que tout changement qui fait avancer une exigence.
 | Salles et visibilité (SALLE) | 7 | 0 | 3 | 10 |
 | Rejoindre une course (JOIN) | 3 | 0 | 0 | 3 |
 | Configuration (CONF) | 12 | 0 | 0 | 12 |
-| Déroulement d'une course (COURSE) | 7 | 3 | 1 | 11 |
+| Déroulement d'une course (COURSE) | 9 | 2 | 0 | 11 |
 | Bots (BOT) | 5 | 0 | 0 | 5 |
 | Bonus de remontée (BONUS) | 4 | 0 | 0 | 4 |
 | Résultats (RES) | 5 | 0 | 0 | 5 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 3 | 0 | 0 | 3 |
-| **Total** | **71** | **12** | **7** | **90** |
+| **Total** | **73** | **11** | **6** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -120,9 +120,9 @@ que tout changement qui fait avancer une exigence.
 | COURSE-05 | ✅ | `components/Track.tsx` | Démonstration avec 12 participants | Monture, nom, position et MPM courant; positions toutes les 100 ms avec transition fluide; joueur local mis en évidence; les spectateurs voient la piste. |
 | COURSE-06 | ✅ | `server/rooms.ts`, `replayKeys` dans `lib/typing.ts` | « the server judges the keys: wrong ones don't move the bird », « progress faster than a human is ignored (anti-cheat) », « a finished rider's result can't be changed » | Départ, fin, progression et classement décidés par le serveur. Les bonus (pas encore faits) passeront aussi par lui. |
 | COURSE-07 | 🟡 | Bouton « Quitter », `holdLane` | — | Quitter la course compte comme abandon après 30 s. **Reste** : bouton « Abandonner » avec confirmation. |
-| COURSE-08 | ✅ | `holdLane`, `reclaimLane`, `components/RaceScreen.tsx` | « COURSE-14: a dropped rider keeps their lane and progress » | 30 s (`RECONNECT_MS`), puis abandon. |
-| COURSE-09 | 🟡 | `endIfEveryoneFinished`, `startFinishClock` | « COURSE-15: the first finish starts the last call » | Fin quand tous ont fini ou au temps maximal. **Écart** : un dernier appel de 30 s après le premier arrivé, à retirer. |
-| COURSE-10 | ❌ | `rankFinishers` | « TXT-9: the careful rider wins on score, even crossing second » | Classement actuel au score (MPM × précision), choix du premier cahier des charges. À remplacer par : arrivée, puis progression, puis abandons. |
+| COURSE-08 | ✅ | `holdLane`, `reclaimLane`, `dropHeldLane`, `components/RaceScreen.tsx` | « COURSE-14: a dropped rider keeps their lane and progress », « COURSE-08 to COURSE-10: finishers by time, then the clock's victims by progress, then those who left » | 30 s (`RECONNECT_MS`), puis abandon : le partant reste au classement avec sa progression, et s'il revient il regarde la fin sans pouvoir taper. |
+| COURSE-09 | ✅ | `endIfEveryoneFinished`, `dropHeldLane`, `startRace`, `components/FinishClock.tsx` | « COURSE-09: a finish doesn't start a last call; the clock counts down to the time limit », « COURSE-08 to COURSE-10: finishers by time, then the clock's victims by progress, then those who left » | Fin quand chaque partant a fini ou abandonné, ou au temps maximal. Un partant déconnecté depuis moins de 30 s peut revenir, donc la course l'attend. Le dernier appel de 30 s du premier cahier des charges est retiré; l'horloge à l'écran montre le temps restant avant le temps maximal. |
+| COURSE-10 | ✅ | `rankField` dans `server/rooms.ts`, `raceStatus` dans `lib/rules.ts`, `components/Results.tsx` | « COURSE-10: the first across the line wins, however sloppy », « COURSE-08 to COURSE-10: finishers by time, then the clock's victims by progress, then those who left » | Tous les partants reçoivent une place : ceux qui ont fini par temps d'arrivée, puis ceux arrêtés par le temps maximal par progression, puis les abandons par progression au moment du départ. Le score (MPM × précision) reste affiché à titre indicatif. |
 | COURSE-11 | 🟡 | `playAgain`, `backToLobby` | « back to the lobby keeps everyone » | Relancer avec les mêmes personnes et changer la configuration. **Reste** : fermer la salle. |
 
 ## Bots (BOT)
@@ -151,7 +151,7 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
 | RES-01 | ✅ | `components/Results.tsx` | — | |
-| RES-02 | ✅ | `components/Results.tsx`, `endRace` dans `server/rooms.ts`, `raceStatus` et `rawWpmOf` dans `lib/rules.ts` | « TXT-9: the careful rider wins on score, even crossing second », « RES-02: how a race ended, and raw WPM » | Rang, participant, score, MPM, MPM brut (toutes les touches tapées, annexe A), précision, nombre d'erreurs, temps, statut (terminé, temps écoulé ou abandon) et bonus reçus. Statut : « abandon » pour qui avait quitté la course quand elle s'est terminée, « temps écoulé » pour qui était encore là sans avoir fini. Le tableau défile horizontalement sur un petit écran. |
+| RES-02 | ✅ | `components/Results.tsx`, `endRace` dans `server/rooms.ts`, `raceStatus` et `rawWpmOf` dans `lib/rules.ts` | « COURSE-10: the first across the line wins, however sloppy », « RES-02: how a race ended, and raw WPM » | Rang, participant, score, MPM, MPM brut (toutes les touches tapées, annexe A), précision, nombre d'erreurs, temps, statut (terminé, temps écoulé ou abandon) et bonus reçus. Statut : « abandon » pour qui avait quitté la course quand elle s'est terminée, « temps écoulé » pour qui était encore là sans avoir fini. Le tableau défile horizontalement sur un petit écran. |
 | RES-03 | ✅ | `components/WpmChart.tsx`, `components/KeyHeatmap.tsx`, `sampleWpm` et `countMiss` dans `server/rooms.ts` | « RES-03: replaying keys reports which characters were missed », « BOT-01, BOT-04: a bot races through the same referee, finishes in its speed range and gets a place » | Deux graphiques sous le tableau des résultats. 1) MPM net de chaque participant seconde par seconde, sur un même graphique (8 courbes au plus : toi et les mieux classés; légende, noms en bout de courbe, info-bulle au survol). 2) Clavier en carte de chaleur des touches manquées, pour toi par défaut ou pour le cavalier choisi; les caractères hors clavier (accents, guillemets…) sont listés dessous. Couleurs vérifiées (daltonisme, contraste) sur les deux thèmes. |
 | RES-04 | ✅ | `recordRace` dans `server/stats.ts`, `RecordTag` dans `components/ui.tsx`, `components/Results.tsx` | « RES-04: beating your best WPM is a personal record; a first or a slower race isn't » | Pour un cavalier connecté qui finit : MPM plus élevé que son meilleur MPM des courses précédentes. Une première course n'a rien à battre. Étiquette « RECORD » sur le podium et dans le tableau, message dans « Ta course »; gardé aussi pour l'historique. |
 | RES-05 | ✅ | `recordRace` dans `server/stats.ts`, colonnes `wpm_samples` et `missed_keys` (migration `drizzle/0001_race_charts.sql`) | Tests de `api.test.ts` et `rooms.test.ts` sur une vraie base | Les résultats de chaque participant connecté sont enregistrés à la fin de la course, avec la série du MPM et les touches manquées, pour réafficher les graphiques (HIST-02). |

@@ -15,7 +15,6 @@ import { pickText } from "./texts";
 import { recordRace } from "./stats";
 import { ackOf, botLevel, joinPayload, parse, playerId, setWatchingArgs, settingsChange, typedArgs } from "./schemas";
 import {
-  FINISH_GRACE_MS,
   MAX_RIDERS,
   MIN_RIDERS,
   RECONNECT_MS,
@@ -108,6 +107,7 @@ export interface Player {
   timeMs: number | null;
   score: number | null; // wpm × accuracy, set on finishing; decides the final places
   away: boolean; // dropped mid-race; the lane is held for RECONNECT_MS
+  abandoned: boolean; // COURSE-08: away past RECONNECT_MS, so out of this race; still ranked (COURSE-10)
   bot: BotLevel | null; // a bot (BOT-01), and its level; null for a person
   botPlan: BotKey[]; // the keys this bot will press in the current race (lib/bots.ts)
   botNext: number; // index of the next key in botPlan to play
@@ -238,6 +238,7 @@ function newPlayer(
     timeMs: null,
     score: null,
     away: false,
+    abandoned: false,
     bot: null,
     botPlan: [],
     botNext: 0,
@@ -292,6 +293,7 @@ function resetPlayer(player: Player) {
     rawWpm: null,
     errors: null,
     status: null,
+    abandoned: false,
   });
 }
 
@@ -496,7 +498,6 @@ function advance(io: IO, room: Room, player: Player, typing: TypingState, now: n
     sampleWpm(room, now);
     player.samples.push(player.wpm); // the line ends on their result
     player.finished = true;
-    startFinishClock(io, room);
     broadcastRoom(io, room);
     endIfEveryoneFinished(io, room);
   }
@@ -562,6 +563,12 @@ function replanBot(room: Room, id: string, bot: Player, now: number) {
 
 function startRace(io: IO, room: Room) {
   room.status = "racing";
+  // COURSE-09: the race ends at the time limit, if there is one (the clock
+  // on screen counts down to it), or once everyone has finished or abandoned.
+  if (room.settings.maxTimeMs !== null) {
+    room.finishAt = room.startAt + room.settings.maxTimeMs;
+    room.timeouts.push(setTimeout(() => endRace(io, room), room.settings.maxTimeMs));
+  }
   broadcastRoom(io, room);
   room.ticker = setInterval(() => {
     driveBots(io, room);
@@ -571,21 +578,23 @@ function startRace(io: IO, room: Room) {
       .map(({ id, progress }) => ({ id, progress }));
     io.to(room.code).emit("positions", positions);
   }, TICK_MS);
-  if (room.settings.maxTimeMs !== null) {
-    room.timeouts.push(setTimeout(() => endRace(io, room), room.settings.maxTimeMs));
-  }
 }
 
-// TXT-9: the ranking punishes fast but sloppy typing. Places go by score
-// (wpm × accuracy) among the riders who finished, so crossing the line first
-// isn't enough on its own. Equal scores go to whoever crossed first.
-// Riders who didn't finish get no place (DNF).
-function rankFinishers(room: Room) {
-  const finishers = racers(room).filter((p) => p.finished);
-  finishers.sort(
-    (a, b) => (b.score ?? -1) - (a.score ?? -1) || (a.timeMs ?? Infinity) - (b.timeMs ?? Infinity),
+// COURSE-10: everyone in the race gets a place. First the riders who
+// finished, by finish time; then those the clock stopped, by progress; last
+// those who abandoned, by the progress they had when they left. `status`
+// must be set before this runs.
+const STATUS_ORDER: Record<RaceStatus, number> = { finished: 0, timeout: 1, abandoned: 2 };
+const progressOf = (p: Player) => (p.text ? p.charIndex / p.text.length : 0);
+
+function rankField(room: Room) {
+  const field = racers(room);
+  field.sort(
+    (a, b) =>
+      STATUS_ORDER[a.status!] - STATUS_ORDER[b.status!] ||
+      (a.finished ? a.timeMs! - b.timeMs! : progressOf(b) - progressOf(a)),
   );
-  finishers.forEach((p, i) => {
+  field.forEach((p, i) => {
     p.place = i + 1;
   });
 }
@@ -594,7 +603,6 @@ function endRace(io: IO, room: Room) {
   clearTimers(room);
   room.status = "finished";
   room.finishAt = null;
-  rankFinishers(room);
   // RES-02: the figures for everyone in the race, finished or not.
   const now = Date.now();
   for (const p of racers(room)) {
@@ -604,6 +612,7 @@ function endRace(io: IO, room: Room) {
     p.accuracy ??= accuracyOf(p.typing.keystrokes, p.typing.mistakes);
     p.status = raceStatus(p);
   }
+  rankField(room);
   const field = playerList(room).filter((p) => p.racing);
   const entries = [...room.players.entries()].filter(([, p]) => p.racing);
   const raceId = room.raceId;
@@ -622,19 +631,13 @@ function endRace(io: IO, room: Room) {
   broadcastRoom(io, room);
 }
 
+// COURSE-09: a rider who is away but still within RECONNECT_MS may come
+// back, so the race waits for them.
 function endIfEveryoneFinished(io: IO, room: Room) {
   const field = racers(room);
-  if (room.status === "racing" && field.length > 0 && field.every((p) => p.finished)) {
+  if (room.status === "racing" && field.length > 0 && field.every((p) => p.finished || p.abandoned)) {
     endRace(io, room);
   }
-}
-
-// COURSE-15: the winner shouldn't have to wait three minutes for someone who
-// walked away from the keyboard. The first finish starts a short last call.
-function startFinishClock(io: IO, room: Room) {
-  if (room.finishAt) return;
-  room.finishAt = Date.now() + FINISH_GRACE_MS;
-  room.timeouts.push(setTimeout(() => endRace(io, room), FINISH_GRACE_MS));
 }
 
 function backToLobby(io: IO, room: Room) {
@@ -703,17 +706,37 @@ function removePlayer(io: IO, room: Room, id: string, { broadcast = true } = {})
   }
 }
 
-// COURSE-14: a rider who drops mid-race (reload, Wi-Fi blip) keeps their lane
+// COURSE-08: a rider who drops mid-race (reload, Wi-Fi blip) keeps their lane
 // and progress for RECONNECT_MS. The same tab coming back with the same
-// clientId takes it over; otherwise the lane is dropped and they DNF.
+// clientId takes it over; otherwise they have abandoned (dropHeldLane).
 function holdLane(io: IO, room: Room, id: string, player: Player) {
   player.away = true;
   const clientId = player.clientId!;
   room.awayTimers.set(
     clientId,
-    setTimeout(() => removePlayer(io, room, id), RECONNECT_MS),
+    setTimeout(() => dropHeldLane(io, room, id), RECONNECT_MS),
   );
   broadcastRoom(io, room);
+}
+
+// Past the hold, a rider still racing has abandoned: they stay in the field
+// so the results rank them (COURSE-10), and the race may now be over
+// (COURSE-09). Anyone else, or a room nobody is in any more, goes as before.
+function dropHeldLane(io: IO, room: Room, id: string) {
+  const player = room.players.get(id);
+  const someoneHere = [...room.players.values()].some((p) => isHuman(p) && !p.away);
+  if (!player || !someoneHere || room.status !== "racing" || !player.racing || player.finished) {
+    if (!someoneHere) {
+      for (const otherId of [...room.players.keys()]) removePlayer(io, room, otherId, { broadcast: false });
+    } else {
+      removePlayer(io, room, id);
+    }
+    return;
+  }
+  room.awayTimers.delete(player.clientId!);
+  player.abandoned = true;
+  broadcastRoom(io, room);
+  endIfEveryoneFinished(io, room);
 }
 
 /** Moves a held player onto their new socket, keeping their place in the join order. */
@@ -1006,7 +1029,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     const room = currentRoom(socket);
     const player = room?.players.get(socket.id);
     const parsed = parse(TYPED_ARGS, args);
-    if (!room || !player || !player.racing || player.finished || room.status !== "racing" || !parsed.ok) return;
+    if (!room || !player || !player.racing || player.finished || player.abandoned || room.status !== "racing" || !parsed.ok) return;
     const [base, keys] = parsed.data;
     // Reports continue from where the server is. One that starts behind was
     // already counted (resent after a reconnect); one that starts ahead

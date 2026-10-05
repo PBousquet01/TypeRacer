@@ -348,7 +348,7 @@ export default function Lobby({
                 {room.settings.errorMode === "free" ? t.lobby.mistakesFree : t.lobby.mistakesValue}
               </SpecRow>
               <SpecRow label={t.lobby.winner}>{t.lobby.winnerValue}</SpecRow>
-              <SpecRow label={t.lobby.lastCall}>{t.lobby.lastCallValue}</SpecRow>
+              <SpecRow label={t.lobby.raceEnd}>{t.lobby.raceEndValue}</SpecRow>
             </Spec>
             {me?.watching ? (
               <FinePrint>{t.lobby.youWatch}</FinePrint>

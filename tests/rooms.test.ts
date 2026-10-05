@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { client, freshCode, sleep, startGameServer, type ClientOptions, type TestClient } from "./helpers";
 import { publicRooms, quickRaceRoom } from "../server/rooms";
-import type { BonusEvent, InviteSummary, RoomSummary } from "../lib/types";
+import type { BonusEvent, InviteSummary, PublicRoom, RoomSummary } from "../lib/types";
 import { migrate } from "../server/db";
-import { FINISH_GRACE_MS, MAX_RIDERS } from "../lib/rules";
+import { MAX_RIDERS } from "../lib/rules";
 import { MAX_CHARS_PAST_MISTAKE } from "../lib/typing";
 
 let server: Awaited<ReturnType<typeof startGameServer>>;
@@ -378,14 +378,15 @@ describe("a full race", () => {
     expect(back.players.find((p) => p.name === "Alice")?.charIndex).toBe(20);
   });
 
-  test("COURSE-15: the first finish starts the last call", async () => {
+  test("COURSE-09: a finish doesn't start a last call; the clock counts down to the time limit", async () => {
     await sleep(Math.ceil(length / 25) * 1000); // stay under the ~300 WPM limit
     room.b.socket.emit("typed", 0, sloppy(text, Math.round(length / 2))); // Bob crosses first, sloppily
-    const r = await room.host.until((x) => x.finishIn !== null);
-    expect(r.finishIn!).toBeGreaterThan(FINISH_GRACE_MS - 2000);
+    const r = await room.host.until((x) => x.players.some((p) => p.name === "Bob" && p.finished));
+    expect(r.status).toBe("racing");
+    expect(r.finishIn!).toBeGreaterThan(60_000); // the default 3-minute limit, not 30 s
   }, 15_000);
 
-  test("TXT-9: the careful rider wins on score, even crossing second", async () => {
+  test("COURSE-10: the first across the line wins, however sloppy", async () => {
     await sleep(1200);
     room.a.socket.emit("typed", 20, text.slice(20)); // last finisher: the race ends on the spot
     const r = await room.host.until((x) => x.status === "finished");
@@ -396,9 +397,10 @@ describe("a full race", () => {
     const wrong = Math.round(length / 2) + MAX_CHARS_PAST_MISTAKE;
     expect(bob.accuracy).toBe(Math.round((length / (length + wrong)) * 100));
     expect(alice.score).toBe(alice.wpm!);
+    expect(alice.score!).toBeGreaterThan(bob.score!);
     expect(bob.timeMs!).toBeLessThan(alice.timeMs!);
-    expect(alice.place).toBe(1);
-    expect(bob.place).toBe(2);
+    expect(bob.place).toBe(1);
+    expect(alice.place).toBe(2);
     // RES-02: raw WPM counts the wrong keys too; errors are the wrong keys.
     expect(alice).toMatchObject({ errors: 0, status: "finished" });
     expect(alice.rawWpm).toBeGreaterThanOrEqual(alice.wpm!);
@@ -496,6 +498,68 @@ describe("bots", () => {
     expect(aliceAfter.samples.at(-1)).toBe(aliceAfter.wpm!);
     expect(done.players.find((p) => p.name === "Alice")?.place).not.toBeNull();
   }, 30_000);
+});
+
+describe("end of the race", () => {
+  /** A watching host and ready riders, in a race that has just started. */
+  async function raceOf(names: string[], maxTimeMs: number | null) {
+    const code = freshCode();
+    const host = await open(code, "Host", "host");
+    await host.join();
+    host.socket.emit("updateSettings", { maxTimeMs });
+    await host.until((r) => r.settings.maxTimeMs === maxTimeMs);
+    const riders: Record<string, TestClient> = {};
+    for (const name of names) {
+      riders[name] = await open(code, name, "rider");
+      await riders[name].join();
+      riders[name].socket.emit("toggleReady");
+    }
+    await host.until((r) => r.players.filter((p) => p.ready).length === names.length);
+    expect(await host.startRace()).toEqual({ ok: true });
+    const { text } = await host.until((r) => r.status === "countdown");
+    await host.until((r) => r.status === "racing", 5000);
+    return { host, riders, text };
+  }
+  const rider = (room: PublicRoom, name: string) => room.players.find((p) => p.name === name)!;
+
+  test("COURSE-08 to COURSE-10: finishers by time, then the clock's victims by progress, then those who left", async () => {
+    const [limited, open_] = await Promise.all([raceOf(["Ann", "Ben", "Cid"], 30_000), raceOf(["Dee", "Eve", "Fay"], null)]);
+    expect(limited.host.room!.finishIn).toBeGreaterThan(25_000);
+    expect(open_.host.room!.finishIn).toBeNull();
+
+    // Cid and Fay type a little, then leave for good.
+    await sleep(1000);
+    limited.riders.Cid.socket.emit("typed", 0, limited.text.slice(0, 20));
+    open_.riders.Fay.socket.emit("typed", 0, open_.text.slice(0, 20));
+    await sleep(200);
+    limited.riders.Cid.close();
+    open_.riders.Fay.close();
+
+    // Ann and Dee finish; Ben gets halfway; Eve hasn't started.
+    await sleep(Math.ceil(Math.max(limited.text.length, open_.text.length) / 25) * 1000);
+    limited.riders.Ann.socket.emit("typed", 0, limited.text);
+    limited.riders.Ben.socket.emit("typed", 0, limited.text.slice(0, Math.floor(limited.text.length / 2)));
+    open_.riders.Dee.socket.emit("typed", 0, open_.text);
+    const deeDone = await open_.host.until((r) => rider(r, "Dee").finished);
+    expect(deeDone.status).toBe("racing");
+    expect(deeDone.finishIn).toBeNull(); // no last call
+
+    // The time limit ends the first race.
+    const ended = await limited.host.until((r) => r.status === "finished", 35_000);
+    expect(rider(ended, "Ann")).toMatchObject({ place: 1, status: "finished" });
+    expect(rider(ended, "Ben")).toMatchObject({ place: 2, status: "timeout" });
+    expect(rider(ended, "Cid")).toMatchObject({ place: 3, status: "abandoned" });
+
+    // In the second, Fay's hold runs out: she has abandoned, and the race waits only for Eve.
+    const gone = await open_.host.until((r) => rider(r, "Fay").abandoned, 35_000);
+    expect(gone.status).toBe("racing");
+    expect(rider(gone, "Fay").charIndex).toBe(20);
+    open_.riders.Eve.socket.emit("typed", 0, open_.text);
+    const over = await open_.host.until((r) => r.status === "finished");
+    expect(rider(over, "Dee")).toMatchObject({ place: 1, status: "finished" });
+    expect(rider(over, "Eve")).toMatchObject({ place: 2, status: "finished" });
+    expect(rider(over, "Fay")).toMatchObject({ place: 3, status: "abandoned" });
+  }, 60_000);
 });
 
 describe("visibility and joining", () => {

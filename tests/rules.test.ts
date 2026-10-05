@@ -58,9 +58,10 @@ describe("dictionaries (UX-5)", () => {
 });
 
 test("RES-02: how a race ended, and raw WPM", () => {
-  expect(raceStatus({ finished: true, away: false })).toBe("finished");
-  expect(raceStatus({ finished: false, away: false })).toBe("timeout");
-  expect(raceStatus({ finished: false, away: true })).toBe("abandoned");
+  expect(raceStatus({ finished: true, away: false, abandoned: false })).toBe("finished");
+  expect(raceStatus({ finished: false, away: false, abandoned: false })).toBe("timeout");
+  expect(raceStatus({ finished: false, away: true, abandoned: false })).toBe("abandoned");
+  expect(raceStatus({ finished: false, away: false, abandoned: true })).toBe("abandoned");
   expect(rawWpmOf(300, 60_000)).toBe(60); // 300 keys in a minute: 60 "words"
   expect(rawWpmOf(10, 500)).toBe(0); // under a second: not meaningful yet
 });
