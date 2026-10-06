@@ -6,6 +6,7 @@ import { useRoom } from "@/hooks/useRoom";
 import { saveProfile, useSavedProfile } from "@/lib/profile";
 import type { Profile } from "@/lib/types";
 import JoinCard from "@/components/JoinCard";
+import RoomConflict from "@/components/RoomConflict";
 import RoomBar from "@/components/RoomBar";
 import Lobby from "@/components/Lobby";
 import RaceScreen from "@/components/RaceScreen";
@@ -26,6 +27,8 @@ export default function RoomPage() {
     room,
     myId,
     error,
+    otherRoom,
+    retry,
     notice,
     raceStartedAt,
     finishDeadline,
@@ -56,6 +59,10 @@ export default function RoomPage() {
         }}
       />
     );
+  }
+
+  if (error === "in-other-room" || error === "opened-elsewhere" || error === "moved-room") {
+    return <RoomConflict code={code} reason={error} otherRoom={otherRoom} onRetry={retry} />;
   }
 
   if (error) {

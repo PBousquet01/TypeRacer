@@ -37,6 +37,9 @@ function placeLabel(place: number | null | undefined): string {
 const errors: Record<ErrorCode, string> = {
   "bad-code": "Ce code de salon n'est pas valide.",
   "no-room": "Aucune course avec ce code. Demande le lien d'invitation à l'hôte.",
+  "in-other-room": "Tu es déjà dans un autre salon.",
+  "opened-elsewhere": "Tu as ouvert ce salon dans un autre onglet, alors celui-ci t'a laissé ta place là-bas.",
+  "moved-room": "Tu as rejoint un autre salon, alors tu as quitté celui-ci.",
   "too-many-attempts": "Trop de codes erronés depuis ton réseau. Attends une minute et réessaie.",
   "sign-in-to-host": "Connecte-toi pour organiser une course. Les invités peuvent en rejoindre une avec un code ou par course rapide.",
   "host-reconnecting": "L'hôte s'est déconnecté et revient peut-être. Réessaie dans un instant.",
@@ -206,6 +209,16 @@ export const fr: Dictionary = {
     asRider: "Rejoindre comme cavalier",
     hostInstead: "Être l'hôte de ce salon",
     hint: "Les cavaliers courent. L'hôte lance la course, puis regarde ou court aussi.",
+  },
+  conflict: {
+    title: (code) => `Salon ${code}`,
+    inOther: (other) => `Tu es déjà dans le salon ${other}. On ne peut être que dans un salon à la fois.`,
+    leaveAndJoin: (other) => `Quitter ${other} et rejoindre ce salon`,
+    backTo: (other) => `Retourner au salon ${other}`,
+    oneRoom: "Quitter te retire de ce salon dans tous tes onglets.",
+    useThisTab: "Utiliser cet onglet à la place",
+    comeBack: "Revenir dans ce salon",
+    home: "Accueil",
   },
   room: {
     lobby: "Salon",

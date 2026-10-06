@@ -23,6 +23,9 @@ function placeLabel(place: number | null | undefined): string {
 const errors: Record<ErrorCode, string> = {
   "bad-code": "That room code isn't valid.",
   "no-room": "No race with that code. Ask the host for the invite link.",
+  "in-other-room": "You're already in another room.",
+  "opened-elsewhere": "You opened this room in another tab, so this one let go of your place.",
+  "moved-room": "You joined another room, so you left this one.",
   "too-many-attempts": "Too many wrong codes from your network. Wait a minute and try again.",
   "sign-in-to-host": "Sign in to host a race. Guests can join one with a code or quick race.",
   "host-reconnecting": "The host dropped out and may be reconnecting. Try again in a moment.",
@@ -194,6 +197,16 @@ export const en = {
     asRider: "Join as a rider",
     hostInstead: "Host this room instead",
     hint: "Riders race. The host starts the race, and watches or rides along.",
+  },
+  conflict: {
+    title: (code: string) => `Room ${code}`,
+    inOther: (other: string) => `You're already in room ${other}. You can only be in one room at a time.`,
+    leaveAndJoin: (other: string) => `Leave ${other} and join this room`,
+    backTo: (other: string) => `Back to room ${other}`,
+    oneRoom: "Leaving takes you out of that room in every tab.",
+    useThisTab: "Use this tab instead",
+    comeBack: "Come back to this room",
+    home: "Home",
   },
   room: {
     lobby: "Lobby",

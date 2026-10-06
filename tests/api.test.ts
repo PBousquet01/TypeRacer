@@ -81,7 +81,7 @@ describe("accounts", () => {
   });
 
   test("a rider name with special characters or too long is refused", async () => {
-    for (const displayName of ["<script>", "a".repeat(17)]) {
+    for (const displayName of ["<script>", "a".repeat(21)]) {
       const res = await post("/api/auth/signup", { username, password, displayName });
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({ error: "name-format" });
@@ -353,7 +353,7 @@ describe("texts and stats", () => {
     expect((await renamed.json()).user).toMatchObject({ displayName: "Éloïse la Rapide", username });
     const me = await (await fetch(`${base}/api/auth/me`, { headers: { cookie } })).json();
     expect(me.user.displayName).toBe("Éloïse la Rapide");
-    for (const bad of ["x", "<b>bold</b>", "a".repeat(17), 42]) {
+    for (const bad of ["ab", "<b>bold</b>", "a".repeat(21), 42]) {
       const res = await post("/api/account/name", { displayName: bad }, cookie);
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({ error: "name-format" });

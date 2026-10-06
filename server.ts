@@ -1,12 +1,14 @@
 // Starts Next.js and Socket.IO together on one port.
 // Run with `bun run dev` (NOT `next dev`, or the sockets won't exist).
-import { createServer } from "node:http";
+import { createServer, type IncomingMessage } from "node:http";
 import next from "next";
 import { Server } from "socket.io";
 import { clientIp, registerRoomHandlers, type IO } from "./server/rooms";
 import { handleApi } from "./server/api";
 import { tokenFromCookies, userForToken } from "./server/auth";
 import { migrate } from "./server/db";
+import { guestCookie, guestFromCookies, newGuestId } from "./server/guests";
+import { clearRoomMembers } from "./server/members";
 
 const dev = process.env.NODE_ENV !== "production";
 const port = Number(process.env.PORT) || 3000;
@@ -16,6 +18,7 @@ const handle = app.getRequestHandler();
 
 await app.prepare();
 await migrate(); // creates any missing tables
+await clearRoomMembers(); // rooms live in memory: after a restart, nobody is in one
 
 const httpServer = createServer((req, res) => {
   if (req.url?.startsWith("/api/")) {
@@ -33,18 +36,31 @@ const httpServer = createServer((req, res) => {
 // page navigation in dev.
 const io: IO = new Server(httpServer, { destroyUpgrade: false });
 
+// AUTH-02, SALLE-06: a browser without a valid guest cookie gets one with
+// its first Socket.IO response. That request has no cookie yet, so the new
+// id is also kept for the connection being set up.
+const issuedGuests = new WeakMap<IncomingMessage, string>();
+io.engine.on("initial_headers", (headers: Record<string, string>, req: IncomingMessage) => {
+  if (guestFromCookies(req.headers.cookie)) return;
+  const id = newGuestId();
+  issuedGuests.set(req, id);
+  headers["set-cookie"] = guestCookie(id);
+});
+
 // The socket shares the browser's cookies, so a signed-in rider is known
 // here too — that's how results get attached to an account and how unlocked
 // mounts are checked.
 io.use(async (socket, next) => {
+  socket.data.roomCode = null;
+  socket.data.ip = clientIp(socket.handshake);
   try {
-    socket.data.roomCode = null;
-    socket.data.ip = clientIp(socket.handshake);
     socket.data.user = await userForToken(tokenFromCookies(socket.handshake.headers.cookie));
   } catch (err) {
     console.error("could not look up the session for a socket", err);
     socket.data.user = null; // they just race as a guest
   }
+  const guest = guestFromCookies(socket.handshake.headers.cookie) ?? issuedGuests.get(socket.request);
+  socket.data.person = socket.data.user ? `u:${socket.data.user.id}` : guest ? `g:${guest}` : `s:${socket.id}`;
   next();
 });
 

@@ -19,11 +19,12 @@ describe("names", () => {
     expect(cleanRiderName("  Cloud   Strife_7 ")).toBe("Cloud Strife_7");
     expect(cleanRiderName("e\u0301mile")).toBe("émile");
   });
-  test("rider names are 2 to 16 characters", () => {
-    expect(cleanRiderName("a")).toBeNull();
+  test("AUTH-02: rider names are 3 to 20 characters", () => {
+    expect(cleanRiderName("ab")).toBeNull();
     expect(cleanRiderName("   ")).toBeNull();
-    expect(cleanRiderName("a".repeat(16))).toBe("a".repeat(16));
-    expect(cleanRiderName("a".repeat(17))).toBeNull();
+    expect(cleanRiderName("abc")).toBe("abc");
+    expect(cleanRiderName("a".repeat(20))).toBe("a".repeat(20));
+    expect(cleanRiderName("a".repeat(21))).toBeNull();
   });
   test("rider names refuse special characters", () => {
     for (const bad of ["<b>bob</b>", "bob!", "b@b", "🐤🐤🐤", "bo\nb", "b\u200bob", "z\u0301\u0301\u0301a", 42, null]) {

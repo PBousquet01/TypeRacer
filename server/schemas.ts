@@ -65,6 +65,7 @@ export const joinPayload = z.object({
   clientId: z.string().max(64).nullish(),
   lang: language.optional(),
   invite: z.string().max(64).optional(),
+  leaveOther: z.boolean().optional(), // SALLE-06: yes, leave the room I'm in
 });
 
 const visibility = z.enum(["public", "code", "private"]);

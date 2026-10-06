@@ -13,6 +13,7 @@ import { randomBytes, randomInt } from "node:crypto";
 import type { Server, Socket } from "socket.io";
 import { pickText } from "./texts";
 import { recordRace } from "./stats";
+import { claimRoom, releaseRoom } from "./members";
 import { ackOf, botLevel, joinPayload, parse, playerId, setWatchingArgs, settingsChange, typedArgs } from "./schemas";
 import {
   MAX_RIDERS,
@@ -62,6 +63,9 @@ export interface SocketData {
   user: User | null;
   roomCode: string | null;
   ip: string; // where the connection comes from; binds invite links (SALLE-04)
+  // SALLE-06: who this is, across tabs: "u:<user id>" signed in, "g:<guest id>"
+  // from the signed guest cookie (server/guests.ts), "s:<socket id>" without one.
+  person: string;
 }
 
 /**
@@ -96,6 +100,7 @@ export interface Player {
   clientId: string | null; // never shown to anyone; recognises the same tab after a reload
   userId: number | null; // set when this rider is signed in; their results get saved
   avatarUrl: string | null; // AUTH-03, AUTH-04: their profile photo; guests and bots get a generated avatar
+  person: string | null; // SALLE-06: socket.data.person; null for a bot
   role: Role;
   ready: boolean;
   watching: boolean; // COURSE-6: the host put this rider in the stands; stays there across races
@@ -145,6 +150,7 @@ export interface Room {
   // account, never by IP address: a whole class usually shares one.
   bannedClients: Set<string>;
   bannedUsers: Set<number>;
+  bannedPeople: Set<string>; // SALLE-07: a kicked guest stays out in a new tab too (same guest cookie)
 }
 
 const COUNTDOWN_MS = 3000;
@@ -204,6 +210,7 @@ function createRoom(code: string, language: TextLanguage, visibility: Visibility
     checkpoints: 0,
     bannedClients: new Set(),
     bannedUsers: new Set(),
+    bannedPeople: new Set(),
   };
 }
 
@@ -220,11 +227,13 @@ function newPlayer(
   role: Role,
   clientId: string | null,
   user: User | null,
+  person: string | null,
 ): Player {
   return {
     name,
     color,
     clientId,
+    person,
     userId: user?.id ?? null,
     avatarUrl: user?.avatarUrl ?? null,
     role,
@@ -267,7 +276,7 @@ function addBot(room: Room, level: BotLevel): string {
   const taken = new Set([...room.players.values()].map((p) => p.name));
   const name = BOT_NAMES.find((n) => !taken.has(n)) ?? `Bot ${botCounter + 1}`;
   const id = `bot-${++botCounter}`;
-  const bot = newPlayer(name, BOT_COLORS[botCounter % BOT_COLORS.length], "rider", null, null);
+  const bot = newPlayer(name, BOT_COLORS[botCounter % BOT_COLORS.length], "rider", null, null, null);
   bot.bot = level;
   bot.ready = true;
   room.players.set(id, bot);
@@ -320,7 +329,7 @@ const raceInProgress = (room: Room) => room.status === "countdown" || room.statu
 function playerList(room: Room): PublicPlayer[] {
   return [...room.players.entries()].map(([id, p]) => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars -- pulled out so they stay on the server
-    const { clientId, userId, typing, botPlan, botNext, text, samples, missed, ...shared } = p;
+    const { clientId, userId, person, typing, botPlan, botNext, text, samples, missed, ...shared } = p;
     // The charts' data is only useful on the results screen; keep race-time updates small.
     const over = room.status === "finished";
     return {
@@ -688,6 +697,7 @@ function removePlayer(io: IO, room: Room, id: string, { broadcast = true } = {})
   const player = room.players.get(id);
   if (!player) return;
   room.players.delete(id);
+  if (player.person) releaseRoom(player.person, room.code).catch((err) => console.error("could not release a room member", err));
   if (player.clientId) {
     clearTimeout(room.awayTimers.get(player.clientId));
     room.awayTimers.delete(player.clientId);
@@ -865,20 +875,78 @@ function recordFailedJoin(ip: string, now = Date.now()) {
 
 const GUESS_ERRORS = new Set<ErrorCode>(["no-room", "invite-invalid", "invite-used"]);
 
+/** The id of `person`'s player in `room`, if they are in it. */
+function seatOf(room: Room | undefined, person: string): string | undefined {
+  return room ? [...room.players.entries()].find(([, p]) => p.person === person)?.[0] : undefined;
+}
+
+/**
+ * SALLE-06: takes someone out of a room for good because they went to
+ * another one (no held lane). Their tab there, if it is still open, is told.
+ */
+function removeElsewhere(io: IO, room: Room, id: string) {
+  const player = room.players.get(id)!;
+  const wasHost = room.hostId === id || (room.hostTimeout !== null && room.hostClientId === player.clientId);
+  const other = io.sockets.sockets.get(id);
+  if (other) {
+    other.leave(room.code);
+    other.data.roomCode = null;
+    other.emit("removed", "other-room");
+  }
+  removePlayer(io, room, id, { broadcast: false });
+  if (!rooms.has(room.code)) return;
+  if (wasHost) {
+    room.hostId = null;
+    if (room.hostTimeout) clearTimeout(room.hostTimeout);
+    promoteHost(io, room);
+  }
+  broadcastRoom(io, room);
+  endIfEveryoneFinished(io, room);
+}
+
 export function registerRoomHandlers(io: IO, socket: ClientSocket) {
-  socket.on("joinRoom", (payload, ack) => {
+  // Joining waits on the database (SALLE-06), so a socket's joins and leaves
+  // run one after the other, in the order they arrived.
+  let queue = Promise.resolve();
+  const inOrder = (task: () => Promise<void> | void) => {
+    queue = queue.then(task).catch((err) => console.error("room event failed", err));
+  };
+
+  socket.on("joinRoom", (payload, ack) => inOrder(() => joinRoom(payload, ack)));
+
+  async function joinRoom(payload: unknown, ack: unknown) {
     const answer = ackOf<JoinReply>(ack);
     if (joinLimited(socket.data.ip)) return answer({ error: "too-many-attempts" });
+    const person = socket.data.person;
+    let claimed: string | null = null;
     const reply = (result: JoinReply) => {
       if ("error" in result && GUESS_ERRORS.has(result.error)) recordFailedJoin(socket.data.ip);
+      // A refused join gives back the place it took in room_members.
+      if ("error" in result && claimed && !seatOf(rooms.get(claimed), person)) {
+        releaseRoom(person, claimed).catch((err) => console.error("could not release a room member", err));
+      }
       answer(result);
     };
     const parsed = parse(joinPayload, payload);
     if (!parsed.ok) return reply({ error: parsed.error });
-    const { code, name, color, role, clientId, lang, invite: inviteToken } = parsed.data;
+    const { code, name, color, role, clientId, lang, invite: inviteToken, leaveOther } = parsed.data;
     const wantsHost = role === "host";
 
     leaveCurrentRoom(io, socket);
+
+    // SALLE-06: one room per person, held by the database. A row naming a
+    // room they are no longer in (their tab left it a moment ago) is stale.
+    // If they really are in another room, they are asked first, and only
+    // `leaveOther` takes them out of it.
+    const elsewhere = await claimRoom(person, code);
+    if (elsewhere !== null) {
+      const otherRoom = rooms.get(elsewhere);
+      const seat = seatOf(otherRoom, person);
+      if (seat && !leaveOther) return answer({ error: "in-other-room", room: elsewhere });
+      if (seat) removeElsewhere(io, otherRoom!, seat);
+      await claimRoom(person, code, true);
+    }
+    claimed = code;
 
     const user = socket.data.user ?? null;
     let room = rooms.get(code);
@@ -893,16 +961,35 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
       rooms.set(code, room);
     }
 
-    if ((clientId && room.bannedClients.has(clientId)) || (user && room.bannedUsers.has(user.id))) {
+    if (
+      (clientId && room.bannedClients.has(clientId)) ||
+      (user && room.bannedUsers.has(user.id)) ||
+      room.bannedPeople.has(person)
+    ) {
       return reply({ error: "kicked" });
     }
 
-    // The same tab coming back mid-race: hand it its lane and progress back.
-    const held = clientId
-      ? [...room.players.entries()].find(([, p]) => p.away && p.clientId === clientId)
-      : undefined;
+    // The same tab coming back mid-race gets its lane and progress back.
+    // SALLE-06: so does the same person in another tab, with no duplicate:
+    // the new tab takes the place over, and the old one is told.
+    const held = [...room.players.entries()].find(
+      ([, p]) => (p.away && clientId && p.clientId === clientId) || p.person === person,
+    );
     if (held) {
-      const player = reclaimLane(room, held[0], socket.id);
+      const [oldId, previous] = held;
+      if (oldId !== socket.id && !previous.away) {
+        const oldTab = io.sockets.sockets.get(oldId);
+        if (oldTab) {
+          oldTab.leave(room.code);
+          oldTab.data.roomCode = null;
+          oldTab.emit("removed", "other-tab");
+        }
+      }
+      if (clientId) {
+        if (room.hostClientId === previous.clientId) room.hostClientId = clientId;
+        previous.clientId = clientId;
+      }
+      const player = reclaimLane(room, oldId, socket.id);
       // A riding host who reloaded gets the seat back too, unless it has
       // been handed on in the meantime (then promoteHost made them a rider).
       if (player.role === "host") {
@@ -954,7 +1041,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
 
     room.players.set(
       socket.id,
-      newPlayer(name, safeColor(color, user), finalRole, clientId ?? null, user),
+      newPlayer(name, safeColor(color, user), finalRole, clientId ?? null, user, person),
     );
     if (finalRole === "host") {
       room.hostId = socket.id;
@@ -971,7 +1058,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     });
     broadcastRoom(io, room);
     if (finalRole === "host" || invite) sendInvites(io, room);
-  });
+  }
 
   socket.on("createInvite", (_payload, ack) => {
     const reply = ackOf<{ ok: true; token: string } | { error: ErrorCode }>(ack);
@@ -1112,6 +1199,7 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     }
     if (target.clientId) room.bannedClients.add(target.clientId);
     if (target.userId) room.bannedUsers.add(target.userId);
+    if (target.person) room.bannedPeople.add(target.person);
     // SALLE-04: their invite link stops working too.
     for (const [token, invite] of room.invites) {
       if (invite.clientId && invite.clientId === target.clientId) room.invites.delete(token);
@@ -1132,8 +1220,8 @@ export function registerRoomHandlers(io: IO, socket: ClientSocket) {
     backToLobby(io, room);
   });
 
-  socket.on("leaveRoom", () => leaveCurrentRoom(io, socket));
-  socket.on("disconnect", () => leaveCurrentRoom(io, socket));
+  socket.on("leaveRoom", () => inOrder(() => leaveCurrentRoom(io, socket)));
+  socket.on("disconnect", () => inOrder(() => leaveCurrentRoom(io, socket)));
 
   socket.on("watchRooms", () => {
     socket.join(EXPLORER);

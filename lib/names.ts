@@ -2,8 +2,9 @@
 // server checks them again because a client can send anything.
 export const USERNAME_RE = /^[a-z0-9_-]{3,16}$/i;
 
-export const RIDER_NAME_MIN = 2;
-export const RIDER_NAME_MAX = 16;
+// AUTH-02: a guest's pseudonym is 3 to 20 characters; account display names follow the same rule.
+export const RIDER_NAME_MIN = 3;
+export const RIDER_NAME_MAX = 20;
 // Letters of any alphabet (so "Éloïse" works), digits, spaces, - and _.
 const RIDER_NAME_RE = new RegExp(`^[\\p{L}\\p{N} _-]{${RIDER_NAME_MIN},${RIDER_NAME_MAX}}$`, "u");
 

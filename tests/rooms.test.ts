@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { client, freshCode, sleep, startGameServer, type ClientOptions, type TestClient } from "./helpers";
 import { publicRooms, quickRaceRoom } from "../server/rooms";
 import type { BonusEvent, InviteSummary, PublicRoom, RoomSummary } from "../lib/types";
-import { migrate } from "../server/db";
+import { migrate, sql } from "../server/db";
 import { MAX_FAILED_JOINS, MAX_RIDERS } from "../lib/rules";
 import { MAX_CHARS_PAST_MISTAKE } from "../lib/typing";
 
@@ -81,7 +81,7 @@ describe("lobby rules", () => {
     await host.join();
     expect((await host.until(() => true)).settings.capacity).toBe(MAX_RIDERS);
     for (let i = 0; i < MAX_RIDERS; i++) {
-      const r = await open(code, `R${i}`, "rider");
+      const r = await open(code, `Rider ${i}`, "rider");
       expect(await r.join()).toMatchObject({ ok: true });
     }
     const extra = await open(code, "Extra", "rider");
@@ -171,11 +171,11 @@ describe("lobby rules", () => {
     expect(await rider.join()).toMatchObject({ ok: true, role: "rider" });
   });
 
-  test("a rider name that breaks the rules is refused", async () => {
+  test("AUTH-02: a rider name that breaks the rules (3 to 20 characters) is refused", async () => {
     const code = freshCode();
     const host = await open(code, "Host", "host");
     await host.join();
-    for (const name of ["", "x", "<img src=x>", "a".repeat(17)]) {
+    for (const name of ["", "ab", "<img src=x>", "a".repeat(21)]) {
       const rider = await open(code, name, "rider");
       expect(await rider.join()).toEqual({ error: "name-format" });
     }
@@ -500,6 +500,59 @@ describe("bots", () => {
   }, 30_000);
 });
 
+describe("one room per person", () => {
+  const memberRows = (person: string) =>
+    sql<{ room_code: string }[]>`SELECT room_code FROM room_members WHERE person = ${`t:${person}`}`;
+
+  test("SALLE-06: someone in a room is asked before joining another, and leaving moves their row", async () => {
+    const first = freshCode();
+    const second = freshCode();
+    for (const code of [first, second]) await (await open(code, "Host", "host")).join();
+    const tabA = await open(first, "Wanderer", "rider", { person: "wanderer" });
+    expect(await tabA.join()).toMatchObject({ ok: true });
+    expect(await memberRows("wanderer")).toEqual([{ room_code: first }]);
+
+    const tabB = await open(second, "Wanderer", "rider", { person: "wanderer" });
+    expect(await tabB.join()).toEqual({ error: "in-other-room", room: first });
+    expect(await memberRows("wanderer")).toEqual([{ room_code: first }]); // nothing moved
+
+    const removed = new Promise((resolve) => tabA.socket.once("removed", resolve));
+    expect(await tabB.join({ leaveOther: true })).toMatchObject({ ok: true });
+    expect(await removed).toBe("other-room");
+    expect(await memberRows("wanderer")).toEqual([{ room_code: second }]);
+  });
+
+  test("SALLE-06: a second tab on the same room takes the place over instead of adding a duplicate", async () => {
+    const code = freshCode();
+    const host = await open(code, "Host", "host");
+    await host.join();
+    const tab1 = await open(code, "Twin", "rider", { person: "twin" });
+    await tab1.join();
+    const removed = new Promise((resolve) => tab1.socket.once("removed", resolve));
+    const tab2 = await open(code, "Twin", "rider", { person: "twin" });
+    raw(tab2).emit("joinRoom", { code, name: "Twin", clientId: "another-tab" }, () => {});
+    expect(await removed).toBe("other-tab");
+    await sleep(150);
+    expect(host.room!.players.filter((p) => p.name === "Twin")).toHaveLength(1);
+    expect(await memberRows("twin")).toEqual([{ room_code: code }]);
+  });
+
+  test("SALLE-06, SALLE-07: a kicked guest stays out in a new tab too", async () => {
+    const code = freshCode();
+    const host = await open(code, "Host", "host");
+    await host.join();
+    const pest = await open(code, "Pest", "rider", { person: "pest" });
+    await pest.join();
+    const r = await host.until((x) => x.players.some((p) => p.name === "Pest"));
+    host.socket.emit("kickPlayer", r.players.find((p) => p.name === "Pest")!.id);
+    await host.until((x) => !x.players.some((p) => p.name === "Pest"));
+    const newTab = await open(code, "Pest", "rider", { person: "pest" });
+    const reply = await new Promise((resolve) => raw(newTab).emit("joinRoom", { code, name: "Pest", clientId: "fresh-tab" }, resolve));
+    expect(reply).toEqual({ error: "kicked" });
+    expect(await memberRows("pest")).toEqual([]);
+  });
+});
+
 describe("end of the race", () => {
   /** A watching host and ready riders, in a race that has just started. */
   async function raceOf(names: string[], maxTimeMs: number | null) {
@@ -617,7 +670,7 @@ describe("visibility and joining", () => {
     const fuller = await hostRoom("public");
     const coded = await hostRoom("code");
     for (const [room, n] of [[older, 1], [newer, 1], [fuller, 2], [coded, 3]] as const) {
-      for (let i = 0; i < n; i++) await (await open(room.code, `R${i}`, "rider")).join();
+      for (let i = 0; i < n; i++) await (await open(room.code, `Rider ${i}`, "rider")).join();
     }
     expect(quickRaceRoom()).toBe(fuller.code);
 

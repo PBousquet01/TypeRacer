@@ -71,6 +71,10 @@ comptes de démonstration en ligne, lancer une fois, depuis son ordinateur :
 2. **New → Blueprint**, puis choisir le dépôt `TypeRacer`.
 3. Render lit `render.yaml` et demande la valeur de `DATABASE_URL` : y coller
    la chaîne de connexion de Neon.
+   `GUEST_SECRET` (signature du cookie des invités, AUTH-02) est généré par
+   Render. Sur un service créé avant cette variable, l'ajouter à la main dans
+   **Environment** avec une longue valeur au hasard (`openssl rand -hex 32`);
+   sans elle, les invités changent d'identité à chaque redémarrage.
 4. **Apply**. Le premier build prend quelques minutes.
 5. L'adresse du site apparaît en haut de la page du service
    (`https://chocobo-race.onrender.com` ou proche).

@@ -112,7 +112,18 @@ join instead.
 - **Kicking (SALLE-07).** `kickPlayer` bans by `clientId` and account
   (`room.bannedClients`/`bannedUsers`), never by IP (a class shares one),
   revokes their invite link, removes them at once (no held lane) and emits
-  `kicked`. A guest in a new tab gets a new clientId: known limit.
+  `kicked`; also bans by person (`room.bannedPeople`), so a guest's new tab stays out.
+- **One room per person (SALLE-06, AUTH-02).** `socket.data.person` is
+  `u:<id>`, or `g:<guest id>` from the signed `chocobo_guest` cookie
+  (`server/guests.ts`, HMAC with `GUEST_SECRET`; issued on the first
+  Socket.IO response via `io.engine` `initial_headers`), else `s:<socket>`.
+  `room_members` (PK person) is the lock: `claimRoom` before a join, released
+  in `removePlayer`, emptied at boot. Another room → `in-other-room` (+`room`)
+  and `RoomConflict` asks; `leaveOther` moves them (`removeElsewhere`, their
+  old tab gets `removed: "other-room"`). Same person, same room → the new tab
+  takes the player over (`removed: "other-tab"` to the old one, which stops
+  auto-rejoining). Joins/leaves of a socket run in order (`inOrder`). Tests:
+  each client is its own person (`t:<code>-<name>`) unless given `person`.
 - **Results charts (RES-03, RES-05).** The referee samples each rider's net
   WPM once a second (`sampleWpm`, in the race ticker) and counts missed
   characters (`replayKeys`' `onMiss`). Both go out only once the race is

@@ -21,6 +21,9 @@ export type Lang = "en" | "fr";
 export type ErrorCode =
   | "bad-code"
   | "no-room"
+  | "in-other-room"
+  | "opened-elsewhere"
+  | "moved-room"
   | "too-many-attempts"
   | "sign-in-to-host"
   | "host-reconnecting"
@@ -185,9 +188,13 @@ export interface JoinPayload extends Partial<Profile> {
   clientId: string | null;
   lang?: Lang; // the joiner's interface language; a new room's texts start in it
   invite?: string; // SALLE-04: the token from an invite link, if they came through one
+  leaveOther?: boolean; // SALLE-06: leave the room they are in to join this one
 }
 
-export type JoinReply = { ok: true; role: Role; note: NoticeCode | null } | { error: ErrorCode };
+export type JoinReply =
+  | { ok: true; role: Role; note: NoticeCode | null }
+  | { error: "in-other-room"; room: string } // SALLE-06: the room they are already in
+  | { error: ErrorCode };
 export type ActionReply = { ok: true } | { error: ErrorCode };
 
 // Everything the browser may send. The server still checks every value:
@@ -217,6 +224,7 @@ export interface ServerToClientEvents {
   inviteList: (invites: InviteSummary[]) => void; // SALLE-04, to the host only
   yourText: (text: string) => void; // BONUS-04: this rider's own text, after a bonus changed it
   kicked: () => void; // SALLE-07: the host put this person out of the room
+  removed: (reason: "other-tab" | "other-room") => void; // SALLE-06: this tab no longer holds their place
   bonus: (event: BonusEvent) => void; // BONUS-03
   positions: (positions: Position[]) => void;
 }

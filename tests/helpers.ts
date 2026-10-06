@@ -21,6 +21,8 @@ export async function startGameServer() {
   const io: IO = new Server(http);
   io.use((socket, next) => {
     socket.data.user = socket.handshake.auth.signedIn ? hostAccount : null;
+    // SALLE-06: each test client is its own person unless a test says otherwise.
+    socket.data.person = `t:${String(socket.handshake.auth.person)}`;
     socket.data.roomCode = null;
     // A test can say which address a client comes from (invite links are tied to one).
     const ip: unknown = socket.handshake.auth.ip;
@@ -34,6 +36,8 @@ export async function startGameServer() {
     url,
     close: async () => {
       await new Promise<void>((resolve) => io.close(() => resolve()));
+      await sleep(100); // the last leaves release their rows
+      await sql`DELETE FROM room_members WHERE person LIKE 't:%'`;
       const id = made.user.id;
       await sql`DELETE FROM race_runs WHERE id IN (SELECT run_id FROM races WHERE user_id = ${id})`;
       await sql`DELETE FROM users WHERE id = ${id}`;
@@ -44,7 +48,7 @@ export async function startGameServer() {
 export interface TestClient {
   socket: Socket<ServerToClientEvents, ClientToServerEvents>;
   room: PublicRoom | null;
-  join: (extra?: { color?: string; role?: "host" | "rider" }) => Promise<JoinReply>;
+  join: (extra?: { color?: string; role?: "host" | "rider"; leaveOther?: boolean }) => Promise<JoinReply>;
   startRace: () => Promise<ActionReply>;
   me: () => PublicRoom["players"][number] | undefined;
   /** Resolves once the latest room update passes `check`. */
@@ -56,6 +60,7 @@ export interface ClientOptions {
   ip?: string; // the address the server should see
   invite?: string; // an invite link's token
   guest?: boolean; // a host who isn't signed in
+  person?: string; // SALLE-06: who this is; two clients with the same person are one person in two tabs
 }
 
 export async function client(
@@ -63,9 +68,9 @@ export async function client(
   code: string,
   name: string,
   role: "host" | "rider",
-  { ip, invite, guest = false }: ClientOptions = {},
+  { ip, invite, guest = false, person = `${code}-${name}` }: ClientOptions = {},
 ): Promise<TestClient> {
-  const auth = { ...(ip ? { ip } : {}), ...(role === "host" && !guest ? { signedIn: true } : {}) };
+  const auth = { person, ...(ip ? { ip } : {}), ...(role === "host" && !guest ? { signedIn: true } : {}) };
   const socket: TestClient["socket"] = connect(url, { transports: ["websocket"], forceNew: true, auth });
   await new Promise<void>((resolve) => socket.on("connect", () => resolve()));
 

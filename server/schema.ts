@@ -166,3 +166,12 @@ export const words = pgTable(
     check("words_language_check", sql`${t.language} IN ('en', 'fr')`),
   ],
 );
+
+// SALLE-06: who is in which room, one row per person, so the primary key
+// guarantees nobody is in two rooms at once (server/members.ts). A person is
+// "u:<user id>" for an account, "g:<guest id>" for a guest's signed cookie.
+export const roomMembers = pgTable("room_members", {
+  person: text("person").primaryKey(),
+  roomCode: text("room_code").notNull(),
+  joinedAt: timestamp("joined_at", { withTimezone: true }).notNull().defaultNow(),
+});

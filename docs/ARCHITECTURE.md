@@ -194,6 +194,11 @@ erDiagram
         text language PK
         text word PK
     }
+    room_members {
+        text person PK "u:<id> compte, g:<id> invité (cookie signé)"
+        text room_code "le salon où la personne se trouve"
+        timestamptz joined_at
+    }
 ```
 
 - Un résultat n'est enregistré que pour les **comptes connectés** qui ont
@@ -202,12 +207,16 @@ erDiagram
   base.
 - Comptes, sessions et identités GitHub/Discord sont supprimés en cascade
   avec l'utilisateur.
+- `room_members` (SALLE-06) a une ligne par personne présente dans un salon;
+  sa clé primaire sur la personne garantit, dans la base, qu'on n'est que
+  dans un salon à la fois. Une personne est `u:<id>` pour un compte, ou
+  `g:<id>` pour un invité reconnu par son cookie signé (AUTH-02). Les salons
+  vivant en mémoire, la table est vidée au démarrage du serveur.
 
 ### Tables prévues pour la remise finale
 
 | Table | Pour | Contenu |
 | --- | --- | --- |
-| `room_members` | SALLE-06 | Une ligne par personne présente dans une salle, avec une contrainte d'unicité sur la personne : la règle « une seule salle à la fois » est garantie par la base. |
 | `bans` | SALLE-07 | Personnes expulsées d'une salle. |
 | colonnes de `races` | RES-02 | MPM brut, nombre d'erreurs, statut (terminé, temps écoulé, abandon), bonus reçus, touches manquées. |
 

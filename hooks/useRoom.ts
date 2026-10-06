@@ -16,6 +16,9 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
   const [room, setRoom] = useState<PublicRoom | null>(null);
   const [myId, setMyId] = useState<string | null>(null);
   const [error, setError] = useState<ErrorCode | null>(null);
+  // SALLE-06: the room they are already in, when the server asks before moving them.
+  const [otherRoom, setOtherRoom] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState<{ leaveOther: boolean } | null>(null);
   const [notice, setNotice] = useState<NoticeCode | null>(null);
   const [raceStartedAt, setRaceStartedAt] = useState<number | null>(null);
   const [finishDeadline, setFinishDeadline] = useState<number | null>(null);
@@ -32,10 +35,21 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
 
     const join = () => {
       setMyId(socket.id ?? null);
-      const payload = { code, clientId: clientId(), lang: langRef.current, ...profile, ...(invite ? { invite } : {}) };
+      const payload = {
+        code,
+        clientId: clientId(),
+        lang: langRef.current,
+        ...profile,
+        ...(invite ? { invite } : {}),
+        ...(attempt?.leaveOther ? { leaveOther: true } : {}),
+      };
       socket.emit("joinRoom", payload, (res) => {
-        if ("error" in res) return setError(res.error);
+        if ("error" in res) {
+          setOtherRoom("room" in res ? res.room : null);
+          return setError(res.error);
+        }
         setError(null);
+        setOtherRoom(null);
         if (res.note) setNotice(res.note);
       });
     };
@@ -78,6 +92,14 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
       setError("kicked");
     };
     socket.on("kicked", onKicked);
+    // SALLE-06: another tab, or another room, has their place now. This tab
+    // stops rejoining on its own, or the two would keep taking it back.
+    const onRemoved = (reason: "other-tab" | "other-room") => {
+      socket.off("connect", join);
+      setRoom(null);
+      setError(reason === "other-tab" ? "opened-elsewhere" : "moved-room");
+    };
+    socket.on("removed", onRemoved);
     socket.on("bonus", onBonus);
     socket.on("connect", join); // also rejoins after a dropped connection
     if (socket.connected) join();
@@ -90,10 +112,14 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
       socket.off("inviteList", setInvites);
       socket.off("yourText", setMyText);
       socket.off("kicked", onKicked);
+      socket.off("removed", onRemoved);
       socket.off("bonus", onBonus);
       socket.off("connect", join);
     };
-  }, [code, profile, invite]);
+  }, [code, profile, invite, attempt]);
+
+  /** Joins again; with `leaveOther`, out of the room they are in first (SALLE-06). */
+  const retry = useCallback((leaveOther: boolean) => setAttempt({ leaveOther }), []);
 
   const toggleReady = useCallback(() => getSocket().emit("toggleReady"), []);
   const startRace = useCallback(
@@ -126,6 +152,8 @@ export function useRoom(code: string, profile: Profile | null, invite: string | 
     room,
     myId,
     error,
+    otherRoom,
+    retry,
     notice,
     raceStartedAt,
     finishDeadline,
