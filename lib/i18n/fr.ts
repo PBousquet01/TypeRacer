@@ -37,6 +37,7 @@ function placeLabel(place: number | null | undefined): string {
 const errors: Record<ErrorCode, string> = {
   "bad-code": "Ce code de salon n'est pas valide.",
   "no-room": "Aucune course avec ce code. Demande le lien d'invitation à l'hôte.",
+  "too-many-attempts": "Trop de codes erronés depuis ton réseau. Attends une minute et réessaie.",
   "sign-in-to-host": "Connecte-toi pour organiser une course. Les invités peuvent en rejoindre une avec un code ou par course rapide.",
   "host-reconnecting": "L'hôte s'est déconnecté et revient peut-être. Réessaie dans un instant.",
   "room-full": "Ce salon est plein.",

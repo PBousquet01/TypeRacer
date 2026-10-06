@@ -3,7 +3,7 @@ import { client, freshCode, sleep, startGameServer, type ClientOptions, type Tes
 import { publicRooms, quickRaceRoom } from "../server/rooms";
 import type { BonusEvent, InviteSummary, PublicRoom, RoomSummary } from "../lib/types";
 import { migrate } from "../server/db";
-import { MAX_RIDERS } from "../lib/rules";
+import { MAX_FAILED_JOINS, MAX_RIDERS } from "../lib/rules";
 import { MAX_CHARS_PAST_MISTAKE } from "../lib/typing";
 
 let server: Awaited<ReturnType<typeof startGameServer>>;
@@ -570,6 +570,19 @@ describe("visibility and joining", () => {
     await host.join();
     return { code, host };
   }
+
+  test("SALLE-10: after ten wrong codes in a minute, an address can't join anything", async () => {
+    const { code } = await hostRoom("code");
+    const guesser = await open(code, "Guesser", "rider", { ip: "203.0.113.9" });
+    const tryCode = (guess: string) =>
+      new Promise((resolve) => guesser.socket.emit("joinRoom", { code: guess, name: "Guesser", clientId: "guesser" }, resolve));
+    for (let i = 0; i < MAX_FAILED_JOINS; i++) {
+      expect(await tryCode(freshCode())).toEqual({ error: "no-room" }); // issued, but never opened
+    }
+    expect(await guesser.join()).toEqual({ error: "too-many-attempts" }); // even the right code
+    const neighbour = await open(code, "Neighbour", "rider", { ip: "203.0.113.10" });
+    expect(await neighbour.join()).toMatchObject({ ok: true });
+  });
 
   test("SALLE-03: only public rooms are listed, and the list follows changes live", async () => {
     const watcher = await open("", "Watcher", "rider");

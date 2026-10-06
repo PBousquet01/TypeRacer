@@ -296,8 +296,9 @@ La machine actuelle suit le premier cahier des charges. Ces points changent
 pour respecter le travail de session; ils sont suivis dans
 [EXIGENCES.md](EXIGENCES.md) :
 
-- **SALLE-09** : on ne pourra plus rejoindre pendant DÉCOMPTE et EN_COURSE
-  (aujourd'hui, on y entre comme spectateur).
+- **SALLE-09** : le travail de session interdit d'entrer pendant DÉCOMPTE
+  et EN_COURSE. Pour l'instant, on y entre comme spectateur (choix gardé en
+  attendant l'avis de l'enseignant).
 - **COURSE-11** : l'hôte pourra aussi **fermer** la salle depuis les
   résultats (transition RÉSULTATS → FERMÉE explicite).
 

@@ -104,6 +104,11 @@ join instead.
   has their own `player.text` (bonuses only change its end); progress, the
   finish and WPM use it, never `room.text`. Changed texts go privately via
   `yourText`; `bonus` events announce. Bots get re-planned (`replanBot`).
+- **Join throttling (SALLE-10).** `joinRoom` counts *failed* joins per
+  `socket.data.ip` (`no-room`, `invite-invalid`, `invite-used`) in a sliding
+  minute; at `MAX_FAILED_JOINS` (10) every join from that address gets
+  `too-many-attempts`. Successful joins don't count (a class shares one IP).
+  Tests that expect failures should pass their own `ip`.
 - **Kicking (SALLE-07).** `kickPlayer` bans by `clientId` and account
   (`room.bannedClients`/`bannedUsers`), never by IP (a class shares one),
   revokes their invite link, removes them at once (no held lane) and emits

@@ -23,6 +23,7 @@ function placeLabel(place: number | null | undefined): string {
 const errors: Record<ErrorCode, string> = {
   "bad-code": "That room code isn't valid.",
   "no-room": "No race with that code. Ask the host for the invite link.",
+  "too-many-attempts": "Too many wrong codes from your network. Wait a minute and try again.",
   "sign-in-to-host": "Sign in to host a race. Guests can join one with a code or quick race.",
   "host-reconnecting": "The host dropped out and may be reconnecting. Try again in a moment.",
   "room-full": "This room is full.",

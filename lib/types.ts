@@ -21,6 +21,7 @@ export type Lang = "en" | "fr";
 export type ErrorCode =
   | "bad-code"
   | "no-room"
+  | "too-many-attempts"
   | "sign-in-to-host"
   | "host-reconnecting"
   | "room-full"

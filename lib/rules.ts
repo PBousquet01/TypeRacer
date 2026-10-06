@@ -3,6 +3,10 @@ export const MIN_RIDERS = 2; // COURSE-3: a race needs at least two riders
 export const MAX_RIDERS = 30; // SALLE-05: the most the host can set the capacity to; also the default
 export const RECONNECT_MS = 30_000; // COURSE-08: how long a dropped rider's lane is kept for them; then they have abandoned
 
+// SALLE-10: failed joins (wrong code, bad invite) allowed per address in a sliding minute.
+export const MAX_FAILED_JOINS = 10;
+export const JOIN_WINDOW_MS = 60_000;
+
 // SALLE-02: six characters, none that can be mistaken for another (0/O, 1/I/L).
 export const ROOM_CODE_LENGTH = 6;
 export const ROOM_CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";

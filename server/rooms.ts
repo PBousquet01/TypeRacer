@@ -18,6 +18,8 @@ import {
   MAX_RIDERS,
   MIN_RIDERS,
   RECONNECT_MS,
+  JOIN_WINDOW_MS,
+  MAX_FAILED_JOINS,
   ROOM_CODE_CHARS,
   ROOM_CODE_LENGTH,
   rawWpmOf,
@@ -837,9 +839,40 @@ function claimReservedCode(code: string, userId: number): Visibility | null {
   return reservation.expires > Date.now() ? reservation.visibility : null;
 }
 
+// SALLE-10: guessing room codes is slowed down per address. Only failed
+// attempts count (no room with that code, a bad invite link): a whole class
+// shares one address, so counting every join would lock it out at the
+// start of a lesson. Past the limit, every join from that address is
+// refused until the oldest failure is a minute old.
+const failedJoins = new Map<string, number[]>();
+
+function joinLimited(ip: string, now = Date.now()): boolean {
+  const recent = (failedJoins.get(ip) ?? []).filter((t) => t > now - JOIN_WINDOW_MS);
+  if (recent.length === 0) failedJoins.delete(ip);
+  else failedJoins.set(ip, recent);
+  return recent.length >= MAX_FAILED_JOINS;
+}
+
+function recordFailedJoin(ip: string, now = Date.now()) {
+  failedJoins.set(ip, [...(failedJoins.get(ip) ?? []), now]);
+  // Addresses that stopped trying are forgotten once the map gets big.
+  if (failedJoins.size > 10_000) {
+    for (const [address, times] of failedJoins) {
+      if (times.every((t) => t <= now - JOIN_WINDOW_MS)) failedJoins.delete(address);
+    }
+  }
+}
+
+const GUESS_ERRORS = new Set<ErrorCode>(["no-room", "invite-invalid", "invite-used"]);
+
 export function registerRoomHandlers(io: IO, socket: ClientSocket) {
   socket.on("joinRoom", (payload, ack) => {
-    const reply = ackOf<JoinReply>(ack);
+    const answer = ackOf<JoinReply>(ack);
+    if (joinLimited(socket.data.ip)) return answer({ error: "too-many-attempts" });
+    const reply = (result: JoinReply) => {
+      if ("error" in result && GUESS_ERRORS.has(result.error)) recordFailedJoin(socket.data.ip);
+      answer(result);
+    };
     const parsed = parse(joinPayload, payload);
     if (!parsed.ok) return reply({ error: parsed.error });
     const { code, name, color, role, clientId, lang, invite: inviteToken } = parsed.data;

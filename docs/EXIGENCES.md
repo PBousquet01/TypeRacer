@@ -17,7 +17,7 @@ que tout changement qui fait avancer une exigence.
 | Contraintes techniques (TECH) | 9 | 1 | 0 | 10 |
 | Identité visuelle et design (DES) | 5 | 1 | 0 | 6 |
 | Comptes et profil (AUTH) | 5 | 1 | 0 | 6 |
-| Salles et visibilité (SALLE) | 7 | 0 | 3 | 10 |
+| Salles et visibilité (SALLE) | 8 | 1 | 1 | 10 |
 | Rejoindre une course (JOIN) | 3 | 0 | 0 | 3 |
 | Configuration (CONF) | 12 | 0 | 0 | 12 |
 | Déroulement d'une course (COURSE) | 9 | 2 | 0 | 11 |
@@ -30,7 +30,7 @@ que tout changement qui fait avancer une exigence.
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 3 | 0 | 0 | 3 |
-| **Total** | **73** | **11** | **6** | **90** |
+| **Total** | **74** | **12** | **4** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -81,8 +81,8 @@ que tout changement qui fait avancer une exigence.
 | SALLE-06 | ❌ | `leaveCurrentRoom` | — | Un même onglet quitte sa salle avant d'en rejoindre une autre, mais rien n'est garanti par la base et deux onglets créent deux joueurs. |
 | SALLE-07 | ✅ | `kickPlayer` dans `server/rooms.ts`, bouton « Expulser » de `components/Lobby.tsx` | « SALLE-07: the host kicks a rider out for good; nobody else can », « SALLE-04, SALLE-07: a kicked rider's invite link is revoked » | L'hôte expulse un cavalier ou un spectateur, après confirmation; la personne est retirée tout de suite (même en course) et prévenue. Elle ne peut plus revenir : refusée par son onglet (`clientId`) et, si elle est connectée, par son compte. Pas par adresse IP : toute une classe partage souvent la même. Limite : un invité qui ouvre un nouvel onglet a un nouvel identifiant; une session d'invité par cookie signé (AUTH-02) fermera cette porte. |
 | SALLE-08 | ✅ | `server/rooms.ts` (`HOST_RECLAIM_MS`) | « COURSE-14: a riding host who drops keeps their lane and the host seat » | La place d'hôte est gardée 20 s pour une reconnexion, puis passe à la personne présente depuis le plus longtemps. Salle fermée quand il n'y a plus personne. |
-| SALLE-09 | ❌ | `joinRoom` (`lateArrival`) | « COURSE-7: someone arriving mid-race watches » | Aujourd'hui, on peut entrer pendant une course comme spectateur. À interdire. |
-| SALLE-10 | ❌ | — | — | Limite de tentatives par IP. |
+| SALLE-09 | 🟡 | `joinRoom` (`lateArrival`) | « COURSE-7: someone arriving mid-race watches » | Aujourd'hui, on peut entrer pendant une course, comme spectateur : on regarde celle-ci et on court la suivante. Choix gardé volontairement, en attente de l'avis de l'enseignant. |
+| SALLE-10 | ✅ | `joinLimited`, `recordFailedJoin` dans `server/rooms.ts`, `MAX_FAILED_JOINS` dans `lib/rules.ts` | « SALLE-10: after ten wrong codes in a minute, an address can't join anything » | 10 tentatives ratées par minute et par adresse IP (code inexistant, lien d'invitation invalide ou déjà utilisé), sur une fenêtre glissante. Au-delà, toute entrée depuis cette adresse est refusée jusqu'à ce que la plus ancienne ait une minute. Seuls les échecs comptent : toute une classe partage la même adresse, et compter chaque entrée la bloquerait au début du cours. |
 
 ## Rejoindre une course (JOIN)
 
