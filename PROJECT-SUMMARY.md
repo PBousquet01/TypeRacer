@@ -239,8 +239,12 @@ disagree, the PDF wins.
 
 `docs/` holds the French documentation for the teacher: `ARCHITECTURE.md`
 (data model, state machine, realtime message flow, ADR-001 realtime choice,
-ADR-002 planned bots), `EXIGENCES.md` (every PDF requirement: status, files,
-tests, notes) and `deploiement.md`. **Keep `EXIGENCES.md` current**: when a
+ADR-002 bots), `EXIGENCES.md` (every PDF requirement: status, files,
+tests, notes), `DEMARCHE-CREATIVE.md` (name, logo, moodboard, palette, fonts;
+images in `docs/images/`; one name only, logo in one iteration: the original
+drawing is the sketch) and `deploiement.md`. `CLAUDE.md` at the root holds the agent
+instructions (the spec requires it committed); `docs/IA.md` (tools, CLAUDE.md, three AI mistakes; the reflection is the
+owner's to write). **Keep `EXIGENCES.md` current**: when a
 change moves a requirement, update its row and the summary counts in the same
 commit. Never mark a requirement complete when it isn't: the teacher penalises
 that more than an honest "partiel".

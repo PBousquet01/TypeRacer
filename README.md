@@ -33,8 +33,11 @@ The interface is in French and English (button in the top bar); the texts to
 type are a separate choice the host makes in the lobby.
 
 Class documentation (in French) lives in `docs/`: the architecture, data
-model and race state machine (`docs/ARCHITECTURE.md`) and the requirements
-matrix (`docs/EXIGENCES.md`). Update the matrix in the same commit as any
+model and race state machine (`docs/ARCHITECTURE.md`), the requirements
+matrix (`docs/EXIGENCES.md`), the name, logo and art direction
+(`docs/DEMARCHE-CREATIVE.md`), how AI agents were used (`docs/IA.md`) and
+the deployment guide (`docs/deploiement.md`). Instructions for AI coding
+agents are in `CLAUDE.md`. Update the matrix in the same commit as any
 change that moves a requirement forward.
 
 New to the codebase? `PROJECT-SUMMARY.md` is the short orientation: the

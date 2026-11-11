@@ -3,8 +3,7 @@
 Chocobo Race est une course de frappe multijoueur : tout le monde tape le même
 texte, et le chocobo de chaque joueur avance au rythme de sa frappe.
 
-Ce document décrit l'application telle qu'elle est aujourd'hui, et ce qui est
-prévu là où c'est indiqué. Il contient :
+Ce document décrit l'application telle qu'elle est remise. Il contient :
 
 1. [Vue d'ensemble](#vue-densemble)
 2. [Pile technologique](#pile-technologique)
@@ -213,12 +212,15 @@ erDiagram
   `g:<id>` pour un invité reconnu par son cookie signé (AUTH-02). Les salons
   vivant en mémoire, la table est vidée au démarrage du serveur.
 
-### Tables prévues pour la remise finale
+### Ce qui n'est pas dans la base
 
-| Table | Pour | Contenu |
-| --- | --- | --- |
-| `bans` | SALLE-07 | Personnes expulsées d'une salle. |
-| colonnes de `races` | RES-02 | MPM brut, nombre d'erreurs, statut (terminé, temps écoulé, abandon), bonus reçus, touches manquées. |
+- **Les salles** vivent en mémoire, dans le processus du serveur
+  ([ADR-001](#adr-001--technologie-temps-réel)) : configuration, joueurs,
+  liens d'invitation et expulsions (SALLE-07) n'ont de sens que tant que la
+  salle existe, et disparaissent avec elle.
+- **Le détail d'une course** (MPM brut, erreurs, statut, bonus reçus,
+  touches manquées de chaque participant, RES-02) est gardé tel qu'il était
+  à l'écran des résultats, dans la colonne `players` (JSON) de `race_runs`.
 
 ## Machine à états d'une course (COURSE-01)
 
@@ -299,17 +301,16 @@ stateDiagram-v2
 - **`away`** : partant déconnecté dont la voie est gardée. Le même onglet (même `clientId`) qui revient reprend sa voie.
 - **`abandoned`** : partant parti depuis plus de 30 s pendant la course (COURSE-08). Il reste dans le classement avec la progression qu'il avait; s'il revient, il regarde la fin de la course sans pouvoir taper.
 
-### Écarts connus avec le cahier de l'enseignant
+### Écarts acceptés par l'enseignant
 
-La machine actuelle suit le premier cahier des charges. Ces points changent
-pour respecter le travail de session; ils sont suivis dans
+Deux points de la machine diffèrent du travail de session; l'enseignant les a
+acceptés tels quels (novembre 2026). Ils sont marqués « partiel » dans
 [EXIGENCES.md](EXIGENCES.md) :
 
-- **SALLE-09** : le travail de session interdit d'entrer pendant DÉCOMPTE
-  et EN_COURSE. Pour l'instant, on y entre comme spectateur (choix gardé en
-  attendant l'avis de l'enseignant).
-- **COURSE-11** : l'hôte pourra aussi **fermer** la salle depuis les
-  résultats (transition RÉSULTATS → FERMÉE explicite).
+- **SALLE-09** : on peut entrer pendant DÉCOMPTE et EN_COURSE, comme
+  spectateur; on court à la course suivante.
+- **COURSE-11** : l'hôte ne ferme pas la salle par un bouton; RÉSULTATS →
+  FERMÉE se produit quand la dernière personne part.
 
 ## Flux des messages temps réel
 

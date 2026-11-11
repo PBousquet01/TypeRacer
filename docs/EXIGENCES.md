@@ -8,7 +8,12 @@ que tout changement qui fait avancer une exigence.
 
 **Statut** : ✅ complet · 🟡 partiel · ❌ non fait.
 **Tests associés** : les noms entre guillemets sont des tests automatisés de
-`tests/` (lancés par `bun test` et à chaque envoi sur GitHub).
+`tests/` (lancés par `bun test`) ou de `e2e/` (Playwright, `bun run
+test:e2e`), tous lancés à chaque envoi sur GitHub.
+
+Les 11 exigences partielles ont été présentées à l'enseignant en novembre
+2026, qui les a acceptées telles quelles; seule l'intégration de Playwright
+(TEST-02, TEST-03) restait alors à faire, et elle est faite.
 
 ## Résumé
 
@@ -40,7 +45,7 @@ que tout changement qui fait avancer une exigence.
 | TECH-02 | ✅ | `tsconfig.json`, `eslint.config.ts`, `postcss.config.json` | CI : étapes « Lint » et « Type-check » | Aucun fichier `.js`, `.jsx`, `.mjs` ou `.cjs` dans le dépôt; `strict: true`; `no-explicit-any` est en erreur (règle incluse par `eslint-config-next/typescript`); aucun `any`, `@ts-ignore` ni `@ts-expect-error`. |
 | TECH-03 | ✅ | `app/globals.css`, `components/` | CI : étape « Build » | Tailwind CSS v4. |
 | TECH-04 | ✅ | `server/schema.ts`, `drizzle/`, `server/db.ts`, `scripts/seed.ts` | Tests de `api.test.ts` et `rooms.test.ts` sur une vraie base (la CI part d'une base vide et applique les migrations) | PostgreSQL 17 et Drizzle ORM : schéma, requêtes, migrations versionnées appliquées au démarrage, seed (textes, comptes de démonstration, historique). Voir [ARCHITECTURE.md](ARCHITECTURE.md#accès-aux-données-tech-04). |
-| TECH-05 | 🟡 | `render.yaml`, `GET /api/health` | En ligne : <https://chocobo-race.onrender.com> (HTTPS, course complète jouée le 2 octobre 2026) | Fonctionnel en production en HTTPS, mais sur Render (plateforme gratuite), pas sur un VPS. Approbation de l'enseignant demandée. Justification dans [deploiement.md](deploiement.md). |
+| TECH-05 | 🟡 | `render.yaml`, `GET /api/health` | En ligne : <https://chocobo-race.onrender.com> (HTTPS, course complète jouée le 2 octobre 2026) | Fonctionnel en production en HTTPS, mais sur Render (plateforme gratuite), pas sur un VPS. Approbation de l'enseignant demandée. Justification dans [deploiement.md](deploiement.md). **Accepté tel quel par l'enseignant (novembre 2026).** |
 | TECH-06 | ✅ | `server/rooms.ts`, `components/Track.tsx` | Tous les tests de `rooms.test.ts` | Socket.IO. Voir [ADR-001](ARCHITECTURE.md#adr-001--technologie-temps-réel). |
 | TECH-07 | ✅ | `server/schemas.ts`, `server/rooms.ts`, `server/api.ts` | « TECH-07: a join of the wrong shape is refused, and a bad acknowledgement can't crash the server », « TECH-07: setWatching with the wrong types is ignored », « invalid settings are ignored », « the server judges the keys: wrong ones don't move the bird », « a body that isn't the expected shape gets the matching error code », « a body that isn't JSON is a bad request », « a text in a language the site doesn't have is refused » | Zod : chaque message Socket.IO qui porte des données (`joinRoom`, `updateSettings`, `setWatching`, `typed`), chaque corps JSON (`signup`, `login`, `admin/mount`) et chaque paramètre d'URL (`/api/text`, retour OAuth). Les messages d'erreur des schémas sont les codes d'erreur de l'API. Le projet n'utilise pas d'actions serveur Next.js. |
 | TECH-08 | ✅ | `render.yaml` | — | Render et Neon en forfaits gratuits; GitHub et Discord OAuth gratuits. Rien à payer pour corriger. |
@@ -51,12 +56,12 @@ que tout changement qui fait avancer une exigence.
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| DES-01 | ✅ | [DEMARCHE-CREATIVE.md](DEMARCHE-CREATIVE.md) | — | Noms envisagés et raison du choix. |
-| DES-02 | ✅ | `design/logo-original.png`, `public/logo.png`, `app/icon.png` | — | Logo dessiné à la main, utilisé dans l'application et comme favicon. |
+| DES-01 | ✅ | [DEMARCHE-CREATIVE.md](DEMARCHE-CREATIVE.md) | — | Un seul nom envisagé, Chocobo Race, venu avec l'idée du jeu; vérification d'originalité et noms proches (*Chocobo Racing*, 1999) documentés. Nom définitif depuis le checkpoint 1. |
+| DES-02 | ✅ | `design/logo-original.png`, `public/logo.png`, `app/icon.png` | — | Logo dessiné à la main en une seule itération : le dessin original (`design/logo-original.png`) tient lieu de croquis. Utilisé dans l'application et comme favicon. Démarche et images dans [DEMARCHE-CREATIVE.md](DEMARCHE-CREATIVE.md). |
 | DES-03 | ✅ | [DEMARCHE-CREATIVE.md](DEMARCHE-CREATIVE.md) | — | Moodboard, palette, typographies. |
 | DES-04 | ✅ | `app/globals.css`, `components/Track.tsx`, `components/Chocobo.tsx` | — | Style « fenêtres de jeu rétro »; la piste de chocobos est l'élément signature. |
 | DES-05 | ✅ | `components/ThemeToggle.tsx`, `app/layout.tsx` | — | Suit le système par défaut; un script lancé avant le premier affichage applique le thème gardé, donc pas de flash. |
-| DES-06 | 🟡 | Mises en page adaptatives (point de rupture à 900 px) | — | Les pages s'adaptent au téléphone. **Reste** : remplacer la course par un message recommandant un clavier physique sur mobile, et vérifier chaque page à 360 px. |
+| DES-06 | 🟡 | Mises en page adaptatives (point de rupture à 900 px) | — | Les pages s'adaptent au téléphone. **Reste** : remplacer la course par un message recommandant un clavier physique sur mobile, et vérifier chaque page à 360 px. **Accepté tel quel par l'enseignant (novembre 2026).** |
 
 ## Comptes et profil (AUTH)
 
@@ -81,7 +86,7 @@ que tout changement qui fait avancer une exigence.
 | SALLE-06 | ✅ | `server/members.ts`, table `room_members` (`server/schema.ts`, migration `drizzle/0004_room_members.sql`), `joinRoom` dans `server/rooms.ts`, `components/RoomConflict.tsx` | « SALLE-06: someone in a room is asked before joining another, and leaving moves their row », « SALLE-06: a second tab on the same room takes the place over instead of adding a duplicate » | Une personne (compte, ou invité par son cookie signé) a au plus une ligne dans `room_members` : la clé primaire le garantit. Rejoindre un autre salon affiche « Tu es déjà dans le salon X » avec « Quitter X et rejoindre ce salon »; accepter la retire de X (son autre onglet est prévenu). Un deuxième onglet sur le même salon reprend la place du premier (même voie, même rôle d'hôte) au lieu d'ajouter un doublon; le premier onglet l'affiche et ne se reconnecte plus seul. La table est vidée au démarrage, puisque les salons vivent en mémoire. |
 | SALLE-07 | ✅ | `kickPlayer` dans `server/rooms.ts`, bouton « Expulser » de `components/Lobby.tsx` | « SALLE-07: the host kicks a rider out for good; nobody else can », « SALLE-04, SALLE-07: a kicked rider's invite link is revoked » | L'hôte expulse un cavalier ou un spectateur, après confirmation; la personne est retirée tout de suite (même en course) et prévenue. Elle ne peut plus revenir : refusée par son onglet (`clientId`) et, si elle est connectée, par son compte. Pas par adresse IP : toute une classe partage souvent la même. Un invité expulsé reste dehors dans un nouvel onglet aussi, grâce à son cookie d'invité signé (AUTH-02); test « SALLE-06, SALLE-07: a kicked guest stays out in a new tab too ». |
 | SALLE-08 | ✅ | `server/rooms.ts` (`HOST_RECLAIM_MS`) | « COURSE-14: a riding host who drops keeps their lane and the host seat » | La place d'hôte est gardée 20 s pour une reconnexion, puis passe à la personne présente depuis le plus longtemps. Salle fermée quand il n'y a plus personne. |
-| SALLE-09 | 🟡 | `joinRoom` (`lateArrival`) | « COURSE-7: someone arriving mid-race watches » | Aujourd'hui, on peut entrer pendant une course, comme spectateur : on regarde celle-ci et on court la suivante. Choix gardé volontairement, en attente de l'avis de l'enseignant. |
+| SALLE-09 | 🟡 | `joinRoom` (`lateArrival`) | « COURSE-7: someone arriving mid-race watches » | Aujourd'hui, on peut entrer pendant une course, comme spectateur : on regarde celle-ci et on court la suivante. Choix gardé volontairement, en attente de l'avis de l'enseignant. **Accepté tel quel par l'enseignant (novembre 2026).** |
 | SALLE-10 | ✅ | `joinLimited`, `recordFailedJoin` dans `server/rooms.ts`, `MAX_FAILED_JOINS` dans `lib/rules.ts` | « SALLE-10: after ten wrong codes in a minute, an address can't join anything » | 10 tentatives ratées par minute et par adresse IP (code inexistant, lien d'invitation invalide ou déjà utilisé), sur une fenêtre glissante. Au-delà, toute entrée depuis cette adresse est refusée jusqu'à ce que la plus ancienne ait une minute. Seuls les échecs comptent : toute une classe partage la même adresse, et compter chaque entrée la bloquerait au début du cours. |
 
 ## Rejoindre une course (JOIN)
@@ -119,11 +124,11 @@ que tout changement qui fait avancer une exigence.
 | COURSE-04 | ✅ | `components/TypingBox.tsx`, `hooks/useTypingEngine.ts` | « pasting text past the end is ignored » | Caractère correct, incorrect, curseur; MPM et précision en direct; coller bloqué. |
 | COURSE-05 | ✅ | `components/Track.tsx` | Démonstration avec 12 participants | Monture, nom, position et MPM courant; positions toutes les 100 ms avec transition fluide; joueur local mis en évidence; les spectateurs voient la piste. |
 | COURSE-06 | ✅ | `server/rooms.ts`, `replayKeys` dans `lib/typing.ts` | « the server judges the keys: wrong ones don't move the bird », « progress faster than a human is ignored (anti-cheat) », « a finished rider's result can't be changed » | Départ, fin, progression et classement décidés par le serveur. Les bonus (pas encore faits) passeront aussi par lui. |
-| COURSE-07 | 🟡 | Bouton « Quitter », `holdLane` | — | Quitter la course compte comme abandon après 30 s. **Reste** : bouton « Abandonner » avec confirmation. |
+| COURSE-07 | 🟡 | Bouton « Quitter », `holdLane` | — | Quitter la course compte comme abandon après 30 s. **Reste** : bouton « Abandonner » avec confirmation. **Accepté tel quel par l'enseignant (novembre 2026).** |
 | COURSE-08 | ✅ | `holdLane`, `reclaimLane`, `dropHeldLane`, `components/RaceScreen.tsx` | « COURSE-14: a dropped rider keeps their lane and progress », « COURSE-08 to COURSE-10: finishers by time, then the clock's victims by progress, then those who left » | 30 s (`RECONNECT_MS`), puis abandon : le partant reste au classement avec sa progression, et s'il revient il regarde la fin sans pouvoir taper. |
 | COURSE-09 | ✅ | `endIfEveryoneFinished`, `dropHeldLane`, `startRace`, `components/FinishClock.tsx` | « COURSE-09: a finish doesn't start a last call; the clock counts down to the time limit », « COURSE-08 to COURSE-10: finishers by time, then the clock's victims by progress, then those who left » | Fin quand chaque partant a fini ou abandonné, ou au temps maximal. Un partant déconnecté depuis moins de 30 s peut revenir, donc la course l'attend. Le dernier appel de 30 s du premier cahier des charges est retiré; l'horloge à l'écran montre le temps restant avant le temps maximal. |
 | COURSE-10 | ✅ | `rankField` dans `server/rooms.ts`, `raceStatus` dans `lib/rules.ts`, `components/Results.tsx` | « COURSE-10: the first across the line wins, however sloppy », « COURSE-08 to COURSE-10: finishers by time, then the clock's victims by progress, then those who left » | Tous les partants reçoivent une place : ceux qui ont fini par temps d'arrivée, puis ceux arrêtés par le temps maximal par progression, puis les abandons par progression au moment du départ. Le score (MPM × précision) reste affiché à titre indicatif. |
-| COURSE-11 | 🟡 | `playAgain`, `backToLobby` | « back to the lobby keeps everyone » | Relancer avec les mêmes personnes et changer la configuration. **Reste** : fermer la salle. |
+| COURSE-11 | 🟡 | `playAgain`, `backToLobby` | « back to the lobby keeps everyone » | Relancer avec les mêmes personnes et changer la configuration. **Reste** : fermer la salle. **Accepté tel quel par l'enseignant (novembre 2026).** |
 
 ## Bots (BOT)
 
@@ -169,7 +174,7 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 | --- | --- | --- | --- | --- |
 | I18N-01 | ✅ | `lib/i18n/en.ts`, `lib/i18n/fr.ts`, `generateMetadata` dans `app/layout.tsx` | « every server code has a French and an English message », « French places » | Une traduction manquante est une erreur de compilation; les erreurs du serveur sont des codes traduits par le navigateur. |
 | I18N-02 | ✅ | `components/LanguageToggle.tsx`, `lib/i18n/server.ts` | — | Sur toutes les pages; gardé dans un cookie; langue du navigateur par défaut. |
-| I18N-03 | 🟡 | `formatDateTime` dans `lib/format.ts` | — | Les dates de l'historique sont formatées selon la langue (`Intl.DateTimeFormat`). **Reste** : les autres dates et les nombres. |
+| I18N-03 | 🟡 | `formatDateTime` dans `lib/format.ts` | — | Les dates de l'historique sont formatées selon la langue (`Intl.DateTimeFormat`). **Reste** : les autres dates et les nombres. **Accepté tel quel par l'enseignant (novembre 2026).** |
 
 ## Tests (TEST)
 
@@ -183,24 +188,24 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| PERF-01 | ❌ | — | — | Lighthouse pas encore mesuré. |
+| PERF-01 | ❌ | — | — | Lighthouse pas mesuré. Non demandé par l'enseignant pour la remise (voir plus haut). |
 | PERF-02 | ✅ | `shouldReport` dans `lib/typing.ts`, `TICK_MS` | — | Un message par mot fini, pas par touche; positions regroupées toutes les 100 ms; résultats écrits une seule fois, à la fin. |
-| PERF-03 | 🟡 | `components/Track.tsx` | Démonstration avec 12 participants | Barres compactes au-delà de 10 participants. **Reste** : mesurer à 30. |
+| PERF-03 | 🟡 | `components/Track.tsx` | Démonstration avec 12 participants | Barres compactes au-delà de 10 participants. **Reste** : mesurer à 30. **Accepté tel quel par l'enseignant (novembre 2026).** |
 
 ## Accessibilité (A11Y)
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| A11Y-01 | 🟡 | `app/globals.css` | — | Pas encore audité (contraste WCAG AA, deux thèmes). |
-| A11Y-02 | 🟡 | `components/ui.tsx` | — | `<table>` pour les résultats et les statistiques. **Reste** : audit des balises (`header`, `nav`, `main`, `footer`, ordre des titres). |
-| A11Y-03 | 🟡 | `components/` | — | Pas encore audité. |
-| A11Y-04 | 🟡 | `app/globals.css` | — | Pas encore audité (navigation au clavier, focus visible). |
+| A11Y-01 | 🟡 | `app/globals.css` | — | Pas encore audité (contraste WCAG AA, deux thèmes). **Accepté tel quel par l'enseignant (novembre 2026).** |
+| A11Y-02 | 🟡 | `components/ui.tsx` | — | `<table>` pour les résultats et les statistiques. **Reste** : audit des balises (`header`, `nav`, `main`, `footer`, ordre des titres). **Accepté tel quel par l'enseignant (novembre 2026).** |
+| A11Y-03 | 🟡 | `components/` | — | Pas encore audité. **Accepté tel quel par l'enseignant (novembre 2026).** |
+| A11Y-04 | 🟡 | `app/globals.css` | — | Pas encore audité (navigation au clavier, focus visible). **Accepté tel quel par l'enseignant (novembre 2026).** |
 
 ## Sécurité (SEC)
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| SEC-01 | ✅ | `server/rooms.ts` | « only the host can start », « COURSE-11: the host's settings reach riders; riders can't change them », « COURSE-6: the host sends a rider to the stands, where they can't ready up » | Lancer, configurer et envoyer aux estrades sont vérifiés côté serveur. Les actions à venir (liens, expulsion, fermeture) le seront aussi. |
+| SEC-01 | ✅ | `isHost` dans `server/rooms.ts` | « only the host can start », « COURSE-11: the host's settings reach riders; riders can't change them », « COURSE-6: the host sends a rider to the stands, where they can't ready up », « SALLE-03, SALLE-04: a private room takes an invite link, never the code alone », « SALLE-07: the host kicks a rider out for good; nobody else can », « CONF-10: the host adds and removes bots; riders can't, and a made-up level is ignored » | Lancer, configurer, envoyer aux estrades, ajouter ou retirer des bots, générer des liens et expulser : chaque action vérifie côté serveur que la demande vient de l'hôte, et chacune a un test où un non-hôte est refusé. Fermer la salle n'existe pas comme action (COURSE-11, partiel). |
 | SEC-02 | ✅ | `sniffImage` et `prepareAvatar` dans `server/avatars.ts`, `readBytes` dans `server/api.ts` | « AUTH-04, SEC-02: a profile photo is checked by its bytes and its size, then stored resized » | Taille comptée par le serveur pendant la lecture (413 au-delà de 2 Mo, sans couper la connexion). Type réel lu dans les premiers octets du fichier (signature JPEG, PNG ou WebP), pas dans son nom ni son en-tête, puis confirmé en décodant l'image (sharp); limite de pixels contre les fichiers « bombe ». Le serveur ne garde jamais le fichier reçu, seulement sa propre copie redimensionnée. |
 | SEC-03 | ✅ | `server/auth.ts` | « signing up signs you in with an HttpOnly cookie », « a wrong password is refused » | argon2id (`Bun.password`); jamais stocké ni journalisé en clair. |
 
@@ -215,6 +220,11 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
   *créer* de salle. Si l'hôte part, sa place passe quand même à la personne
   présente depuis le plus longtemps, invitée ou non (SALLE-08) : fermer la
   salle de tout le monde serait pire, et ce n'est pas une création.
+- **COURSE-05, avatar sur la piste.** Sur la piste, chaque participant est
+  représenté par sa **monture** (chocobo de couleur, monture débloquée ou
+  couleur personnalisée), avec son nom, sa position et son MPM courant. La
+  monture tient lieu d'avatar dans la course; la photo de profil ou l'avatar
+  généré (initiales) apparaît dans la salle d'attente (AUTH-03, AUTH-04).
 - **SALLE-08, délai de l'hôte.** La place d'hôte est gardée 20 s avant de
   passer à quelqu'un d'autre, pour qu'un simple rechargement de page ne la
   fasse pas perdre.
