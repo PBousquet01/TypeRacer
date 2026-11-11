@@ -247,6 +247,20 @@ that more than an honest "partiel".
 
 ## Tests and CI (TECH-7)
 
+**End-to-end (TEST-02/03):** Playwright **1.63.0, pinned** (it matches the
+Chromium already cached in `~/Library/Caches/ms-playwright`, shared with the
+user's HUB project; upgrading means a browser download). `bun run test:e2e`;
+config `playwright.config.ts` starts `bun run dev` on port 3100 (CI: `bun run
+start` after the build) and reuses a server already there. `e2e/*.e2e.ts`
+(not `.spec.ts`, or `bun test` would pick them up). `global-setup.ts` signs
+up a throwaway `e2e_xxxx` account through the API, tests sign in through the
+form (`signIn`), `global-teardown.ts` deletes it with `scripts/admin.ts`.
+Selectors use `data-testid` (rider-row, host-race, room-code, join-room,
+typing-input, race-text, result-row, room-conflict…). One worker; each race
+test closes its contexts in `afterEach`, since every test uses the same
+account and SALLE-06 allows one room per person. CI runs them in an `e2e`
+job after `check`.
+
 `bun test` runs everything in `tests/`: the typing rules (`typing.test.ts`),
 score and dictionaries (`rules.test.ts`), the referee with real Socket.IO
 clients against a real server started in the test (`rooms.test.ts`: COURSE-3,

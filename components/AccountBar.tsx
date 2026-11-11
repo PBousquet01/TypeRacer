@@ -48,7 +48,7 @@ export default function AccountBar() {
       <Link href="/stats" className={navLink}>
         {t.nav.myStats}
       </Link>
-      <Link href="/account" className="inline-flex items-center gap-2 text-strong no-underline hover:text-accent">
+      <Link href="/account" className="inline-flex items-center gap-2 text-strong no-underline hover:text-accent" data-testid="account-link">
         {user.displayName}
         {user.isAdmin && <HostTag>{t.common.admin}</HostTag>}
       </Link>

@@ -135,7 +135,7 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks, signed
           <PanelTitle as="h2">{t.home.saddleUp}</PanelTitle>
 
           <Field label={t.home.riderName}>
-            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={RIDER_NAME_MAX} placeholder="Cloud" />
+            <input value={name} onChange={(e) => setName(e.target.value)} maxLength={RIDER_NAME_MAX} placeholder="Cloud" data-testid="rider-name" />
           </Field>
 
           <MountPicker value={color} onChange={setColor} unlocks={unlocks} />
@@ -144,14 +144,14 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks, signed
 
           {signedIn ? (
             <>
-              <button className="btn btn-primary btn-block" onClick={() => hostRoom()}>
+              <button className="btn btn-primary btn-block" onClick={() => hostRoom()} data-testid="host-race">
                 {t.home.hostRace}
               </button>
               <FinePrint>{t.home.hostHint}</FinePrint>
             </>
           ) : (
             <>
-              <Link className="btn btn-primary btn-block" href="/account">
+              <Link className="btn btn-primary btn-block" href="/account" data-testid="sign-in-to-host">
                 {t.home.signInToHost}
               </Link>
               <FinePrint>{t.home.hostHintGuest}</FinePrint>
@@ -173,8 +173,9 @@ function RiderForm({ initialName, initialColor, initialJoinCode, unlocks, signed
               onChange={(e) => setJoinCode(normalizeRoomCode(e.target.value).slice(0, ROOM_CODE_LENGTH))}
               placeholder={t.home.roomCode}
               aria-label={t.home.roomCodeLabel}
+              data-testid="room-code"
             />
-            <button className="btn" type="submit">
+            <button className="btn" type="submit" data-testid="join-room">
               {t.home.join}
             </button>
           </form>

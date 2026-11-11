@@ -10,6 +10,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "bun test",
+    "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate",
     "db:seed": "bun scripts/seed.ts"
   },
@@ -24,6 +25,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/bun": "^1.4.2",
     "@types/node": "^26.6.2",

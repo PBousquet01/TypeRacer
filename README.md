@@ -61,14 +61,20 @@ address in `DATABASE_URL` in `.env`.
 Run the tests (they need the database too):
 
 ```bash
-bun test
+bun test           # unit and server tests
+bun run test:e2e   # end-to-end tests in a real Chromium (Playwright)
 ```
 
-GitHub runs the same checks (lint, types, tests, build) on every push; see
-`.github/workflows/ci.yml`.
+The end-to-end tests start their own server on port 3100 (or reuse one
+already there), make a throwaway account for the run and delete it after.
+The first time, install the browser with `bunx playwright install chromium`.
 
-Open http://localhost:3000. To test multiplayer on your own, open a second
-browser tab and join with the room code (each tab is its own player).
+GitHub runs the same checks (lint, types, tests, build, then the
+end-to-end tests) on every push; see `.github/workflows/ci.yml`.
+
+Open http://localhost:3000. To test multiplayer on your own, join with the
+room code from a private window or another browser: tabs of the same browser
+are the same person, and one person is in one room at a time.
 
 > Always use `bun run dev`, not `next dev`: the game needs the custom server
 > in `server.ts`, which runs Next.js and Socket.IO together.

@@ -3,7 +3,7 @@
 État de chaque exigence du *Travail de session — Web V*, où elle se trouve
 dans le code et comment elle est vérifiée.
 
-*Dernière mise à jour : 6 octobre 2026.* À mettre à jour dans le même commit
+*Dernière mise à jour : 11 novembre 2026.* À mettre à jour dans le même commit
 que tout changement qui fait avancer une exigence.
 
 **Statut** : ✅ complet · 🟡 partiel · ❌ non fait.
@@ -26,11 +26,11 @@ que tout changement qui fait avancer une exigence.
 | Résultats (RES) | 5 | 0 | 0 | 5 |
 | Historique (HIST) | 2 | 0 | 0 | 2 |
 | Internationalisation (I18N) | 2 | 1 | 0 | 3 |
-| Tests (TEST) | 1 | 0 | 2 | 3 |
+| Tests (TEST) | 3 | 0 | 0 | 3 |
 | Performance (PERF) | 1 | 1 | 1 | 3 |
 | Accessibilité (A11Y) | 0 | 4 | 0 | 4 |
 | Sécurité (SEC) | 3 | 0 | 0 | 3 |
-| **Total** | **76** | **11** | **3** | **90** |
+| **Total** | **78** | **11** | **1** | **90** |
 
 ## Contraintes techniques (TECH)
 
@@ -175,9 +175,9 @@ Approche : [ADR-002](ARCHITECTURE.md#adr-002--gestion-des-bots).
 
 | ID | Statut | Fichiers principaux | Tests associés | Notes et choix |
 | --- | --- | --- | --- | --- |
-| TEST-01 | ✅ | `tests/` | 121 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
-| TEST-02 | ❌ | — | — | Playwright. |
-| TEST-03 | ❌ | — | — | La connexion par nom d'utilisateur et mot de passe existe déjà; les tests Playwright l'utiliseront. |
+| TEST-01 | ✅ | `tests/` | 129 tests | Moteur de frappe, moteur des bots, règles, arbitre avec de vrais clients Socket.IO, API. |
+| TEST-02 | ✅ | `playwright.config.ts`, `e2e/` (`home.e2e.ts`, `race.e2e.ts`, `helpers.ts`), tâche `e2e` de `.github/workflows/ci.yml` | 6 tests Playwright (`bun run test:e2e`) | Chromium réel contre le vrai serveur (`bun run dev` en local, le build de production en CI). Couvre : langue gardée après rechargement (I18N-02), thème du système puis du sélecteur (DES-05), invité invité à se connecter pour organiser (AUTH-03), course complète hôte connecté + invité + bot jusqu'aux résultats avec le temps maximal (SALLE-01, JOIN-01, COURSE-03 à COURSE-10, RES-01), deuxième onglet sans doublon et changement de salle avec confirmation (SALLE-06). Les éléments visés portent un attribut `data-testid`. |
+| TEST-03 | ✅ | `e2e/global-setup.ts`, `e2e/global-teardown.ts`, `signIn` dans `e2e/helpers.ts` | Toutes les courses de `race.e2e.ts` | Chaque exécution crée un compte jetable par nom d'utilisateur et mot de passe (`POST /api/auth/signup`), les tests s'y connectent par le formulaire de la page de compte, et le compte est supprimé à la fin (`scripts/admin.ts delete`). Jamais d'OAuth. |
 
 ## Performance (PERF)
 

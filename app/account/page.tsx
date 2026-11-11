@@ -241,6 +241,7 @@ function AccountForm({ startCreating, returnedError }: { startCreating: boolean;
           autoComplete="username"
           maxLength={16}
           placeholder="cloud"
+          data-testid="username"
         />
       </Field>
 
@@ -262,10 +263,11 @@ function AccountForm({ startCreating, returnedError }: { startCreating: boolean;
           onChange={(e) => setPassword(e.target.value)}
           autoComplete={creating ? "new-password" : "current-password"}
           placeholder={creating ? t.account.passwordHint : ""}
+          data-testid="password"
         />
       </Field>
 
-      <button className={providers.length > 0 ? "btn btn-block" : "btn btn-primary btn-block"} type="submit" disabled={busy}>
+      <button className={providers.length > 0 ? "btn btn-block" : "btn btn-primary btn-block"} type="submit" disabled={busy} data-testid="account-submit">
         {busy ? t.account.oneMoment : creating ? t.account.createButton : t.account.signIn}
       </button>
 

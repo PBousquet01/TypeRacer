@@ -9,6 +9,7 @@ export default function LanguageToggle() {
       className="inline-flex cursor-pointer items-center border-2 border-edge bg-transparent px-2.5 py-[7px] font-display text-micro/[1.4] text-muted uppercase hover:border-accent hover:text-accent"
       onClick={() => setLang(lang === "en" ? "fr" : "en")}
       title={t.langToggle.title}
+      data-testid="language-toggle"
       lang={lang === "en" ? "fr" : "en"}
     >
       {t.langToggle.label}

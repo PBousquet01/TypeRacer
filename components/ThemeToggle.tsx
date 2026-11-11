@@ -33,6 +33,7 @@ export default function ThemeToggle() {
       onClick={toggle}
       aria-pressed={isLight}
       title={isLight ? t.theme.toDark : t.theme.toLight}
+      data-testid="theme-toggle"
     >
       <span aria-hidden="true">{isLight ? "☀" : "☾"}</span>
       {theme === undefined ? t.theme.theme : isLight ? t.theme.light : t.theme.dark}

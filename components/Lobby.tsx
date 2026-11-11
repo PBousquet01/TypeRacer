@@ -103,7 +103,7 @@ export default function Lobby({
             const isMe = p.id === myId;
             const isHostRow = p.role === "host";
             return (
-              <li key={p.id} className={RIDER_ROW}>
+              <li key={p.id} className={RIDER_ROW} data-testid="rider-row">
                 <span className={CURSOR} aria-hidden="true">
                   {isMe ? "▶" : ""}
                 </span>
@@ -312,7 +312,7 @@ export default function Lobby({
             <Panel>
               <PanelTitle>{t.lobby.bots}</PanelTitle>
               <Choice label={t.lobby.botLevel} value={botLevel} options={t.bot.levels} onChange={setBotLevel} />
-              <button className="btn btn-block" onClick={() => onAddBot(botLevel)} disabled={freeStalls <= 0}>
+              <button className="btn btn-block" onClick={() => onAddBot(botLevel)} disabled={freeStalls <= 0} data-testid="add-bot">
                 {t.lobby.addBot}
               </button>
               <FinePrint>{t.lobby.botsHint}</FinePrint>
@@ -327,7 +327,7 @@ export default function Lobby({
                 </SpecRow>
                 <SpecRow label={t.lobby.timeRow}>{t.lobby.timeOptions[timeKey(room.settings.maxTimeMs)]}</SpecRow>
               </Spec>
-              <button className="btn btn-primary btn-block" onClick={onStartRace} disabled={!canStart}>
+              <button className="btn btn-primary btn-block" onClick={onStartRace} disabled={!canStart} data-testid="start-race">
                 {canStart ? t.lobby.start(readyCount) : t.lobby.waiting(readyCount)}
               </button>
               <FinePrint>{t.lobby.controlHint(hostRides)}</FinePrint>
@@ -353,7 +353,7 @@ export default function Lobby({
             {me?.watching ? (
               <FinePrint>{t.lobby.youWatch}</FinePrint>
             ) : (
-              <button className="btn btn-primary btn-block" onClick={onToggleReady}>
+              <button className="btn btn-primary btn-block" onClick={onToggleReady} data-testid="ready">
                 {me?.ready ? t.lobby.wait : t.lobby.imReady}
               </button>
             )}

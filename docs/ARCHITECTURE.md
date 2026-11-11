@@ -572,11 +572,17 @@ taper** est un réglage séparé de la salle (CONF-02).
 
 ## Tests et intégration continue (TECH-09)
 
-`bun test` lance 121 tests : règles du moteur de frappe, moteur des bots,
+`bun test` lance 129 tests : règles du moteur de frappe, moteur des bots,
 score et dictionnaires, arbitre avec de vrais clients Socket.IO, et API HTTP. GitHub
 Actions (`.github/workflows/ci.yml`) vérifie le lint, les types
 (`tsc --noEmit`), les tests (avec une vraie base PostgreSQL) et le build à
-chaque envoi.
+chaque envoi, puis lance les tests de bout en bout.
+
+Les tests de bout en bout (TEST-02) utilisent Playwright (`e2e/`,
+`bun run test:e2e`) : un vrai Chromium joue contre le vrai serveur. Ils se
+connectent par nom d'utilisateur et mot de passe, jamais par OAuth
+(TEST-03), avec un compte créé pour l'exécution et supprimé à la fin. Les
+éléments qu'ils visent portent un attribut `data-testid`.
 
 ## Installation
 

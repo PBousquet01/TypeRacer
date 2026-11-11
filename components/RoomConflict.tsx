@@ -20,8 +20,10 @@ export default function RoomConflict({ code, reason, otherRoom, onRetry }: RoomC
         <PanelTitle as="h2">{t.conflict.title(code)}</PanelTitle>
         {reason === "in-other-room" && otherRoom ? (
           <>
-            <p className="m-0 font-body text-sm text-copy">{t.conflict.inOther(otherRoom)}</p>
-            <button className="btn btn-primary btn-block" onClick={() => onRetry(true)}>
+            <p className="m-0 font-body text-sm text-copy" data-testid="room-conflict">
+              {t.conflict.inOther(otherRoom)}
+            </p>
+            <button className="btn btn-primary btn-block" onClick={() => onRetry(true)} data-testid="leave-other-room">
               {t.conflict.leaveAndJoin(otherRoom)}
             </button>
             <Link className="btn btn-block" href={`/room/${otherRoom}`}>
@@ -31,7 +33,9 @@ export default function RoomConflict({ code, reason, otherRoom, onRetry }: RoomC
           </>
         ) : (
           <>
-            <p className="m-0 font-body text-sm text-copy">{t.errors[reason]}</p>
+            <p className="m-0 font-body text-sm text-copy" data-testid="room-conflict">
+              {t.errors[reason]}
+            </p>
             <button className="btn btn-primary btn-block" onClick={() => onRetry(false)}>
               {reason === "opened-elsewhere" ? t.conflict.useThisTab : t.conflict.comeBack}
             </button>

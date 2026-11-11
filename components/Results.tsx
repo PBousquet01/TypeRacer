@@ -55,7 +55,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
   return (
     <div className="grid gap-4">
       <header className="frame grid justify-items-center gap-3 bg-headline px-[30px] py-7 text-center">
-        <h2 className="text-[clamp(13px,2vw,18px)] text-accent uppercase [text-shadow:3px_3px_0_var(--ink)] light:[text-shadow:3px_3px_0_rgba(16,26,63,0.22)]">
+        <h2 data-testid="results-title" className="text-[clamp(13px,2vw,18px)] text-accent uppercase [text-shadow:3px_3px_0_var(--ink)] light:[text-shadow:3px_3px_0_rgba(16,26,63,0.22)]">
           {t.results.complete}
         </h2>
         <p className="max-w-[62ch] font-body text-sm/[1.7] text-copy">{headline(ranked, t)}</p>
@@ -135,7 +135,7 @@ export default function Results({ players, myId, roomCode, isHost, hostName, onP
                 const isMe = p.id === myId;
                 const tone = isMe ? "text-accent" : "text-strong";
                 return (
-                  <tr key={p.id}>
+                  <tr key={p.id} data-testid="result-row">
                     <Td className="w-5 font-display text-tiny text-accent" aria-hidden>
                       {isMe ? "▶" : ""}
                     </Td>

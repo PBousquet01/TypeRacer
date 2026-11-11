@@ -50,8 +50,9 @@ export default function TypingBox({ text, engine, enabled, fogged = false }: Typ
         autoCapitalize="off"
         spellCheck={false}
         aria-label={t.race.typeHere}
+        data-testid="typing-input"
       />
-      <p className={PROMPT_TEXT}>
+      <p className={PROMPT_TEXT} data-testid="race-text">
         {Array.from(text).map((ch, i) => (
           <span
             key={i}
