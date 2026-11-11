@@ -304,7 +304,7 @@ stateDiagram-v2
 ### Écarts acceptés par l'enseignant
 
 Deux points de la machine diffèrent du travail de session; l'enseignant les a
-acceptés tels quels (novembre 2026). Ils sont marqués « partiel » dans
+acceptés tels quels (novembre 2026). Ils sont marqués « ☑ accepté » dans
 [EXIGENCES.md](EXIGENCES.md) :
 
 - **SALLE-09** : on peut entrer pendant DÉCOMPTE et EN_COURSE, comme

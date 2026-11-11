@@ -80,5 +80,5 @@ editing them.
 
 ## Before changing behaviour
 
-The 🟡 rows of `docs/EXIGENCES.md` were accepted as they are by the teacher
-(November 2026). Don't "fix" them to match the PDF without the owner asking.
+The "☑ accepté" rows of `docs/EXIGENCES.md` are partial requirements whose
+gap the teacher accepted as it is (November 2026). Don't "fix" them to match the PDF without the owner asking.
